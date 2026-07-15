@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="Bookify.Services.Booking.Domain/Bookify.Services.Booking.Domain.csproj" Id="7e91f7d9-7133-410b-955f-468164eecdaf" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="Bookify.Services.Booking.Domain.Tests/Bookify.Services.Booking.Domain.Tests.csproj" Id="f4b1aa25-8594-4b90-9136-dec31a993fad" />
+  </Folder>
+</Solution>
