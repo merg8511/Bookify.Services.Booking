@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Bookify.Services.Booking.Domain.Shared
+﻿namespace Bookify.Services.Booking.Domain.Shared
 {
     public sealed record Error(string Code, string Message, ErrorType Type)
     {

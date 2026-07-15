@@ -1,7 +1,4 @@
 ﻿using Bookify.Services.Booking.Domain.Shared;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Bookify.Services.Booking.Domain.Tests.Shared
 {
