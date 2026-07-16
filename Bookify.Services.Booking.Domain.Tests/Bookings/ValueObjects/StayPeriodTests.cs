@@ -1,6 +1,5 @@
 ﻿using Bookify.Services.Booking.Domain.Bookings.Errors;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
-using Bookify.Services.Booking.Domain.Shared;
 
 namespace Bookify.Services.Booking.Domain.Tests.Bookings.ValueObjects
 {
