@@ -337,6 +337,86 @@ namespace Bookify.Services.Booking.Domain.Tests.Properties
             Assert.True(unit.IsActive);
         }
 
+        [Fact]
+        public void SharesInventoryWith_WhenSameUnit_ShouldReturnTrue()
+        {
+            // ARRANGE
+            var unit = CreateUnit();
+
+            // ACT
+            bool result = unit.SharesInventoryWith(unit);
+
+            // ASSERT
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void SharesInventoryWith_WhenDifferentRooms_ShouldReturnFalse()
+        {
+            // ARRANGE
+            var firtsRoom = RentableUnit.Create(
+                PropertyId,
+                "Habitación A",
+                RentableUnitType.Room,
+                maximumCapacity: 4,
+                maxBaseGuests: 2).Value;
+
+            var secondRoom = RentableUnit.Create(
+                PropertyId,
+                "Habitación B",
+                RentableUnitType.Room,
+                maximumCapacity: 4,
+                maxBaseGuests: 2).Value;
+
+            // ACT
+            bool result = firtsRoom.SharesInventoryWith(secondRoom);
+
+            // ASSERT
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void SharesInventoryWith_WhenRoomAndEntireProperty_ShouldReturnTrue()
+        {
+            // ARRANGE
+            var room = CreateUnit();
+
+            var entireProperty = RentableUnit.Create(
+                PropertyId,
+                "Rancho Completo",
+                RentableUnitType.EntireProperty,
+                maximumCapacity: 20,
+                maxBaseGuests: 10).Value;
+
+            // ACT
+            bool roomResult = room.SharesInventoryWith(entireProperty);
+            bool entirePropertyResult = entireProperty.SharesInventoryWith(room);
+
+            // ASSERT
+            Assert.True(roomResult);
+            Assert.True(entirePropertyResult);
+        }
+
+        [Fact]
+        public void ShaersInventoryWith_WhenUnitsBelongToDifferentProperties_ShouldReturnFalse()
+        {
+            // ARRANGE
+            var firsRoom = CreateUnit();
+
+            var secondRoom = RentableUnit.Create(
+                Guid.NewGuid(),
+                "Habitación de otra propiedad",
+                RentableUnitType.Room,
+                maximumCapacity: 4,
+                maxBaseGuests: 2).Value;
+
+            // ACT
+            bool result = firsRoom.SharesInventoryWith(secondRoom);
+
+            // ASSERT
+            Assert.False(result);
+        }
+
         private static RentableUnit CreateUnit()
         {
             return CreateUnitResult().Value;

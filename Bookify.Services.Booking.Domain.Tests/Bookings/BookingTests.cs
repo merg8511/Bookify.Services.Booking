@@ -1,9 +1,9 @@
-﻿using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
-using Bookify.Services.Booking.Domain.Properties;
-using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
-using Bookify.Services.Booking.Domain.Bookings;
+﻿using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Errors;
+using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
+using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
+using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Domain.Tests.Bookings
 {
@@ -459,6 +459,62 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
 
             // ASSERT
             Assert.Throws<ArgumentNullException>(Action);
+        }
+
+        [Fact]
+        public void BlocksInventory_WhenPendingApproval_ShouldReturnTrue()
+        {
+            // ARRANGE
+            var booking = CreateBooking();
+
+            // ASSERT
+            Assert.True(booking.BlocksInvetory);
+        }
+
+        [Fact]
+        public void BlocksInventory_WhenPendingPayment_ShouldReturnTrue()
+        {
+            // ARRANGE
+            var booking = CreateBooking();
+            booking.Approve();
+
+            // ASSERT
+            Assert.True(booking.BlocksInvetory);
+        }
+
+        [Fact]
+        public void BlocksInventory_WhenPaid_ShouldReturnTrue()
+        {
+            // ARRANGE
+            var booking = CreateBooking();
+
+            booking.Approve();
+            booking.MarkAsPaid();
+
+            // ASSERT
+            Assert.True(booking.BlocksInvetory);
+        }
+
+        [Fact]
+        public void BlocksInventory_WhenCompleted_ShouldReturnTrue()
+        {
+            // ARRANGE
+            var booking = CreatePaidBooking();
+            booking.Complete();
+
+            // ASSERT
+            Assert.True(booking.BlocksInvetory);
+        }
+
+        [Fact]
+        public void BlocksInventory_WhenCancelled_ShouldReturnFalse()
+        {
+            // ARRANGE
+            var booking = CreateBooking();
+            booking.Reject();
+
+            // ASSERT
+            Assert.False(booking.BlocksInvetory);
         }
 
         private static void AssertInvalidTransition(
