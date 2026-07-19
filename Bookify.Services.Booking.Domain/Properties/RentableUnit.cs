@@ -119,6 +119,19 @@ namespace Bookify.Services.Booking.Domain.Properties
                 guestCount <= MaximumCapacity;
         }
 
+        public bool SharesInventoryWith(RentableUnit other)
+        {
+            ArgumentNullException.ThrowIfNull(other);
+
+            if (PropertyId != other.PropertyId)
+                return false;
+
+            if (Id == other.Id)
+                return true;
+
+            return isEntireProperty || other.isEntireProperty;
+        }
+
         public static Result ValidateCapacity(
             int maximumCapacity,
             int maxBaseGuests)
