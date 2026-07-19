@@ -31,6 +31,12 @@ namespace Bookify.Services.Booking.Domain.Bookings
         public BookingStatus Status { get; private set; }
         public BookingCancellationReason? CancellationReason { get; private set; }
 
+        public bool BlocksInvetory =>
+            Status is BookingStatus.PendingApproval
+                or BookingStatus.PendingPayment
+                or BookingStatus.Paid
+                or BookingStatus.Completed;
+
         public static Result<Booking> Create(
             RentableUnit rentableUnit,
             StayPeriod stayPeriod,
