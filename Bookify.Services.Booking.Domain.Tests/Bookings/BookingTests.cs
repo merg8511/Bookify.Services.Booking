@@ -173,7 +173,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
             void Action()
             {
                 DomainBooking.Create(
-                    null,
+                    null!,
                     stayPeriod,
                     guestCount: 2);
             }
@@ -193,7 +193,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
             {
                 DomainBooking.Create(
                     rentableUnit,
-                    null,
+                    null!,
                     guestCount: 2);
             }
 
