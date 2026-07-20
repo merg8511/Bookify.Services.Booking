@@ -6,4 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Bookify.Services.Booking.Application\Bookify.Services.Booking.Application.csproj" />
+    <ProjectReference Include="..\Bookify.Services.Booking.Infrastructure\Bookify.Services.Booking.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

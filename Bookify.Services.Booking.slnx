@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="Bookify.Services.Booking.Api/Bookify.Services.Booking.Api.csproj" />
     <Project Path="Bookify.Services.Booking.Application/Bookify.Services.Booking.Application.csproj" Id="d3734111-287d-4036-b61d-2900810393e6" />
     <Project Path="Bookify.Services.Booking.Domain/Bookify.Services.Booking.Domain.csproj" Id="7e91f7d9-7133-410b-955f-468164eecdaf" />
     <Project Path="Bookify.Services.Booking.Infrastructure/Bookify.Services.Booking.Infrastructure.csproj" Id="fd68c4fe-8e93-4af0-8c1b-8faa85059e78" />
