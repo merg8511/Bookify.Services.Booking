@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Bookify.Services.Booking.Domain\Bookify.Services.Booking.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
