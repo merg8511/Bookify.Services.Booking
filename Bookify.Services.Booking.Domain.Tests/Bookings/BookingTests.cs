@@ -3,6 +3,8 @@ using Bookify.Services.Booking.Domain.Bookings.Errors;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
+using Bookify.Services.Booking.Domain.Shared.Errors;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Domain.Tests.Bookings
@@ -22,7 +24,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
             var result = DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                guestCount: 2);
+                GuestCount.Create(2).Value);
 
             // ASSERT
             Assert.True(result.IsSuccess);
@@ -42,7 +44,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
 
             Assert.Equal(
                 2,
-                result.Value.GuestCount);
+                result.Value.GuestCount.Value);
 
             Assert.Equal(
                 BookingStatus.PendingApproval,
@@ -58,21 +60,14 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
         [InlineData(-20)]
         public void Create_WithInvalidGuestCount_ShouldReturnFailure(int invalidGuestCount)
         {
-            // ARRANGE
-            var rentableUnit = CreateRentableUnit();
-            var stayPeriod = CreateStayPeriod();
+            // Act
+            var guestCountResult = GuestCount.Create(invalidGuestCount);
 
-            // ACT
-            var result = DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                invalidGuestCount);
-
-            // ASSERT
-            Assert.True(result.IsFailure);
+            // Assert
+            Assert.True(guestCountResult.IsFailure);
             Assert.Equal(
-                BookingErrors.InvalidGuestCount,
-                result.Error);
+                GuestCountErrors.InvalidValue,
+                guestCountResult.Error);
         }
 
         [Fact]
@@ -86,7 +81,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
             var result = DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                guestCount: 5);
+                GuestCount.Create(5).Value);
 
             // ASSERT
             Assert.True(result.IsFailure);
@@ -107,13 +102,13 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
             var result = DomainBooking.Create(
                rentableUnit,
                stayPeriod,
-               4);
+               GuestCount.Create(4).Value);
 
             // ASSERT
             Assert.True(result.IsSuccess);
             Assert.Equal(
                 4,
-                result.Value.GuestCount);
+                result.Value.GuestCount.Value);
         }
 
         [Fact]
@@ -129,7 +124,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
             var result = DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                guestCount: 2);
+                GuestCount.Create(2).Value);
 
             // ASSERT
             Assert.True(result.IsFailure);
@@ -149,12 +144,12 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
             var firstResult = DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                guestCount: 2);
+                GuestCount.Create(2).Value);
 
             var secondResult = DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                guestCount: 2);
+                GuestCount.Create(2).Value);
 
             // ASSERT
             Assert.True(firstResult.IsSuccess);
@@ -435,7 +430,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
                 DomainBooking.Create(
                     null!,
                     stayPeriod,
-                    guestCount: 2);
+                    GuestCount.Create(2).Value);
             }
 
             // ASSERT
@@ -454,7 +449,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
                 DomainBooking.Create(
                     rentableUnit,
                     null!,
-                    guestCount: 2);
+                    GuestCount.Create(2).Value);
             }
 
             // ASSERT
@@ -536,7 +531,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings
             return DomainBooking.Create(
                 CreateRentableUnit(),
                 CreateStayPeriod(),
-                guestCount: 2).Value;
+                GuestCount.Create(2).Value).Value;
         }
 
         private static DomainBooking CreatePaidBooking()

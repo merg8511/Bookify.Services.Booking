@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Services;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 
 namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
 {
@@ -70,7 +71,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var existingBooking = DomainBooking.Create(
                 room,
                 existingPeriod,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             existingBooking.Reject();
@@ -108,7 +109,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var existingBooking = DomainBooking.Create(
                 room,
                 existingPeriod,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             // ACT
@@ -149,7 +150,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var existingBooking = DomainBooking.Create(
                 firstRoom,
                 existingPeriod,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             // ACT
@@ -190,7 +191,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var existingBooking = DomainBooking.Create(
                 entireProperty,
                 existingPeriod,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             // ACT
@@ -231,7 +232,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var existingBooking = DomainBooking.Create(
                 room,
                 existingPeriod,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             // ACT
@@ -267,7 +268,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var existingBooking = DomainBooking.Create(
                 entireProperty,
                 existingPeriod,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             // ACT
@@ -306,7 +307,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var existingBooking = DomainBooking.Create(
                 firstPropertyRoom,
                 existingPeriod,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             // ACT
@@ -347,7 +348,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var existingBooking = DomainBooking.Create(
                 firstRoom,
                 existingPeriod,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             // ACT
@@ -396,7 +397,7 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services
             var booking = DomainBooking.Create(
                 unit,
                 period,
-                guestCount: 2)
+                GuestCount.Create(2).Value)
                 .Value;
 
             switch (status)

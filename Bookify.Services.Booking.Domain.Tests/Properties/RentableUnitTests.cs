@@ -1,6 +1,7 @@
 ﻿using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Properties.Errors;
 using Bookify.Services.Booking.Domain.Shared;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 
 namespace Bookify.Services.Booking.Domain.Tests.Properties
 {
@@ -291,14 +292,16 @@ namespace Bookify.Services.Booking.Domain.Tests.Properties
         [InlineData(2, true)]
         [InlineData(4, true)]
         [InlineData(5, false)]
-        [InlineData(0, false)]
-        [InlineData(-1, false)]
         public void CanAccommodate_ShouldEvaluateGuestCount(
-            int guestCount,
+            int guestCountValue,
             bool expectedResult)
         {
             // ARRANGE
             var unit = CreateUnit();
+
+            var guestCount = GuestCount.Create(
+                guestCountValue)
+                .Value;
 
             // ACT
             bool result = unit.CanAccommodate(guestCount);
