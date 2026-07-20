@@ -2,6 +2,7 @@
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 
 namespace Bookify.Services.Booking.Domain.Bookings
 {
@@ -12,7 +13,7 @@ namespace Bookify.Services.Booking.Domain.Bookings
             Guid propertyId,
             Guid rentableUnitId,
             StayPeriod stayPeriod,
-            int guestCount,
+            GuestCount guestCount,
             BookingStatus status)
         {
             Id = id;
@@ -27,7 +28,7 @@ namespace Bookify.Services.Booking.Domain.Bookings
         public Guid PropertyId { get; }
         public Guid RentableUnitId { get; }
         public StayPeriod StayPeriod { get; }
-        public int GuestCount { get; }
+        public GuestCount GuestCount { get; }
         public BookingStatus Status { get; private set; }
         public BookingCancellationReason? CancellationReason { get; private set; }
 
@@ -40,18 +41,15 @@ namespace Bookify.Services.Booking.Domain.Bookings
         public static Result<Booking> Create(
             RentableUnit rentableUnit,
             StayPeriod stayPeriod,
-            int guestCount)
+            GuestCount guestCount)
         {
             ArgumentNullException.ThrowIfNull(rentableUnit);
             ArgumentNullException.ThrowIfNull(stayPeriod);
+            ArgumentNullException.ThrowIfNull(guestCount);
 
             if (!rentableUnit.IsActive)
                 return Result<Booking>.Failure(
                     BookingErrors.RentableUnitInactive);
-
-            if (guestCount <= 0)
-                return Result<Booking>.Failure(
-                    BookingErrors.InvalidGuestCount);
 
             if (!rentableUnit.CanAccommodate(guestCount))
                 return Result<Booking>.Failure(

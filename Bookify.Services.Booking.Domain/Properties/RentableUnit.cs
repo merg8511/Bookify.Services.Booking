@@ -1,5 +1,6 @@
 ﻿using Bookify.Services.Booking.Domain.Properties.Errors;
 using Bookify.Services.Booking.Domain.Shared;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 
 namespace Bookify.Services.Booking.Domain.Properties
 {
@@ -113,10 +114,11 @@ namespace Bookify.Services.Booking.Domain.Properties
             IsActive = false;
         }
 
-        public bool CanAccommodate(int guestCount)
+        public bool CanAccommodate(GuestCount guestCount)
         {
-            return guestCount > 0 &&
-                guestCount <= MaximumCapacity;
+            ArgumentNullException.ThrowIfNull(guestCount);
+
+            return guestCount.Value <= MaximumCapacity;
         }
 
         public bool SharesInventoryWith(RentableUnit other)
