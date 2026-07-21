@@ -1,0 +1,19 @@
+using Bookify.Services.Booking.Domain.Shared;
+
+namespace Bookify.Services.Booking.Application.Abstractions.Messaging;
+
+public interface ICommandHandler<in TCommand>
+    where TCommand : ICommand
+{
+    Task<Result> HandleAsync(
+        TCommand command,
+        CancellationToken cancellationToken = default);
+}
+
+public interface ICoomandHandler<in TCommand, TResponse>
+    where TCommand : ICommand<TResponse>
+{
+    Task<Result<TResponse>> HandleAsync(
+        TCommand command,
+        CancellationToken cancellationToken = default);
+}
