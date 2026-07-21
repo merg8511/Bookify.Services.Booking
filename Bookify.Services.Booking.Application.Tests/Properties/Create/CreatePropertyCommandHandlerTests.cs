@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
+using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Properties.Errors;
@@ -149,6 +150,13 @@ public sealed class CreatePropertyCommandHandlerTests
         public void Add(Property property)
         {
             AddedProperty = property;
+        }
+
+        public Task<Property?> GetByIdAsync(Guid propertyId, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return Task.FromResult<Property?>(null);
         }
     }
 
