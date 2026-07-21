@@ -10,7 +10,7 @@ public interface ICommandHandler<in TCommand>
         CancellationToken cancellationToken = default);
 }
 
-public interface ICoomandHandler<in TCommand, TResponse>
+public interface ICommandHandler<in TCommand, TResponse>
     where TCommand : ICommand<TResponse>
 {
     Task<Result<TResponse>> HandleAsync(
