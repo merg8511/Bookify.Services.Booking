@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Properties.Create;
+using Bookify.Services.Booking.Application.Properties.GetById;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,12 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<CreatePropertyCommand, Guid>,
             CreatePropertyCommandHandler>();
+
+        services.AddScoped<
+            IQueryHandler<
+                GetPropertyByIdQuery,
+                PropertyResponse>,
+            GetPropertyByIdQueryHandler>();
 
         return services;
     }
