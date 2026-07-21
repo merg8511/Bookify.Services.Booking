@@ -25,6 +25,15 @@ internal sealed class InMemoryBookingStore
         }
     }
 
+    public Property? GetPropertyById(
+        Guid propertyId)
+    {
+        lock (_syncRoot)
+        {
+            return _properties.GetValueOrDefault(propertyId);
+        }
+    }
+
     private void EnsurePropertiesDoNotExist(
         IReadOnlyCollection<Property> properties)
     {

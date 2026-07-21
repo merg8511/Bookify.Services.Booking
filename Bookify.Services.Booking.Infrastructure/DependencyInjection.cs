@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Infrastructure.Persistence.InMemory;
 using Bookify.Services.Booking.Infrastructure.Time;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,10 @@ public static class DependencyInjection
         services.AddScoped<
             IPropertyRepository,
             InMemoryPropertyRepository>();
+
+        services.AddScoped<
+            IPropertyReadService,
+            InMemoryPropertyReadService>();
 
         return services;
     }
