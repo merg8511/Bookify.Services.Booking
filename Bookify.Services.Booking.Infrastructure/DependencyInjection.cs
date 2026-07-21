@@ -1,12 +1,10 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
+using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Infrastructure.Persistence.InMemory;
 using Bookify.Services.Booking.Infrastructure.Time;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Bookify.Services.Booking.Infrastructure;
 
