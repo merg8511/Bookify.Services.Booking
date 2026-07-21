@@ -1,45 +1,46 @@
-﻿using Bookify.Services.Booking.Domain.Bookings.Errors;
+using Bookify.Services.Booking.Domain.Bookings.Errors;
 using Bookify.Services.Booking.Domain.Shared;
 
-namespace Bookify.Services.Booking.Domain.Bookings.ValueObjects
+namespace Bookify.Services.Booking.Domain.Bookings.ValueObjects;
+
+public sealed record StayPeriod
 {
-    public sealed record StayPeriod
+    private StayPeriod(
+        DateOnly checkInDate,
+        DateOnly checkOutDate)
     {
-        private StayPeriod(
-            DateOnly checkInDate,
-            DateOnly checkOutDate)
-        {
-            CheckInDate = checkInDate;
-            CheckOutDate = checkOutDate;
+        CheckInDate = checkInDate;
+        CheckOutDate = checkOutDate;
 
+    }
+
+    public DateOnly CheckInDate { get; }
+    public DateOnly CheckOutDate { get; }
+
+    public int NumberOfNights =>
+        CheckOutDate.DayNumber - CheckInDate.DayNumber;
+
+    public static Result<StayPeriod> Create(
+        DateOnly checkInDate,
+        DateOnly checkOutDate)
+    {
+        if (checkOutDate <= checkInDate)
+        {
+            return Result<StayPeriod>.Failure(
+                StayPeriodErrors.InvalidDateRange);
         }
 
-        public DateOnly CheckInDate { get; }
-        public DateOnly CheckOutDate { get; }
+        return Result<StayPeriod>.Success(
+            new StayPeriod(
+                checkInDate,
+                checkOutDate));
+    }
 
-        public int NumberOfNights =>
-            CheckOutDate.DayNumber - CheckInDate.DayNumber;
+    public bool Overlaps(StayPeriod other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
 
-        public static Result<StayPeriod> Create(
-            DateOnly checkInDate,
-            DateOnly checkOutDate)
-        {
-            if (checkOutDate <= checkInDate)
-                return Result<StayPeriod>.Failure(
-                    StayPeriodErrors.InvalidDateRange);
-
-            return Result<StayPeriod>.Success(
-                new StayPeriod(
-                    checkInDate,
-                    checkOutDate));
-        }
-
-        public bool Overlaps(StayPeriod other)
-        {
-            ArgumentNullException.ThrowIfNull(other);
-
-            return CheckInDate < other.CheckOutDate
-                && CheckOutDate > other.CheckInDate;
-        }
+        return CheckInDate < other.CheckOutDate
+            && CheckOutDate > other.CheckInDate;
     }
 }

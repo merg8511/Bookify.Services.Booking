@@ -1,7 +1,6 @@
-﻿namespace Bookify.Services.Booking.Application.Abstractions.Time
+namespace Bookify.Services.Booking.Application.Abstractions.Time;
+
+public interface IClock
 {
-    public interface IClock
-    {
-        DateTimeOffset UtcNow { get; }
-    }
+    public DateTimeOffset UtcNow { get; }
 }

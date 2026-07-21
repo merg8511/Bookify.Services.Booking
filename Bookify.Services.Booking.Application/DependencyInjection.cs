@@ -1,16 +1,15 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Bookify.Services.Booking.Application
+namespace Bookify.Services.Booking.Application;
+
+public static class DependencyInjection
 {
-    public static class DependencyInjection
+    public static IServiceCollection AddApplication(
+        this IServiceCollection services)
     {
-        public static IServiceCollection AddApplication(
-            this IServiceCollection services)
-        {
-            return services;
-        }
+        return services;
     }
 }

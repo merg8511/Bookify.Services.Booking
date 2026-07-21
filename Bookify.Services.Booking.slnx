@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/Elementos de la solución/">
+    <File Path="Directory.Build.props" />
+    <File Path="global.json" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="Bookify.Services.Booking.Api/Bookify.Services.Booking.Api.csproj" />
     <Project Path="Bookify.Services.Booking.Application/Bookify.Services.Booking.Application.csproj" Id="d3734111-287d-4036-b61d-2900810393e6" />
