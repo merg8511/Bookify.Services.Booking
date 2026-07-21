@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Properties.Create;
+using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -62,6 +63,36 @@ if (app.Environment.IsDevelopment())
                 {
                     PropertyId = result.Value
                 });
+        });
+
+    app.MapGet("/diagnostics/properties/{propertyId:guid}",
+        async (
+            Guid propertyId,
+            IQueryHandler<
+                GetPropertyByIdQuery,
+                PropertyResponse> handler,
+            CancellationToken cancellationToken) =>
+        {
+            var query = new GetPropertyByIdQuery(propertyId);
+            var result = await handler.HandleAsync(query, cancellationToken);
+
+            if (result.IsFailure)
+            {
+                var errorResponse = new
+                {
+                    result.Error.Code,
+                    result.Error.Message
+                };
+
+                if (result.Error.Code == "Property.NotFound")
+                {
+                    return Results.NotFound(errorResponse);
+                }
+
+                return Results.BadRequest(errorResponse);
+            }
+
+            return Results.Ok(result.Value);
         });
 }
 
