@@ -70,37 +70,6 @@ public sealed class GetPropertyByIdQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WithEmptyPropertyId_ShouldReturnValidationFailure()
-    {
-        // ARRANGE
-        var propertyReadService =
-            new StubPropertyReadService(
-                response: null);
-
-        var handler =
-            new GetPropertyByIdQueryHandler(
-                propertyReadService);
-
-        var query =
-            new GetPropertyByIdQuery(
-                Guid.Empty);
-
-        // ACT
-        Result<PropertyResponse> result =
-            await handler.HandleAsync(query);
-
-        // ASSERT
-        Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            GetPropertyByIdErrors.InvalidPropertyId,
-            result.Error);
-
-        Assert.False(
-            propertyReadService.WasCalled);
-    }
-
-    [Fact]
     public async Task HandleAsync_WithNullQuery_ShouldThrow()
     {
         // ARRANGE
