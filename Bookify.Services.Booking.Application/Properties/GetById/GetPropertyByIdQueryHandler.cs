@@ -18,12 +18,6 @@ public sealed class GetPropertyByIdQueryHandler
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        if (query.PropertyId == Guid.Empty)
-        {
-            return Result<PropertyResponse>.Failure(
-                GetPropertyByIdErrors.InvalidPropertyId);
-        }
-
         PropertyResponse? property =
             await _propertyReadService.GetByIdAsync(
                 query.PropertyId,
