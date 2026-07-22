@@ -5,12 +5,24 @@ using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Infrastructure;
+using Bookify.Services.Booking.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
+
+if (string.IsNullOrWhiteSpace(configuredConnectionString))
+{
+    throw new InvalidOperationException(
+        "The database connection string " +
+        "'ConnectionStrings:Database' is missing");
+}
+
+string connectionString = configuredConnectionString;
+
 builder.Services
     .AddApplication()
-    .AddInfrastructure();
+    .AddInfrastructure(connectionString);
 
 var app = builder.Build();
 
@@ -32,6 +44,30 @@ if (app.Environment.IsDevelopment())
                 {
                     UtcNow = clock.UtcNow
                 }));
+
+    app.MapGet(
+        "/diagnostics/database",
+        async (
+            BookingDbContext dbContext,
+            CancellationToken cancelationToken) =>
+        {
+            bool canConnect = await dbContext.Database.CanConnectAsync(cancelationToken);
+
+            if (!canConnect)
+            {
+                return Results.Problem(
+                    title: "Database unavailable",
+                    detail: "The application could not connect to PostgreSQL",
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            return Results.Ok(
+                new
+                {
+                    Status = "Connected",
+                    Provider = dbContext.Database.ProviderName
+                });
+        });
 
     app.MapPost(
         "/diagnostics/properties",
