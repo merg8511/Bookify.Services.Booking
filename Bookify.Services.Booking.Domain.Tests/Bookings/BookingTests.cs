@@ -463,7 +463,7 @@ public sealed class BookingTests
         var booking = CreateBooking();
 
         // ASSERT
-        Assert.True(booking.BlocksInvetory);
+        Assert.True(booking.BlocksInventory);
     }
 
     [Fact]
@@ -474,7 +474,7 @@ public sealed class BookingTests
         booking.Approve();
 
         // ASSERT
-        Assert.True(booking.BlocksInvetory);
+        Assert.True(booking.BlocksInventory);
     }
 
     [Fact]
@@ -487,7 +487,7 @@ public sealed class BookingTests
         booking.MarkAsPaid();
 
         // ASSERT
-        Assert.True(booking.BlocksInvetory);
+        Assert.True(booking.BlocksInventory);
     }
 
     [Fact]
@@ -498,7 +498,7 @@ public sealed class BookingTests
         booking.Complete();
 
         // ASSERT
-        Assert.True(booking.BlocksInvetory);
+        Assert.True(booking.BlocksInventory);
     }
 
     [Fact]
@@ -509,7 +509,7 @@ public sealed class BookingTests
         booking.Reject();
 
         // ASSERT
-        Assert.False(booking.BlocksInvetory);
+        Assert.False(booking.BlocksInventory);
     }
 
     private static void AssertInvalidTransition(

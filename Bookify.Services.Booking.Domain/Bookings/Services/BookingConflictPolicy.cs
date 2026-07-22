@@ -20,7 +20,7 @@ public static class BookingConflictPolicy
             existingBooking,
             existingUnit);
 
-        if (!existingBooking.BlocksInvetory)
+        if (!existingBooking.BlocksInventory)
         {
             return false;
         }
