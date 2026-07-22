@@ -6,6 +6,7 @@ using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Infrastructure;
 using Bookify.Services.Booking.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +69,31 @@ if (app.Environment.IsDevelopment())
                     Provider = dbContext.Database.ProviderName
                 });
         });
+
+    app.MapGet(
+    "/diagnostics/database/model",
+    (BookingDbContext dbContext) =>
+    {
+        var entities =
+            dbContext.Model
+                .GetEntityTypes()
+                .Select(
+                    entityType =>
+                        new
+                        {
+                            Entity =
+                                entityType.ClrType.Name,
+
+                            Table =
+                                entityType.GetTableName()
+                        })
+                .OrderBy(
+                    entity =>
+                        entity.Entity)
+                .ToArray();
+
+        return Results.Ok(entities);
+    });
 
     app.MapPost(
         "/diagnostics/properties",
