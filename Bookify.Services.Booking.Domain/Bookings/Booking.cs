@@ -8,6 +8,12 @@ namespace Bookify.Services.Booking.Domain.Bookings;
 
 public sealed class Booking
 {
+    private Booking()
+    {
+        StayPeriod = null!;
+        GuestCount = null!;
+    }
+
     private Booking(
         Guid id,
         Guid propertyId,
@@ -24,15 +30,15 @@ public sealed class Booking
         Status = status;
     }
 
-    public Guid Id { get; }
-    public Guid PropertyId { get; }
-    public Guid RentableUnitId { get; }
-    public StayPeriod StayPeriod { get; }
-    public GuestCount GuestCount { get; }
+    public Guid Id { get; private set; }
+    public Guid PropertyId { get; private set; }
+    public Guid RentableUnitId { get; private set; }
+    public StayPeriod StayPeriod { get; private set; }
+    public GuestCount GuestCount { get; private set; }
     public BookingStatus Status { get; private set; }
     public BookingCancellationReason? CancellationReason { get; private set; }
 
-    public bool BlocksInvetory =>
+    public bool BlocksInventory =>
         Status is BookingStatus.PendingApproval
             or BookingStatus.PendingPayment
             or BookingStatus.Paid

@@ -5,6 +5,10 @@ namespace Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 
 public sealed record StayPeriod
 {
+    private StayPeriod()
+    {
+    }
+
     private StayPeriod(
         DateOnly checkInDate,
         DateOnly checkOutDate)
@@ -14,8 +18,8 @@ public sealed record StayPeriod
 
     }
 
-    public DateOnly CheckInDate { get; }
-    public DateOnly CheckOutDate { get; }
+    public DateOnly CheckInDate { get; private set; }
+    public DateOnly CheckOutDate { get; private set; }
 
     public int NumberOfNights =>
         CheckOutDate.DayNumber - CheckInDate.DayNumber;

@@ -5,6 +5,12 @@ namespace Bookify.Services.Booking.Domain.Properties;
 
 public sealed class Property
 {
+    private Property()
+    {
+        Name = string.Empty;
+        TimeZoneId = string.Empty;
+    }
+
     private Property(
         Guid id,
         string name,
@@ -20,7 +26,7 @@ public sealed class Property
         IsActive = true;
     }
 
-    public Guid Id { get; }
+    public Guid Id { get; private set; }
     public string Name { get; private set; }
     public string TimeZoneId { get; private set; }
     public TimeOnly CheckInTime { get; private set; }

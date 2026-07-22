@@ -6,6 +6,11 @@ namespace Bookify.Services.Booking.Domain.Properties;
 
 public sealed class RentableUnit
 {
+    private RentableUnit()
+    {
+        Name = string.Empty;
+    }
+
     private RentableUnit(
         Guid id,
         Guid propertyId,
@@ -23,10 +28,10 @@ public sealed class RentableUnit
         IsActive = true;
     }
 
-    public Guid Id { get; }
-    public Guid PropertyId { get; }
+    public Guid Id { get; private set; }
+    public Guid PropertyId { get; private set; }
     public string Name { get; private set; }
-    public RentableUnitType Type { get; }
+    public RentableUnitType Type { get; private set; }
     public int MaximumCapacity { get; private set; }
     public int MaxBaseGuests { get; private set; }
     public bool IsActive { get; private set; }
