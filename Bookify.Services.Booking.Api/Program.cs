@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,9 +37,10 @@ if (app.Environment.IsDevelopment())
         "/diagnostics/properties",
         async (
             CreatePropertyRequest request,
-            ICommandHandler<
+            ICommandExecutor<
                 CreatePropertyCommand,
-                Guid> handler, CancellationToken cancelationToken) =>
+                Guid> executor,
+            CancellationToken cancelationToken) =>
         {
             var command = new CreatePropertyCommand(
                 request.Name,
@@ -46,7 +48,7 @@ if (app.Environment.IsDevelopment())
                 request.CheckInTime,
                 request.CheckOutTime);
 
-            var result = await handler.HandleAsync(command, cancelationToken);
+            var result = await executor.ExecuteAsync(command, cancelationToken);
 
             if (result.IsFailure)
             {
@@ -68,13 +70,13 @@ if (app.Environment.IsDevelopment())
     app.MapGet("/diagnostics/properties/{propertyId:guid}",
         async (
             Guid propertyId,
-            IQueryHandler<
+            IQueryExecutor<
                 GetPropertyByIdQuery,
-                PropertyResponse> handler,
+                PropertyResponse> executor,
             CancellationToken cancellationToken) =>
         {
             var query = new GetPropertyByIdQuery(propertyId);
-            var result = await handler.HandleAsync(query, cancellationToken);
+            var result = await executor.ExecuteAsync(query, cancellationToken);
 
             if (result.IsFailure)
             {
@@ -84,7 +86,7 @@ if (app.Environment.IsDevelopment())
                     result.Error.Message
                 };
 
-                if (result.Error.Code == "Property.NotFound")
+                if (result.Error.Type == ErrorType.NotFound)
                 {
                     return Results.NotFound(errorResponse);
                 }
