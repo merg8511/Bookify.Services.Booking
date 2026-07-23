@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.InMemory;
+using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
 using Bookify.Services.Booking.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,7 +18,7 @@ public static class DependencyInjection
         string connectionString)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         services.AddSingleton<IClock, SystemClock>();
 
@@ -26,9 +27,19 @@ public static class DependencyInjection
                 options.UseNpgsql(
                     connectionString));
 
+        AddEfCoreRepositories(services);
+
         AddTemporaryInMemoryPersistence(services);
 
         return services;
+    }
+
+    private static void AddEfCoreRepositories(
+        IServiceCollection services)
+    {
+        services.AddScoped<PropertyRepository>();
+        services.AddScoped<RentableUnitRepository>();
+        services.AddScoped<BookingRepository>();
     }
 
     private static void AddTemporaryInMemoryPersistence(IServiceCollection services)
