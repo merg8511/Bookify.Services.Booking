@@ -35,3 +35,6 @@ indent_size = 2
 [**/*Test*.cs]
 dotnet_diagnostic.CA1707.severity = none
 
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_diagnostic.CA1861.severity = none
