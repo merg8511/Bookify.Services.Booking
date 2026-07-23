@@ -1,10 +1,11 @@
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 using Bookify.Services.Booking.Domain.Properties;
 using Microsoft.EntityFrameworkCore;
+using Bookify.Services.Booking.Application.Abstractions.Persistence;
 
 namespace Bookify.Services.Booking.Infrastructure.Persistence;
 
-public sealed class BookingDbContext : DbContext
+public sealed class BookingDbContext : DbContext, IUnitOfWork
 {
     public BookingDbContext(DbContextOptions<BookingDbContext> options) : base(options)
     {
@@ -28,5 +29,10 @@ public sealed class BookingDbContext : DbContext
 
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(BookingDbContext).Assembly);
+    }
+
+    async Task IUnitOfWork.SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        await base.SaveChangesAsync(cancellationToken);
     }
 }
