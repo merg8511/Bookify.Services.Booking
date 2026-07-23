@@ -4,7 +4,7 @@ namespace Bookify.Services.Booking.Application.Abstractions.Persistence.Reposito
 
 public interface IBookingRepository
 {
-    Task<DomainBooking> GetByIdAsync(
+    Task<DomainBooking?> GetByIdAsync(
         Guid bookingId,
         CancellationToken cancellationToken = default);
 
