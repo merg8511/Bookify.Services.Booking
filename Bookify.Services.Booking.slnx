@@ -15,5 +15,6 @@
   <Folder Name="/tests/">
     <Project Path="Bookify.Services.Booking.Application.Tests/Bookify.Services.Booking.Application.Tests.csproj" Id="44fc410c-a669-4b8d-9b5e-b85cd072cfb9" />
     <Project Path="Bookify.Services.Booking.Domain.Tests/Bookify.Services.Booking.Domain.Tests.csproj" Id="f4b1aa25-8594-4b90-9136-dec31a993fad" />
+    <Project Path="Bookify.Services.Booking.IntegrationTests/Bookify.Services.Booking.IntegrationTests.csproj" Id="846e825e-a517-4ebc-b4cc-38c8685aa27b" />
   </Folder>
 </Solution>
