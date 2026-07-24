@@ -19,10 +19,16 @@ internal static class CreatePropertyEndpoint
                 EndpointNames.Properties.Create)
             .WithSummary(
                 "Creates a property.")
+            .Accepts<CreatePropertyRequest>(
+                "application/json")
             .Produces<CreatePropertyResponse>(
                 StatusCodes.Status201Created)
             .ProducesProblem(
-                StatusCodes.Status400BadRequest);
+                StatusCodes.Status400BadRequest)
+            .Produces(
+                StatusCodes.Status415UnsupportedMediaType)
+            .ProducesProblem(
+                StatusCodes.Status500InternalServerError);
     }
 
     private static async Task<
