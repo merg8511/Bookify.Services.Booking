@@ -9,7 +9,7 @@ internal static class EndpointRouteBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
-        RouteGroupBuilder apiGroup = endpoints.MapGroup("/api");
+        RouteGroupBuilder apiGroup = endpoints.MapGroup(ApiRoutePrefixes.V1);
 
         PropertiesEndpoints.Map(apiGroup);
 
