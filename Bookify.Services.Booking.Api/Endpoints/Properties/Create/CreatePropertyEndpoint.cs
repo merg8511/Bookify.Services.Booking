@@ -54,20 +54,19 @@ internal static class CreatePropertyEndpoint
                 command,
                 cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return result.Error.ToProblem(
-                httpContext);
-        }
-
-        var response = new CreatePropertyResponse(result.Value);
-
-        return TypedResults.CreatedAtRoute(
-            response,
-            EndpointNames.Properties.GetById,
-            new
+        return result.ToHttpResult(
+            httpContext,
+            propertyId =>
             {
-                propertyId = result.Value
+                var response = new CreatePropertyResponse(propertyId);
+
+                return TypedResults.CreatedAtRoute(
+                    value: response,
+                    routeName: EndpointNames.Properties.GetById,
+                    routeValues: new
+                    {
+                        propertyId
+                    });
             });
     }
 }

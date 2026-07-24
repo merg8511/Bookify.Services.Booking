@@ -20,7 +20,7 @@ internal static class GetPropertyByIdEndpoint
                 EndpointNames.Properties.GetById)
             .WithSummary(
                 "Gets a property by its identifier.")
-            .Produces<PropertyResponse>(
+            .Produces<GetPropertyByIdResponse>(
                 StatusCodes.Status200OK)
             .ProducesProblem(
                 StatusCodes.Status400BadRequest)
@@ -46,16 +46,10 @@ internal static class GetPropertyByIdEndpoint
         Result<ApplicationPropertyResponse> result =
             await executor.ExecuteAsync(query, cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return result.Error.ToProblem(httpContext);
-        }
-
-        GetPropertyByIdResponse response =
-            MapToResponse(result.Value);
-
-        return TypedResults.Ok(
-            response);
+        return result.ToHttpResult(
+            httpContext,
+            property =>
+                TypedResults.Ok(MapToResponse(property)));
     }
 
     private static GetPropertyByIdResponse MapToResponse(
