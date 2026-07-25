@@ -6,6 +6,9 @@ namespace Bookify.Services.Booking.Api.Extensions;
 
 internal static class ErrorHttpExtensions
 {
+    private const string CodeExtensionName = "code";
+    private const string TraceIdExtensionName = "traceId";
+
     public static ProblemHttpResult ToProblem(
         this Error error,
         HttpContext httpContext)
@@ -14,25 +17,22 @@ internal static class ErrorHttpExtensions
 
         int statusCode = GetStatusCode(error.Type);
 
-        string detail =
-            statusCode >=
-                StatusCodes.Status500InternalServerError
-                ? "An unexpected error ocurred."
-                : error.Message;
-
         var extensions =
             new Dictionary<string, object?>
             {
-                ["code"] = error.Code,
-                ["traceId"] =
-                    Activity.Current?.Id ??
-                    httpContext.TraceIdentifier
+                [CodeExtensionName] = error.Code,
+                [TraceIdExtensionName] = GetTraceId(httpContext)
             };
 
         return TypedResults.Problem(
-            statusCode: statusCode,
+            type:
+                GetProblemTypeUri(error.Type),
             title: GetTitle(error.Type),
-            detail: detail,
+            statusCode: statusCode,
+            detail: GetDetail(
+                error,
+                statusCode),
+            instance: GetInstance(httpContext),
             extensions: extensions);
     }
 
@@ -51,6 +51,22 @@ internal static class ErrorHttpExtensions
         };
     }
 
+    private static string GetProblemTypeUri(
+        ErrorType errorType)
+    {
+        return errorType switch
+        {
+            ErrorType.Validation =>
+                ProblemTypeUris.Validation,
+
+            ErrorType.NotFound =>
+                ProblemTypeUris.NotFound,
+
+            _ =>
+                ProblemTypeUris.ServerError
+        };
+    }
+
     private static string GetTitle(ErrorType errorType)
     {
         return errorType switch
@@ -64,5 +80,39 @@ internal static class ErrorHttpExtensions
             _ =>
                 "Server error"
         };
+    }
+
+    private static string GetDetail(
+        Error error,
+        int statusCode)
+    {
+        if (statusCode >=
+            StatusCodes.Status500InternalServerError)
+        {
+            return "An unexpected error occurred.";
+        }
+
+        return error.Message;
+    }
+
+    private static string GetInstance(
+        HttpContext httpContext)
+    {
+        string pathBase =
+            httpContext.Request.PathBase.Value ??
+            string.Empty;
+
+        string path =
+            httpContext.Request.Path.Value ??
+            "/";
+
+        return $"{pathBase}{path}";
+    }
+
+    private static string GetTraceId(
+        HttpContext httpContext)
+    {
+        return Activity.Current?.Id ??
+               httpContext.TraceIdentifier;
     }
 }
