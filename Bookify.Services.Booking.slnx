@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/docs/" />
   <Folder Name="/docs/api/">
-    <File Path="rest-conventions.md" />
+    <File Path="docs/api/rest-conventions.md" />
   </Folder>
   <Folder Name="/Elementos de la solución/">
     <File Path="Directory.Build.props" />
