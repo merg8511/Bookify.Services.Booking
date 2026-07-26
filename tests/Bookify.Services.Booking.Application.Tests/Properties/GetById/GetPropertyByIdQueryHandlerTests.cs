@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Domain.Shared;
 
 namespace Bookify.Services.Booking.Application.Tests.Properties.GetById;
@@ -11,13 +12,15 @@ public sealed class GetPropertyByIdQueryHandlerTests
         // ARRANGE
         Guid propertyId = Guid.NewGuid();
 
-        var expectedResponse = new PropertyResponse(
-            propertyId,
-            "Rancho Costa Azul",
-            "America/El_Salvador",
-            new TimeOnly(15, 0),
-            new TimeOnly(11, 0),
-            IsActive: true);
+        var expectedResponse = new PropertyDetailsReadModel
+        {
+            Id = propertyId,
+            Name = "Rancho Costa Azul",
+            TimeZoneId = "America/El_Salvador",
+            CheckInTime = new TimeOnly(15, 0),
+            CheckOutTime = new TimeOnly(11, 0),
+            IsActive = true
+        };
 
         var propertyReadService = new StubPropertyReadService(expectedResponse);
         var handler = new GetPropertyByIdQueryHandler(propertyReadService);
@@ -25,7 +28,7 @@ public sealed class GetPropertyByIdQueryHandlerTests
         var query = new GetPropertyByIdQuery(propertyId);
 
         // ACT
-        Result<PropertyResponse> result = await handler.HandleAsync(query);
+        Result<PropertyDetailsReadModel> result = await handler.HandleAsync(query);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -53,7 +56,7 @@ public sealed class GetPropertyByIdQueryHandlerTests
         var query = new GetPropertyByIdQuery(propertyId);
 
         // ACT
-        Result<PropertyResponse> result = await handler.HandleAsync(query);
+        Result<PropertyDetailsReadModel> result = await handler.HandleAsync(query);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -125,9 +128,9 @@ public sealed class GetPropertyByIdQueryHandlerTests
 
     private sealed class StubPropertyReadService : IPropertyReadService
     {
-        private readonly PropertyResponse? _response;
+        private readonly PropertyDetailsReadModel? _response;
 
-        public StubPropertyReadService(PropertyResponse? response)
+        public StubPropertyReadService(PropertyDetailsReadModel? response)
         {
             _response = response;
         }
@@ -135,7 +138,7 @@ public sealed class GetPropertyByIdQueryHandlerTests
         public bool WasCalled { get; private set; }
         public Guid? RequestedPropertyId { get; private set; }
 
-        public Task<PropertyResponse?> GetByIdAsync(
+        public Task<PropertyDetailsReadModel?> GetByIdAsync(
             Guid propertyId,
             CancellationToken cancellationToken = default)
         {

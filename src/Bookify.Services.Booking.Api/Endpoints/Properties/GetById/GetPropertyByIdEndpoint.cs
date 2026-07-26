@@ -3,8 +3,8 @@ using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Domain.Shared;
 using Microsoft.AspNetCore.Http.HttpResults;
-using ApplicationPropertyResponse =
-    Bookify.Services.Booking.Application.Properties.GetById.PropertyResponse;
+using ApplicationPropertyDetails =
+    Bookify.Services.Booking.Application.Properties.ReadModels.PropertyDetailsReadModel;
 
 namespace Bookify.Services.Booking.Api.Endpoints.Properties.GetById;
 
@@ -37,13 +37,13 @@ internal static class GetPropertyByIdEndpoint
         Guid propertyId,
         IQueryExecutor<
             GetPropertyByIdQuery,
-            ApplicationPropertyResponse> executor,
+            ApplicationPropertyDetails> executor,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
         var query = new GetPropertyByIdQuery(propertyId);
 
-        Result<ApplicationPropertyResponse> result =
+        Result<ApplicationPropertyDetails> result =
             await executor.ExecuteAsync(query, cancellationToken);
 
         return result.ToHttpResult(
@@ -53,7 +53,7 @@ internal static class GetPropertyByIdEndpoint
     }
 
     private static GetPropertyByIdResponse MapToResponse(
-        ApplicationPropertyResponse property)
+        ApplicationPropertyDetails property)
     {
         return new GetPropertyByIdResponse(
             property.Id,

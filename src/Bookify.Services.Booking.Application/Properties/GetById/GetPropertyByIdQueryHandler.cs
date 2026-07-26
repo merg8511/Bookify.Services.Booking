@@ -1,35 +1,38 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
+using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Domain.Shared;
 
 namespace Bookify.Services.Booking.Application.Properties.GetById;
 
 public sealed class GetPropertyByIdQueryHandler
-    : IQueryHandler<GetPropertyByIdQuery, PropertyResponse>
+    : IQueryHandler<GetPropertyByIdQuery, PropertyDetailsReadModel>
 {
     private readonly IPropertyReadService _propertyReadService;
 
     public GetPropertyByIdQueryHandler(IPropertyReadService propertyReadService)
     {
-        _propertyReadService = propertyReadService;
+        _propertyReadService = propertyReadService ??
+            throw new ArgumentNullException(nameof(propertyReadService));
     }
-    public async Task<Result<PropertyResponse>> HandleAsync(
+
+    public async Task<Result<PropertyDetailsReadModel>> HandleAsync(
         GetPropertyByIdQuery query,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        PropertyResponse? property =
+        PropertyDetailsReadModel? property =
             await _propertyReadService.GetByIdAsync(
                 query.PropertyId,
                 cancellationToken);
 
         if (property is null)
         {
-            return Result<PropertyResponse>.Failure(
+            return Result<PropertyDetailsReadModel>.Failure(
                 GetPropertyByIdErrors.NotFound(
                     query.PropertyId));
         }
 
-        return Result<PropertyResponse>.Success(property);
+        return Result<PropertyDetailsReadModel>.Success(property);
     }
 }

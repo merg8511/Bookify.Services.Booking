@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Infrastructure.Persistence;
@@ -107,9 +108,9 @@ public sealed class CreatePropertyPersistenceTests
                     .GetRequiredService<
                         IQueryExecutor<
                             GetPropertyByIdQuery,
-                            PropertyResponse>>();
+                            PropertyDetailsReadModel>>();
 
-            Result<PropertyResponse> queryResult =
+            Result<PropertyDetailsReadModel> queryResult =
                 await queryExecutor.ExecuteAsync(
                     query,
                     cancellationToken);
