@@ -3,11 +3,13 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Infrastructure.Persistence;
+using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
 using Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
 using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
 using Bookify.Services.Booking.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Bookify.Services.Booking.Infrastructure;
 
@@ -22,10 +24,22 @@ public static class DependencyInjection
 
         services.AddSingleton<IClock, SystemClock>();
 
+        services.AddSingleton<NpgsqlDataSource>(
+            _ => NpgsqlDataSource.Create(connectionString));
+
         services.AddDbContext<BookingDbContext>(
-            options =>
-                options.UseNpgsql(
-                    connectionString));
+            (serviceProvider, options) =>
+            {
+                NpgsqlDataSource dataSource =
+                    serviceProvider
+                        .GetRequiredService<NpgsqlDataSource>();
+
+                options.UseNpgsql(dataSource);
+            });
+
+        services.AddSingleton<
+            IDbConnectionFactory,
+            NpgsqlConnectionFactory>();
 
         AddPersistence(
             services,
@@ -38,10 +52,6 @@ public static class DependencyInjection
         IServiceCollection services,
         string connectionString)
     {
-        services.AddDbContext<BookingDbContext>(
-            options =>
-                options.UseNpgsql(connectionString));
-
         services.AddScoped<IUnitOfWork>(
             serviceProvider =>
                 serviceProvider.GetRequiredService<BookingDbContext>());
