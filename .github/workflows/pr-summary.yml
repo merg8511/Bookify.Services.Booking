@@ -42,13 +42,13 @@ jobs:
 
             const prompt = `Act as a senior software developer reviewing a Pull Request. Review the following "git diff" and provide a clear summary in English using the following structure:
 
-            ### Summary
+            ### 🚀 Summary
             A concise paragraph (2-3 sentences) explaining the primary goal of this change.
 
-            ### Key Changes
+            ### 📝 Key Changes
             - A bulleted list detailing the main changes organized by file or module.
 
-            ### Observations & Suggestions
+            ### ⚠️ Observations & Suggestions
             - Highlight any missing validations, edge cases, error handling gaps, or performance considerations (if everything looks clean, state "Everything looks good!").
 
             Here is the code diff:
@@ -62,8 +62,8 @@ jobs:
               return;
             }
 
-            // Modelo actualizado a gemini-2.5-flash
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            // Endpoint actualizado a gemini-2.0-flash
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             try {
               const response = await fetch(url, {
