@@ -1,0 +1,90 @@
+name: AI PR Summary
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Extract git diff between base branch and PR
+      - name: Generate Diff
+        id: diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > diff.txt
+          # Limit diff to the first 600 lines to prevent API payload issues
+          head -n 600 diff.txt > diff_short.txt
+
+      # Send diff to Gemini and post comment on PR
+      - name: Generate and post summary
+        uses: actions/github-script@v7
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          script: |
+            const fs = require('fs');
+            const diff = fs.readFileSync('diff_short.txt', 'utf8');
+
+            if (!diff || diff.trim() === '') {
+              console.log('No text changes to analyze.');
+              return;
+            }
+
+            const prompt = `Act as a senior software developer reviewing a Pull Request. Review the following "git diff" and provide a clear summary in English using the following structure:
+
+            ### Summary
+            A concise paragraph (2-3 sentences) explaining the primary goal of this change.
+
+            ### Key Changes
+            - A bulleted list detailing the main changes organized by file or module.
+
+            ### Observations & Suggestions
+            - Highlight any missing validations, edge cases, error handling gaps, or performance considerations (if everything looks clean, state "Everything looks good!").
+
+            Here is the code diff:
+            \`\`\`diff
+            ${diff}
+            \`\`\``;
+
+            const apiKey = process.env.GEMINI_API_KEY;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            try {
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: prompt }] }]
+                })
+              });
+
+              const data = await response.json();
+              
+              if (!data.candidates || !data.candidates[0]?.content?.parts[0]?.text) {
+                console.error('Unexpected response from Gemini API:', JSON.stringify(data));
+                return;
+              }
+
+              const aiSummary = data.candidates[0].content.parts[0].text;
+              const commentBody = `🤖 **AI-Generated PR Summary**\n\n${aiSummary}`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: commentBody
+              });
+            } catch (error) {
+              console.error('Error communicating with Gemini API:', error);
+            }
