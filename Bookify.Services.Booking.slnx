@@ -4,6 +4,8 @@
     <File Path="docs/api/rest-conventions.md" />
   </Folder>
   <Folder Name="/Elementos de la solución/">
+    <File Path=".github/workflows/pr-summary.yml" />
+    <File Path=".github/workflows/release-please.yml" />
     <File Path="Directory.Build.props" />
     <File Path="global.json" />
   </Folder>

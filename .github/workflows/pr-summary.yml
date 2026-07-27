@@ -1,0 +1,172 @@
+name: AI PR Summary
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Generate Diff
+        run: |
+          git diff "origin/${{ github.base_ref }}...HEAD" > diff.txt
+          head -n 600 diff.txt > diff_short.txt
+
+      - name: Generate and post summary
+        uses: actions/github-script@v9
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.6-flash
+        with:
+          script: |
+            const fs = require('fs');
+
+            const diff = fs.readFileSync('diff_short.txt', 'utf8');
+
+            if (!diff || diff.trim() === '') {
+              console.log('No text changes found in diff.');
+              return;
+            }
+
+            const prompt = `
+            Act as a senior software developer reviewing a Pull Request.
+
+            Review the following git diff and provide a clear summary in English
+            using the following structure:
+
+            ### 🚀 Summary
+            A concise paragraph of 2-3 sentences explaining the primary goal
+            of this change.
+
+            ### 📝 Key Changes
+            - A bulleted list detailing the main changes organized by file
+              or module.
+
+            ### ⚠️ Observations & Suggestions
+            - Highlight missing validations, edge cases, error handling gaps,
+              security concerns or performance considerations.
+            - If everything looks clean, state: "Everything looks good!"
+
+            Here is the code diff:
+
+            \`\`\`diff
+            ${diff}
+            \`\`\`
+            `;
+
+            const apiKey = process.env.GEMINI_API_KEY;
+            const model = process.env.GEMINI_MODEL;
+
+            if (!apiKey) {
+              core.setFailed(
+                'GEMINI_API_KEY secret is missing in repository settings.'
+              );
+              return;
+            }
+
+            const url =
+              `https://generativelanguage.googleapis.com/v1beta/models/` +
+              `${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+            try {
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      role: 'user',
+                      parts: [
+                        {
+                          text: prompt
+                        }
+                      ]
+                    }
+                  ]
+                })
+              });
+
+              const data = await response.json();
+
+              if (!response.ok) {
+                console.error(
+                  'Gemini API Error:',
+                  JSON.stringify(data, null, 2)
+                );
+
+                core.setFailed(
+                  `Gemini API returned status ${response.status}: ` +
+                  `${data.error?.message || 'Unknown error'}`
+                );
+
+                return;
+              }
+
+              const aiSummary =
+                data.candidates?.[0]?.content?.parts
+                  ?.map(part => part.text ?? '')
+                  .join('')
+                  .trim();
+
+              if (!aiSummary) {
+                console.error(
+                  'Unexpected Gemini response:',
+                  JSON.stringify(data, null, 2)
+                );
+
+                core.setFailed(
+                  'Could not extract the PR summary from Gemini response.'
+                );
+
+                return;
+              }
+
+              const COMMENT_MARKER = '<!-- ai-pr-summary-marker -->';
+              const commentBody = `${COMMENT_MARKER}\n🤖 **AI-Generated PR Summary**\n\n${aiSummary}`;
+
+              // 1. Obtener todos los comentarios del PR
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+              });
+
+              // 2. Buscar si ya existe un comentario con el marcador oculto
+              const existingComment = comments.find(comment => 
+                comment.body && comment.body.includes(COMMENT_MARKER)
+              );
+
+              // 3. Actualizar si existe, o crear uno nuevo si no
+              if (existingComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingComment.id,
+                  body: commentBody
+                });
+                console.log('AI PR summary updated successfully.');
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  body: commentBody
+                });
+                console.log('AI PR summary posted successfully.');
+              }
+            } catch (error) {
+              core.setFailed(`Execution error: ${error.message}`);
+            }
