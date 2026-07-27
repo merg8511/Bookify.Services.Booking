@@ -134,17 +134,39 @@ jobs:
                 return;
               }
 
-              const commentBody =
-                `🤖 **AI-Generated PR Summary**\n\n${aiSummary}`;
+              const COMMENT_MARKER = '<!-- ai-pr-summary-marker -->';
+              const commentBody = `${COMMENT_MARKER}\n🤖 **AI-Generated PR Summary**\n\n${aiSummary}`;
 
-              await github.rest.issues.createComment({
+              // 1. Obtener todos los comentarios del PR
+              const { data: comments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number,
-                body: commentBody
               });
 
-              console.log('AI PR summary posted successfully.');
+              // 2. Buscar si ya existe un comentario con el marcador oculto
+              const existingComment = comments.find(comment => 
+                comment.body && comment.body.includes(COMMENT_MARKER)
+              );
+
+              // 3. Actualizar si existe, o crear uno nuevo si no
+              if (existingComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingComment.id,
+                  body: commentBody
+                });
+                console.log('AI PR summary updated successfully.');
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  body: commentBody
+                });
+                console.log('AI PR summary posted successfully.');
+              }
             } catch (error) {
               core.setFailed(`Execution error: ${error.message}`);
             }
