@@ -1,9 +1,12 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
+using Bookify.Services.Booking.Infrastructure.Persistence.Dapper;
 using Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
 using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
 using Bookify.Services.Booking.Infrastructure.Time;
@@ -23,6 +26,8 @@ public static class DependencyInjection
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         services.AddSingleton<IClock, SystemClock>();
+
+        DapperTypeHandlers.Register();
 
         services.AddSingleton<NpgsqlDataSource>(
             _ => NpgsqlDataSource.Create(connectionString));
@@ -70,6 +75,14 @@ public static class DependencyInjection
 
         services.AddScoped<
             IPropertyReadService,
-            EfCorePropertyReadService>();
+            DapperPropertyReadService>();
+
+        services.AddScoped<
+            IRentableUnitReadService,
+            DapperRentableUnitReadService>();
+
+        services.AddScoped<
+            IBookingReadService,
+            DapperBookingReadService>();
     }
 }
