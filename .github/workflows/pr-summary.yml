@@ -2,7 +2,7 @@ name: AI PR Summary
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -11,28 +11,27 @@ permissions:
 jobs:
   summarize:
     runs-on: ubuntu-latest
+
     steps:
-      # 1. Checkout repository
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      # 2. Extract git diff between base branch and PR
       - name: Generate Diff
-        id: diff
         run: |
-          git diff origin/${{ github.base_ref }}...HEAD > diff.txt
+          git diff "origin/${{ github.base_ref }}...HEAD" > diff.txt
           head -n 600 diff.txt > diff_short.txt
 
-      # 3. Send diff to Gemini and post comment on PR
       - name: Generate and post summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.6-flash
         with:
           script: |
             const fs = require('fs');
+
             const diff = fs.readFileSync('diff_short.txt', 'utf8');
 
             if (!diff || diff.trim() === '') {
@@ -40,55 +39,103 @@ jobs:
               return;
             }
 
-            const prompt = `Act as a senior software developer reviewing a Pull Request. Review the following "git diff" and provide a clear summary in English using the following structure:
+            const prompt = `
+            Act as a senior software developer reviewing a Pull Request.
+
+            Review the following git diff and provide a clear summary in English
+            using the following structure:
 
             ### 🚀 Summary
-            A concise paragraph (2-3 sentences) explaining the primary goal of this change.
+            A concise paragraph of 2-3 sentences explaining the primary goal
+            of this change.
 
             ### 📝 Key Changes
-            - A bulleted list detailing the main changes organized by file or module.
+            - A bulleted list detailing the main changes organized by file
+              or module.
 
             ### ⚠️ Observations & Suggestions
-            - Highlight any missing validations, edge cases, error handling gaps, or performance considerations (if everything looks clean, state "Everything looks good!").
+            - Highlight missing validations, edge cases, error handling gaps,
+              security concerns or performance considerations.
+            - If everything looks clean, state: "Everything looks good!"
 
             Here is the code diff:
+
             \`\`\`diff
             ${diff}
-            \`\`\``;
+            \`\`\`
+            `;
 
             const apiKey = process.env.GEMINI_API_KEY;
+            const model = process.env.GEMINI_MODEL;
+
             if (!apiKey) {
-              core.setFailed('GEMINI_API_KEY secret is missing in repository settings.');
+              core.setFailed(
+                'GEMINI_API_KEY secret is missing in repository settings.'
+              );
               return;
             }
 
-            // Endpoint actualizado a gemini-2.0-flash
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+            const url =
+              `https://generativelanguage.googleapis.com/v1beta/models/` +
+              `${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
             try {
               const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
-                  contents: [{ parts: [{ text: prompt }] }]
+                  contents: [
+                    {
+                      role: 'user',
+                      parts: [
+                        {
+                          text: prompt
+                        }
+                      ]
+                    }
+                  ]
                 })
               });
 
               const data = await response.json();
 
               if (!response.ok) {
-                console.error('Gemini API Error:', JSON.stringify(data));
-                core.setFailed(`Gemini API returned status ${response.status}: ${data.error?.message || 'Unknown error'}`);
+                console.error(
+                  'Gemini API Error:',
+                  JSON.stringify(data, null, 2)
+                );
+
+                core.setFailed(
+                  `Gemini API returned status ${response.status}: ` +
+                  `${data.error?.message || 'Unknown error'}`
+                );
+
                 return;
               }
 
-              const aiSummary = data.candidates?.[0]?.content?.parts?.[0]?.text;
+              const aiSummary =
+                data.candidates?.[0]?.content?.parts
+                  ?.map(part => part.text ?? '')
+                  .join('')
+                  .trim();
+
               if (!aiSummary) {
-                core.setFailed('Could not extract text summary from Gemini response.');
+                console.error(
+                  'Unexpected Gemini response:',
+                  JSON.stringify(data, null, 2)
+                );
+
+                core.setFailed(
+                  'Could not extract the PR summary from Gemini response.'
+                );
+
                 return;
               }
 
-              const commentBody = `🤖 **AI-Generated PR Summary**\n\n${aiSummary}`;
+              const commentBody =
+                `🤖 **AI-Generated PR Summary**\n\n${aiSummary}`;
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -96,6 +143,8 @@ jobs:
                 issue_number: context.payload.pull_request.number,
                 body: commentBody
               });
+
+              console.log('AI PR summary posted successfully.');
             } catch (error) {
               core.setFailed(`Execution error: ${error.message}`);
             }
