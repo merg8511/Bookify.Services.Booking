@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.1.0...v0.2.0) (2026-07-27)
+
+
+### Features
+
+* **infrastructure:** add Dapper type handlers for DateOnly and TimeOnly ([#5](https://github.com/merg8511/Bookify.Services.Booking/issues/5)) ([e3d6f30](https://github.com/merg8511/Bookify.Services.Booking/commit/e3d6f30a3442be8bb715e72ab0b250465fa27902))
+
 ## 0.1.0 (2026-07-27)
 
 
