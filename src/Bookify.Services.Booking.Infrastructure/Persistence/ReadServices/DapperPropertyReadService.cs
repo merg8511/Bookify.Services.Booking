@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
-using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Dapper;
 using System.Data.Common;
@@ -20,6 +21,17 @@ internal sealed class DapperPropertyReadService
             p.is_active AS "IsActive"
         FROM properties AS p
         WHERE p.id = @PropertyId;
+        """;
+
+    private const string NameFilterCondition =
+        """
+        p.name ILIKE @NamePattern
+            ESCAPE E'\\'
+        """;
+
+    private const string ActiveFilterCondition =
+        """
+        p.is_active = @IsActive
         """;
 
     private readonly IDbConnectionFactory _connectionFactory;
@@ -47,5 +59,133 @@ internal sealed class DapperPropertyReadService
             cancellationToken: cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<PropertyDetailsReadModel>(command);
+    }
+
+    public async Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? name,
+        bool? isActive,
+        CancellationToken cancellationToken = default)
+    {
+        long offset = ((long)pageNumber - 1) *
+            pageSize;
+
+        var parameters = new DynamicParameters();
+
+        parameters.Add(
+            "PageSize",
+            pageSize);
+
+        parameters.Add(
+            "Offset",
+            offset);
+
+        string whereClause =
+            BuildWhereClause(
+                name,
+                isActive,
+                parameters);
+
+        string sql =
+            BuildPagedSql(whereClause);
+
+        await using DbConnection connection =
+            await _connectionFactory
+                .OpenConnectionAsync(cancellationToken);
+
+        var command = new CommandDefinition(
+            sql,
+            parameters,
+            cancellationToken: cancellationToken);
+
+        using SqlMapper.GridReader gridReader =
+            await connection.QueryMultipleAsync(command);
+
+        IEnumerable<PropertyListItemReadModel> rows =
+            await gridReader.ReadAsync<
+                PropertyListItemReadModel>();
+
+        long totalRecords =
+            await gridReader.ReadSingleAsync<long>();
+
+        return new PagedResult<
+            PropertyListItemReadModel>(
+            rows.ToArray(),
+            pageNumber,
+            pageSize,
+            totalRecords);
+    }
+
+    private static string BuildWhereClause(
+        string? name,
+        bool? isActive,
+        DynamicParameters parameters)
+    {
+        var conditions = new List<string>();
+
+        if (name is not null)
+        {
+            conditions.Add(NameFilterCondition);
+
+            parameters.Add(
+                "NamePattern",
+                BuildContainsPattern(name));
+        }
+
+        if (isActive.HasValue)
+        {
+            conditions.Add(ActiveFilterCondition);
+
+            parameters.Add(
+                "IsActive",
+                isActive.Value);
+        }
+
+        if (conditions.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        return
+            "WHERE " +
+            string.Join(
+                $"{Environment.NewLine}" +
+                " AND ",
+                conditions);
+    }
+
+    private static string BuildPagedSql(string whereClause)
+    {
+        return
+            $"""
+            SELECT
+                p.id AS "Id",
+                p.name AS "Name",
+                p.is_active AS "IsActive"
+            FROM properties AS p
+            {whereClause}
+            ORDER BY
+                p.name ASC,
+                p.id ASC
+            LIMIT @PageSize
+            OFFSET @Offset;
+
+            SELECT
+                COUNT(*)
+            FROM properties AS p
+            {whereClause};
+            """;
+    }
+
+    private static string BuildContainsPattern(string value)
+    {
+        string escapedValue =
+            value
+                .Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("%", "\\%", StringComparison.Ordinal)
+                .Replace("_", "\\_", StringComparison.Ordinal);
+
+        return $"%{escapedValue}%";
     }
 }

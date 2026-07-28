@@ -9,5 +9,8 @@ internal static class EndpointNames
 
         public const string GetById =
             "Properties.GetById";
+
+        public const string List =
+            "Properties.List";
     }
 }
