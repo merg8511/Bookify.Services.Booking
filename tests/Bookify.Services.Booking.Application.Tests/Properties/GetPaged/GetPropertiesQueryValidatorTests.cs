@@ -11,7 +11,7 @@ public sealed class GetPropertiesQueryValidatorTests
     [Fact]
     public void Validate_WithValidPagination_ReturnsSuccess()
     {
-        var query = new GetPropertiesQuery(1, 20);
+        var query = new GetPropertiesQuery(1, 20, null, null);
 
         var result = _validator.Validate(query);
 
@@ -21,7 +21,7 @@ public sealed class GetPropertiesQueryValidatorTests
     [Fact]
     public void Validate_WithInvalidPageNumber_ReturnsFailure()
     {
-        var query = new GetPropertiesQuery(0, 20);
+        var query = new GetPropertiesQuery(0, 20, null, null);
         var result = _validator.Validate(query);
 
         Assert.True(result.IsFailure);
@@ -34,7 +34,7 @@ public sealed class GetPropertiesQueryValidatorTests
     [Fact]
     public void Validate_WithInvalidPageSize_ReturnsFailure()
     {
-        var query = new GetPropertiesQuery(1, 0);
+        var query = new GetPropertiesQuery(1, 0, null, null);
         var result = _validator.Validate(query);
 
         Assert.True(result.IsFailure);
@@ -47,7 +47,7 @@ public sealed class GetPropertiesQueryValidatorTests
     [Fact]
     public void Validate_WithPageSizeAboveLimit_ReturnsFailure()
     {
-        var query = new GetPropertiesQuery(1, PaginationDefaults.MaximumPageSize + 1);
+        var query = new GetPropertiesQuery(1, PaginationDefaults.MaximumPageSize + 1, null, null);
         var result = _validator.Validate(query);
 
         Assert.True(
