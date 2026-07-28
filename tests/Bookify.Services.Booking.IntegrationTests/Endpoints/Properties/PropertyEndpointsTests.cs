@@ -1,5 +1,7 @@
+using Bookify.Services.Booking.Api.Contracts.Pagination;
 using Bookify.Services.Booking.Api.Endpoints.Properties.Create;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetById;
+using Bookify.Services.Booking.Api.Endpoints.Properties.GetPaged;
 using Bookify.Services.Booking.IntegrationTests.Contracts;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.AspNetCore.Http;
@@ -241,6 +243,93 @@ public sealed class PropertyEndpointsTests
         Assert.Equal(
             HttpStatusCode.NotFound,
             response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProperties_ReturnsPagedResponse()
+    {
+        await CreatePropertyAsync();
+        await CreatePropertyAsync();
+        await CreatePropertyAsync();
+
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?pageNumber=1&pageSize=2",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
+
+        PagedResponse<
+        PropertyListItemResponse> body =
+        Assert.IsType<
+            PagedResponse<
+                PropertyListItemResponse>>(
+            await response.Content
+                .ReadFromJsonAsync<
+                    PagedResponse<
+                        PropertyListItemResponse>>(CancellationToken));
+
+        Assert.Equal(
+            1,
+            body.PageNumber);
+
+        Assert.Equal(
+            2,
+            body.PageSize);
+
+        Assert.Equal(
+            2,
+            body.Items.Count);
+
+        Assert.True(
+            body.TotalRecords >= 3);
+
+        Assert.True(
+            body.TotalPages >= 2);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithInvalidPageNumber_ReturnsValidationProblem()
+    {
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?pageNumber=0&pageSize=20",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse problem =
+            await ReadProblemAsync(response);
+
+        Assert.Equal(
+            "Pagination.InvalidPageNumber",
+            problem.Code);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithPageSizeAboveLimit_ReturnsValidationProblem()
+    {
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?pageNumber=1&pageSize=101",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse problem = await ReadProblemAsync(response);
+
+        Assert.Equal(
+            "Pagination.PageSizeExceeded",
+            problem.Code);
     }
 
     private async Task<CreatedProperty> CreatePropertyAsync()
