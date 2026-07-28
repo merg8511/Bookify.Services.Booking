@@ -37,6 +37,8 @@ internal static class GetPropertiesEndpoint
             ProblemHttpResult>> HandleAsync(
         int? pageNumber,
         int? pageSize,
+        string? name,
+        bool? isActive,
         IQueryExecutor<
             GetPropertiesQuery,
             PagedResult<
@@ -49,7 +51,9 @@ internal static class GetPropertiesEndpoint
                 pageNumber ??
                 PaginationDefaults.DefaultPageNumber,
                 pageSize ??
-                PaginationDefaults.DefaultPageSize);
+                PaginationDefaults.DefaultPageSize,
+                name,
+                isActive);
 
         var result =
             await queryExecutor.ExecuteAsync(
