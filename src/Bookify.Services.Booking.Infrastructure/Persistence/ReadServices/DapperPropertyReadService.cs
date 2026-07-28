@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
-using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Dapper;
 using System.Data.Common;
@@ -22,6 +23,23 @@ internal sealed class DapperPropertyReadService
         WHERE p.id = @PropertyId;
         """;
 
+    private const string GetPagedSql =
+        """
+        SELECT
+            p.id AS "Id",
+            p.name AS "Name",
+            p.is_active AS "IsActive"
+        FROM properties AS p
+        ORDER BY
+            p.name ASC,
+            p.id ASC
+        LIMIT @PageSize
+        OFFSET @Offset;
+
+        SELECT
+            COUNT(*)
+        FROM properties;
+        """;
     private readonly IDbConnectionFactory _connectionFactory;
 
     public DapperPropertyReadService(
@@ -47,5 +65,44 @@ internal sealed class DapperPropertyReadService
             cancellationToken: cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<PropertyDetailsReadModel>(command);
+    }
+
+    public async Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        long offset = ((long)pageNumber - 1) *
+            pageSize;
+
+        await using DbConnection connection =
+            await _connectionFactory
+                .OpenConnectionAsync(cancellationToken);
+
+        var command = new CommandDefinition(
+            GetPagedSql,
+            new
+            {
+                PageSize = pageSize,
+                Offset = offset
+            },
+            cancellationToken: cancellationToken);
+
+        using SqlMapper.GridReader gridReader =
+            await connection.QueryMultipleAsync(command);
+
+        IEnumerable<PropertyListItemReadModel> rows =
+            await gridReader.ReadAsync<
+                PropertyListItemReadModel>();
+
+        long totalRecords =
+            await gridReader.ReadSingleAsync<long>();
+
+        return new PagedResult<
+            PropertyListItemReadModel>(
+            rows.ToArray(),
+            pageNumber,
+            pageSize,
+            totalRecords);
     }
 }
