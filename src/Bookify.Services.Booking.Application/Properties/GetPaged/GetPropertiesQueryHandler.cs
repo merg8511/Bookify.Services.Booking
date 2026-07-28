@@ -5,7 +5,7 @@ using Bookify.Services.Booking.Domain.Shared;
 
 namespace Bookify.Services.Booking.Application.Properties.GetPaged;
 
-internal sealed class GetPropertiesQueryHandler :
+public sealed class GetPropertiesQueryHandler :
     IQueryHandler<
         GetPropertiesQuery,
         PagedResult<
@@ -27,13 +27,25 @@ internal sealed class GetPropertiesQueryHandler :
        GetPropertiesQuery query,
        CancellationToken cancellationToken = default)
     {
+        string? normalizedName = NormalizeName(query.Name);
+
         PagedResult<
             PropertyListItemReadModel> page =
             await _propertyReadService.GetPagedAsync(
                 query.PageNumber,
                 query.PageSize,
+                normalizedName,
+                query.IsActive,
                 cancellationToken);
 
         return Result<PagedResult<PropertyListItemReadModel>>.Success(page);
+    }
+
+    private static string? NormalizeName(string? name)
+    {
+        return string.IsNullOrWhiteSpace(
+            name)
+            ? null
+            : name.Trim();
     }
 }
