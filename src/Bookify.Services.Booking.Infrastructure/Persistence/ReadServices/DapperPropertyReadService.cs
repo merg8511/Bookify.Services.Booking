@@ -23,23 +23,17 @@ internal sealed class DapperPropertyReadService
         WHERE p.id = @PropertyId;
         """;
 
-    private const string GetPagedSql =
+    private const string NameFilterCondition =
         """
-        SELECT
-            p.id AS "Id",
-            p.name AS "Name",
-            p.is_active AS "IsActive"
-        FROM properties AS p
-        ORDER BY
-            p.name ASC,
-            p.id ASC
-        LIMIT @PageSize
-        OFFSET @Offset;
-
-        SELECT
-            COUNT(*)
-        FROM properties;
+        p.name ILIKE @NamePattern
+            ESCAPE E'\\'
         """;
+
+    private const string ActiveFilterCondition =
+        """
+        p.is_active = @IsActive
+        """;
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public DapperPropertyReadService(
@@ -70,22 +64,39 @@ internal sealed class DapperPropertyReadService
     public async Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(
         int pageNumber,
         int pageSize,
+        string? name,
+        bool? isActive,
         CancellationToken cancellationToken = default)
     {
         long offset = ((long)pageNumber - 1) *
             pageSize;
+
+        var parameters = new DynamicParameters();
+
+        parameters.Add(
+            "PageSize",
+            pageSize);
+
+        parameters.Add(
+            "Offset",
+            offset);
+
+        string whereClause =
+            BuildWhereClause(
+                name,
+                isActive,
+                parameters);
+
+        string sql =
+            BuildPagedSql(whereClause);
 
         await using DbConnection connection =
             await _connectionFactory
                 .OpenConnectionAsync(cancellationToken);
 
         var command = new CommandDefinition(
-            GetPagedSql,
-            new
-            {
-                PageSize = pageSize,
-                Offset = offset
-            },
+            sql,
+            parameters,
             cancellationToken: cancellationToken);
 
         using SqlMapper.GridReader gridReader =
@@ -104,5 +115,85 @@ internal sealed class DapperPropertyReadService
             pageNumber,
             pageSize,
             totalRecords);
+    }
+
+    private static string BuildWhereClause(
+        string? name,
+        bool? isActive,
+        DynamicParameters parameters)
+    {
+        var conditions = new List<string>();
+
+        if (name is not null)
+        {
+            conditions.Add(NameFilterCondition);
+
+            parameters.Add(
+                "NamePattern",
+                BuildContainsPattern(name));
+        }
+
+        if (isActive.HasValue)
+        {
+            conditions.Add(ActiveFilterCondition);
+
+            parameters.Add(
+                "IsActive",
+                isActive.Value);
+        }
+
+        if (conditions.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        return
+            "WHERE " +
+            string.Join(
+                $"{Environment.NewLine}" +
+                " AND ",
+                conditions);
+    }
+
+    private static string BuildPagedSql(string whereCaluse)
+    {
+        return
+            $"""
+            SELECT
+                p.id AS "Id",
+                p.name AS "Name",
+                p.is_active AS "IsActive"
+            FROM properties AS p
+            {whereCaluse}
+            ORDER BY
+                p.name ASC,
+                p.id ASC
+            LIMIT @PageSize
+            OFFSET @Offset;
+
+            SELECT
+                COUNT(*)
+            FROM properties AS p
+            {whereCaluse};
+            """;
+    }
+
+    private static string BuildContainsPattern(
+        string value)
+    {
+        string escapedValue =
+            value
+                .Replace(
+                    "\\",
+                    "\\\\", StringComparison.Ordinal)
+                .Replace(
+                    "%",
+                    "\\%", StringComparison.Ordinal)
+                .Replace(
+                    "_",
+                    "\\_", StringComparison.Ordinal);
+
+        return
+            $"%{escapedValue}%";
     }
 }
