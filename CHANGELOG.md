@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.2.0...v0.3.0) (2026-07-28)
+
+
+### Features
+
+* **infrastructure:** implement Dapper read services for booking queries ([#8](https://github.com/merg8511/Bookify.Services.Booking/issues/8)) ([dd6ff20](https://github.com/merg8511/Bookify.Services.Booking/commit/dd6ff2058249de24a8dafe1696c133e7d84682d5))
+
 ## [0.2.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.1.0...v0.2.0) (2026-07-27)
 
 
