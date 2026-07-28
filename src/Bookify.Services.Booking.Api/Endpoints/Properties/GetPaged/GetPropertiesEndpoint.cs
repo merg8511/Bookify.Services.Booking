@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Contracts.Pagination;
+using Bookify.Services.Booking.Api.Endpoints; 
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Common.Pagination;
@@ -18,7 +19,9 @@ internal static class GetPropertiesEndpoint
                 "/",
                 HandleAsync)
             .WithName(
-                "Gets a paged list of properties.")
+                EndpointNames.Properties.List) 
+            .WithSummary(
+                "Gets a paged list of properties.") 
             .Produces<
                 PagedResponse<
                     PropertyListItemResponse>>(
