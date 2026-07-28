@@ -332,11 +332,77 @@ public sealed class PropertyEndpointsTests
             problem.Code);
     }
 
-    private async Task<CreatedProperty> CreatePropertyAsync()
+    [Fact]
+    public async Task GetProperties_WithNameFilter_ReturnsMatchingProperties()
+    {
+        string uniqueToken = Guid.NewGuid().ToString("N");
+        string propertyName = $"Rancho {uniqueToken}";
+
+        await CreatePropertyAsync(propertyName);
+
+        string encodedName =
+            Uri.EscapeDataString(
+                uniqueToken.ToUpperInvariant());
+
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?name={encodedName}" +
+                $"&isActive=true" +
+                $"&pageNumber=1" +
+                $"&pageSize=20", CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
+
+        PagedResponse<
+            PropertyListItemResponse> body =
+            Assert.IsType<
+                PagedResponse<
+                    PropertyListItemResponse>>(
+                await response.Content
+                    .ReadFromJsonAsync<
+                        PagedResponse<
+                            PropertyListItemResponse>>(CancellationToken));
+
+        PropertyListItemResponse item =
+            Assert.Single(body.Items);
+
+        Assert.Equal(
+            propertyName,
+            item.Name);
+
+        Assert.True(item.IsActive);
+
+        Assert.Equal(
+            1,
+            body.TotalRecords);
+
+        Assert.Equal(
+            1,
+            body.TotalPages);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithInvalidBooleanFilter_ReturnsBadRequest()
+    {
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?isActive=not-a-boolean",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+    }
+
+    private async Task<CreatedProperty> CreatePropertyAsync(string? name = null)
     {
         var request =
             new CreatePropertyRequest(
-                $"Rancho {Guid.NewGuid():N}",
+                name ?? $"Rancho {Guid.NewGuid():N}",
                 "America/El_Salvador",
                 new TimeOnly(15, 0),
                 new TimeOnly(11, 0));

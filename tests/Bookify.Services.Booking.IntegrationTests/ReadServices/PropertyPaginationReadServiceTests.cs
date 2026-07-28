@@ -54,8 +54,10 @@ public sealed class PropertyPaginationReadServiceTests
         PagedResult<
             PropertyListItemReadModel> page =
             await readService.GetPagedAsync(
-                PageNumber: 2,
+                pageNumber: 2,
                 pageSize: 2,
+                name: null,
+                isActive: null,
                 cancellationToken);
 
         Assert.Equal(

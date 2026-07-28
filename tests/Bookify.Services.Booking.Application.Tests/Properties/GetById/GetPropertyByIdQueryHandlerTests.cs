@@ -152,7 +152,7 @@ public sealed class GetPropertyByIdQueryHandlerTests
             return Task.FromResult(_response);
         }
 
-        public Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(int PageNumber, int pageSize, CancellationToken cancellationToken = default)
+        public Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(int pageNumber, int pageSize, string? name, bool? isActive, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
