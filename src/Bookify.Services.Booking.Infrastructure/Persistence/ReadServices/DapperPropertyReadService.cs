@@ -178,22 +178,14 @@ internal sealed class DapperPropertyReadService
             """;
     }
 
-    private static string BuildContainsPattern(
-        string value)
+    private static string BuildContainsPattern(string value)
     {
         string escapedValue =
             value
-                .Replace(
-                    "\\",
-                    "\\\\", StringComparison.Ordinal)
-                .Replace(
-                    "%",
-                    "\\%", StringComparison.Ordinal)
-                .Replace(
-                    "_",
-                    "\\_", StringComparison.Ordinal);
+                .Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("%", "\\%", StringComparison.Ordinal)
+                .Replace("_", "\\_", StringComparison.Ordinal);
 
-        return
-            $"%{escapedValue}%";
+        return $"%{escapedValue}%";
     }
 }
