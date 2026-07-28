@@ -2,7 +2,7 @@ using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.ReadModels;
-using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Application.RentableUnits.ReadModels;

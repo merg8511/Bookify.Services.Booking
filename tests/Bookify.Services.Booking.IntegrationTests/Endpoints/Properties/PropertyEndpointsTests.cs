@@ -1,5 +1,7 @@
+using Bookify.Services.Booking.Api.Contracts.Pagination;
 using Bookify.Services.Booking.Api.Endpoints.Properties.Create;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetById;
+using Bookify.Services.Booking.Api.Endpoints.Properties.GetPaged;
 using Bookify.Services.Booking.IntegrationTests.Contracts;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.AspNetCore.Http;
@@ -243,11 +245,164 @@ public sealed class PropertyEndpointsTests
             response.StatusCode);
     }
 
-    private async Task<CreatedProperty> CreatePropertyAsync()
+    [Fact]
+    public async Task GetProperties_ReturnsPagedResponse()
+    {
+        await CreatePropertyAsync();
+        await CreatePropertyAsync();
+        await CreatePropertyAsync();
+
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?pageNumber=1&pageSize=2",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
+
+        PagedResponse<
+        PropertyListItemResponse> body =
+        Assert.IsType<
+            PagedResponse<
+                PropertyListItemResponse>>(
+            await response.Content
+                .ReadFromJsonAsync<
+                    PagedResponse<
+                        PropertyListItemResponse>>(CancellationToken));
+
+        Assert.Equal(
+            1,
+            body.PageNumber);
+
+        Assert.Equal(
+            2,
+            body.PageSize);
+
+        Assert.Equal(
+            2,
+            body.Items.Count);
+
+        Assert.True(
+            body.TotalRecords >= 3);
+
+        Assert.True(
+            body.TotalPages >= 2);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithInvalidPageNumber_ReturnsValidationProblem()
+    {
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?pageNumber=0&pageSize=20",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse problem =
+            await ReadProblemAsync(response);
+
+        Assert.Equal(
+            "Pagination.InvalidPageNumber",
+            problem.Code);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithPageSizeAboveLimit_ReturnsValidationProblem()
+    {
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?pageNumber=1&pageSize=101",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse problem = await ReadProblemAsync(response);
+
+        Assert.Equal(
+            "Pagination.PageSizeExceeded",
+            problem.Code);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithNameFilter_ReturnsMatchingProperties()
+    {
+        string uniqueToken = Guid.NewGuid().ToString("N");
+        string propertyName = $"Rancho {uniqueToken}";
+
+        await CreatePropertyAsync(propertyName);
+
+        string encodedName =
+            Uri.EscapeDataString(
+                uniqueToken.ToUpperInvariant());
+
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?name={encodedName}" +
+                $"&isActive=true" +
+                $"&pageNumber=1" +
+                $"&pageSize=20", CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
+
+        PagedResponse<
+            PropertyListItemResponse> body =
+            Assert.IsType<
+                PagedResponse<
+                    PropertyListItemResponse>>(
+                await response.Content
+                    .ReadFromJsonAsync<
+                        PagedResponse<
+                            PropertyListItemResponse>>(CancellationToken));
+
+        PropertyListItemResponse item =
+            Assert.Single(body.Items);
+
+        Assert.Equal(
+            propertyName,
+            item.Name);
+
+        Assert.True(item.IsActive);
+
+        Assert.Equal(
+            1,
+            body.TotalRecords);
+
+        Assert.Equal(
+            1,
+            body.TotalPages);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithInvalidBooleanFilter_ReturnsBadRequest()
+    {
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndPoint}" +
+                $"?isActive=not-a-boolean",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+    }
+
+    private async Task<CreatedProperty> CreatePropertyAsync(string? name = null)
     {
         var request =
             new CreatePropertyRequest(
-                $"Rancho {Guid.NewGuid():N}",
+                name ?? $"Rancho {Guid.NewGuid():N}",
                 "America/El_Salvador",
                 new TimeOnly(15, 0),
                 new TimeOnly(11, 0));

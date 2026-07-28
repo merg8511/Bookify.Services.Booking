@@ -1,7 +1,9 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
+using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.Messaging;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,6 +39,17 @@ public static class DependencyInjection
         services.AddScoped<
             IRequestValidator<GetPropertyByIdQuery>,
             GetPropertyByIdQueryValidator>();
+
+        services.AddScoped<
+            IRequestValidator<GetPropertiesQuery>,
+            GetPropertiesQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<
+                GetPropertiesQuery,
+                PagedResult<
+                    PropertyListItemReadModel>>,
+            GetPropertiesQueryHandler>();
 
         return services;
     }
