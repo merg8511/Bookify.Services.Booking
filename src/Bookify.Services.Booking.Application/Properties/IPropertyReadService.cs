@@ -12,7 +12,9 @@ public interface IPropertyReadService
     Task<
         PagedResult<
             PropertyListItemReadModel>> GetPagedAsync(
-                int PageNumber,
+                int pageNumber,
                 int pageSize,
+                string? name,
+                bool? isActive,
                 CancellationToken cancellationToken = default);
 }

@@ -6,4 +6,6 @@ namespace Bookify.Services.Booking.Application.Properties.GetPaged;
 
 public sealed record GetPropertiesQuery(
     int PageNumber,
-    int PageSize) : IQuery<PagedResult<PropertyListItemReadModel>>;
+    int PageSize,
+    string? Name,
+    bool? IsActive) : IQuery<PagedResult<PropertyListItemReadModel>>;
