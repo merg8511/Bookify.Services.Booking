@@ -155,7 +155,7 @@ internal sealed class DapperPropertyReadService
                 conditions);
     }
 
-    private static string BuildPagedSql(string whereCaluse)
+    private static string BuildPagedSql(string whereClause)
     {
         return
             $"""
@@ -164,7 +164,7 @@ internal sealed class DapperPropertyReadService
                 p.name AS "Name",
                 p.is_active AS "IsActive"
             FROM properties AS p
-            {whereCaluse}
+            {whereClause}
             ORDER BY
                 p.name ASC,
                 p.id ASC
@@ -174,7 +174,7 @@ internal sealed class DapperPropertyReadService
             SELECT
                 COUNT(*)
             FROM properties AS p
-            {whereCaluse};
+            {whereClause};
             """;
     }
 
