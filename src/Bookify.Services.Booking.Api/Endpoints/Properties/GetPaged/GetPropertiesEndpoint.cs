@@ -1,5 +1,5 @@
 using Bookify.Services.Booking.Api.Contracts.Pagination;
-using Bookify.Services.Booking.Api.Endpoints; 
+using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Common.Pagination;
@@ -19,9 +19,9 @@ internal static class GetPropertiesEndpoint
                 "/",
                 HandleAsync)
             .WithName(
-                EndpointNames.Properties.List) 
+                EndpointNames.Properties.List)
             .WithSummary(
-                "Gets a paged list of properties.") 
+                "Gets a filtered, sorted and paged list of properties.")
             .Produces<
                 PagedResponse<
                     PropertyListItemResponse>>(
@@ -33,30 +33,30 @@ internal static class GetPropertiesEndpoint
     }
 
     private static async Task<
-        Results<
-            Ok<
-                PagedResponse<
-                    PropertyListItemResponse>>,
+        Results<Ok<
+            PagedResponse<PropertyListItemResponse>>,
             ProblemHttpResult>> HandleAsync(
-        int? pageNumber,
-        int? pageSize,
-        string? name,
-        bool? isActive,
-        IQueryExecutor<
-            GetPropertiesQuery,
-            PagedResult<
-                PropertyListItemReadModel>> queryExecutor,
-        HttpContext httpContext,
-        CancellationToken cancellationToken)
+                int? pageNumber,
+                int? pageSize,
+                string? name,
+                bool? isActive,
+                string? sortBy,
+                string? sortDirection,
+                IQueryExecutor<
+                    GetPropertiesQuery,
+                    PagedResult<
+                        PropertyListItemReadModel>> queryExecutor,
+                HttpContext httpContext,
+                CancellationToken cancellationToken)
     {
         var query =
             new GetPropertiesQuery(
-                pageNumber ??
-                PaginationDefaults.DefaultPageNumber,
-                pageSize ??
-                PaginationDefaults.DefaultPageSize,
+                pageNumber ?? PaginationDefaults.DefaultPageNumber,
+                pageSize ?? PaginationDefaults.DefaultPageSize,
                 name,
-                isActive);
+                isActive,
+                sortBy,
+                sortDirection);
 
         var result =
             await queryExecutor.ExecuteAsync(
