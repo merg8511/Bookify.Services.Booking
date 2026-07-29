@@ -11,7 +11,7 @@ public sealed class GetPropertiesQueryValidatorTests
     [Fact]
     public void Validate_WithValidPagination_ReturnsSuccess()
     {
-        var query = new GetPropertiesQuery(1, 20, null, null);
+        var query = new GetPropertiesQuery(1, 20, null, null, null, null);
 
         var result = _validator.Validate(query);
 
@@ -21,7 +21,7 @@ public sealed class GetPropertiesQueryValidatorTests
     [Fact]
     public void Validate_WithInvalidPageNumber_ReturnsFailure()
     {
-        var query = new GetPropertiesQuery(0, 20, null, null);
+        var query = new GetPropertiesQuery(0, 20, null, null, null, null);
         var result = _validator.Validate(query);
 
         Assert.True(result.IsFailure);
@@ -34,7 +34,7 @@ public sealed class GetPropertiesQueryValidatorTests
     [Fact]
     public void Validate_WithInvalidPageSize_ReturnsFailure()
     {
-        var query = new GetPropertiesQuery(1, 0, null, null);
+        var query = new GetPropertiesQuery(1, 0, null, null, null, null);
         var result = _validator.Validate(query);
 
         Assert.True(result.IsFailure);
@@ -47,7 +47,7 @@ public sealed class GetPropertiesQueryValidatorTests
     [Fact]
     public void Validate_WithPageSizeAboveLimit_ReturnsFailure()
     {
-        var query = new GetPropertiesQuery(1, PaginationDefaults.MaximumPageSize + 1, null, null);
+        var query = new GetPropertiesQuery(1, PaginationDefaults.MaximumPageSize + 1, null, null, null, null);
         var result = _validator.Validate(query);
 
         Assert.True(
@@ -56,5 +56,93 @@ public sealed class GetPropertiesQueryValidatorTests
         Assert.Equal(
             "Pagination.PageSizeExceeded",
             result.Error.Code);
+    }
+
+    [Fact]
+    public void Validate_WithSupportedSorting_ReturnsSuccess()
+    {
+        var query =
+            new GetPropertiesQuery(
+                1,
+                20,
+                null,
+                null,
+                "isActive",
+                "desc");
+
+        var result =
+            _validator.Validate(
+                query);
+
+        Assert.True(
+            result.IsSuccess);
+    }
+
+    [Fact]
+    public void Validate_WithInvalidSortBy_ReturnsFailure()
+    {
+        var query =
+            new GetPropertiesQuery(
+                1,
+                20,
+                null,
+                null,
+                "createdOn",
+                "asc");
+
+        var result =
+            _validator.Validate(
+                query);
+
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            "Properties.InvalidSortBy",
+            result.Error.Code);
+    }
+
+    [Fact]
+    public void Validate_WithInvalidSortDirection_ReturnsFailure()
+    {
+        var query =
+            new GetPropertiesQuery(
+                1,
+                20,
+                null,
+                null,
+                "name",
+                "sideways");
+
+        var result =
+            _validator.Validate(
+                query);
+
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            "Sorting.InvalidDirection",
+            result.Error.Code);
+    }
+
+    [Fact]
+    public void Validate_WithWhitespaceSorting_ReturnsSuccess()
+    {
+        var query =
+            new GetPropertiesQuery(
+                1,
+                20,
+                null,
+                null,
+                "   ",
+                "   ");
+
+        var result =
+            _validator.Validate(
+                query);
+
+        Assert.True(
+            result.IsSuccess);
     }
 }

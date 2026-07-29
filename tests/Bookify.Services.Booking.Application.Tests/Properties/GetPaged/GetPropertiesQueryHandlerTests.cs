@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.Common.Sorting;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
@@ -19,7 +20,9 @@ public sealed class GetPropertiesQueryHandlerTests
                 1,
                 20,
                 " rancho ",
-                true);
+                true,
+                null,
+                null);
 
         var result = await handler.HandleAsync(query);
 
@@ -38,7 +41,13 @@ public sealed class GetPropertiesQueryHandlerTests
         var readService = new PropertyReadServiceSpy();
         var handler = new GetPropertiesQueryHandler(readService);
 
-        var query = new GetPropertiesQuery(1, 20, "  ", null);
+        var query = new GetPropertiesQuery(
+            1,
+            20,
+            "  ",
+            null,
+            null,
+            null);
 
         var result = await handler.HandleAsync(query);
 
@@ -47,10 +56,83 @@ public sealed class GetPropertiesQueryHandlerTests
         Assert.Null(readService.ReceivedIsActive);
     }
 
+    [Fact]
+    public async Task HandleAsync_WithMissingSorting_UsesDefaults()
+    {
+        var readService =
+            new PropertyReadServiceSpy();
+
+        var handler =
+            new GetPropertiesQueryHandler(
+                readService);
+
+        var query =
+            new GetPropertiesQuery(
+                1,
+                20,
+                null,
+                null,
+                null,
+                null);
+
+        var result =
+            await handler.HandleAsync(
+                query);
+
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            PropertySortField.Name,
+            readService.ReceivedSortField);
+
+        Assert.Equal(
+            SortDirection.Ascending,
+            readService.ReceivedSortDirection);
+    }
+
+    [Fact]
+    public async Task HandleAsync_NormalizesSortingValues()
+    {
+        var readService =
+            new PropertyReadServiceSpy();
+
+        var handler =
+            new GetPropertiesQueryHandler(
+                readService);
+
+        var query =
+            new GetPropertiesQuery(
+                1,
+                20,
+                null,
+                null,
+                "  ISACTIVE  ",
+                "  DESC  ");
+
+        var result =
+            await handler.HandleAsync(
+                query);
+
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            PropertySortField.IsActive,
+            readService.ReceivedSortField);
+
+        Assert.Equal(
+            SortDirection.Descending,
+            readService.ReceivedSortDirection);
+    }
+
     private sealed class PropertyReadServiceSpy : IPropertyReadService
     {
         public string? ReceivedName { get; private set; }
         public bool? ReceivedIsActive { get; private set; }
+        public PropertySortField ReceivedSortField { get; private set; }
+
+        public SortDirection ReceivedSortDirection { get; private set; }
 
         public Task<PropertyDetailsReadModel?> GetByIdAsync(
             Guid propertyId,
@@ -67,10 +149,14 @@ public sealed class GetPropertiesQueryHandlerTests
             int pageSize,
             string? name,
             bool? isActive,
+            PropertySortField sortField,
+            SortDirection sortDirection,
             CancellationToken cancellationToken = default)
         {
             ReceivedName = name;
             ReceivedIsActive = isActive;
+            ReceivedSortField = sortField;
+            ReceivedSortDirection = sortDirection;
 
             var result =
                 new PagedResult<
