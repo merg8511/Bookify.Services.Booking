@@ -15,7 +15,7 @@ namespace Bookify.Services.Booking.IntegrationTests.Endpoints.Properties;
 [Trait("Category", "Integration")]
 public sealed class PropertyEndpointsTests
 {
-    private const string PropertiesEndPoint = "/api/v1/properties";
+    private const string PropertiesEndpoint = "/api/v1/properties";
     private readonly HttpClient _client;
     private static CancellationToken CancellationToken => TestContext.Current.CancellationToken;
     public PropertyEndpointsTests(BookingApiFactory factory)
@@ -98,7 +98,7 @@ public sealed class PropertyEndpointsTests
 
         using HttpResponseMessage response =
             await _client.PostAsJsonAsync(
-            PropertiesEndPoint,
+            PropertiesEndpoint,
             request,
             CancellationToken);
 
@@ -122,7 +122,7 @@ public sealed class PropertyEndpointsTests
             problem.Status);
 
         Assert.Equal(
-            PropertiesEndPoint,
+            PropertiesEndpoint,
             problem.Instance);
 
         Assert.Equal(
@@ -139,7 +139,7 @@ public sealed class PropertyEndpointsTests
     {
         Guid missingPropertyId = Guid.NewGuid();
 
-        string endpoint = $"{PropertiesEndPoint}/" +
+        string endpoint = $"{PropertiesEndpoint}/" +
             $"{missingPropertyId}";
 
         using HttpResponseMessage response =
@@ -179,7 +179,7 @@ public sealed class PropertyEndpointsTests
     [Fact]
     public async Task GetPropertyById_WithEmptyId_ReturnsValidationProblem()
     {
-        string endpoint = $"{PropertiesEndPoint}/" +
+        string endpoint = $"{PropertiesEndpoint}/" +
             $"{Guid.Empty}";
 
         using HttpResponseMessage response =
@@ -222,7 +222,7 @@ public sealed class PropertyEndpointsTests
 
         using HttpResponseMessage response =
             await _client.PostAsync(
-                PropertiesEndPoint,
+                PropertiesEndpoint,
                 content,
                 CancellationToken);
 
@@ -254,7 +254,7 @@ public sealed class PropertyEndpointsTests
 
         using HttpResponseMessage response =
             await _client.GetAsync(
-                $"{PropertiesEndPoint}" +
+                $"{PropertiesEndpoint}" +
                 $"?pageNumber=1&pageSize=2",
                 CancellationToken);
 
@@ -296,7 +296,7 @@ public sealed class PropertyEndpointsTests
     {
         using HttpResponseMessage response =
             await _client.GetAsync(
-                $"{PropertiesEndPoint}" +
+                $"{PropertiesEndpoint}" +
                 $"?pageNumber=0&pageSize=20",
                 CancellationToken);
 
@@ -317,7 +317,7 @@ public sealed class PropertyEndpointsTests
     {
         using HttpResponseMessage response =
             await _client.GetAsync(
-                $"{PropertiesEndPoint}" +
+                $"{PropertiesEndpoint}" +
                 $"?pageNumber=1&pageSize=101",
                 CancellationToken);
 
@@ -346,7 +346,7 @@ public sealed class PropertyEndpointsTests
 
         using HttpResponseMessage response =
             await _client.GetAsync(
-                $"{PropertiesEndPoint}" +
+                $"{PropertiesEndpoint}" +
                 $"?name={encodedName}" +
                 $"&isActive=true" +
                 $"&pageNumber=1" +
@@ -389,13 +389,169 @@ public sealed class PropertyEndpointsTests
     {
         using HttpResponseMessage response =
             await _client.GetAsync(
-                $"{PropertiesEndPoint}" +
+                $"{PropertiesEndpoint}" +
                 $"?isActive=not-a-boolean",
                 CancellationToken);
 
         Assert.Equal(
             HttpStatusCode.BadRequest,
             response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithDescendingNameSort_ReturnsOrderedItems()
+    {
+        string token =
+            Guid.NewGuid()
+                .ToString(
+                    "N");
+
+        await CreatePropertyAsync(
+            $"{token} Alpha");
+
+        await CreatePropertyAsync(
+            $"{token} Charlie");
+
+        await CreatePropertyAsync(
+            $"{token} Bravo");
+
+        string encodedToken =
+            Uri.EscapeDataString(
+                token);
+
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndpoint}" +
+                $"?name={encodedToken}" +
+                "&sortBy=name" +
+                "&sortDirection=desc" +
+                "&pageNumber=1" +
+                "&pageSize=10",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
+
+        PagedResponse<
+            PropertyListItemResponse> body =
+            Assert.IsType<
+                PagedResponse<
+                    PropertyListItemResponse>>(
+                await response.Content
+                    .ReadFromJsonAsync<
+                        PagedResponse<
+                            PropertyListItemResponse>>(CancellationToken));
+
+        Assert.Collection(
+            body.Items,
+            first =>
+                Assert.Equal(
+                    $"{token} Charlie",
+                    first.Name),
+            second =>
+                Assert.Equal(
+                    $"{token} Bravo",
+                    second.Name),
+            third =>
+                Assert.Equal(
+                    $"{token} Alpha",
+                    third.Name));
+    }
+
+    [Fact]
+    public async Task GetProperties_WithInvalidSortBy_ReturnsValidationProblem()
+    {
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndpoint}" +
+                "?sortBy=createdOn" +
+                "&sortDirection=asc",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse problem =
+            await ReadProblemAsync(
+                response);
+
+        Assert.Equal(
+            "Properties.InvalidSortBy",
+            problem.Code);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithInvalidSortDirection_ReturnsValidationProblem()
+    {
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndpoint}" +
+                "?sortBy=name" +
+                "&sortDirection=sideways",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse problem =
+            await ReadProblemAsync(
+                response);
+
+        Assert.Equal(
+            "Sorting.InvalidDirection",
+            problem.Code);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithoutSorting_UsesNameAscending()
+    {
+        string token =
+            Guid.NewGuid()
+                .ToString(
+                    "N");
+
+        await CreatePropertyAsync(
+            $"{token} Charlie");
+
+        await CreatePropertyAsync(
+            $"{token} Alpha");
+
+        string encodedToken =
+            Uri.EscapeDataString(
+                token);
+
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                $"{PropertiesEndpoint}" +
+                $"?name={encodedToken}" +
+                "&pageNumber=1" +
+                "&pageSize=10",
+                CancellationToken);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
+
+        PagedResponse<
+            PropertyListItemResponse> body =
+            Assert.IsType<
+                PagedResponse<
+                    PropertyListItemResponse>>(
+                await response.Content
+                    .ReadFromJsonAsync<
+                        PagedResponse<
+                            PropertyListItemResponse>>(CancellationToken));
+
+        Assert.Equal(
+            $"{token} Alpha",
+            body.Items[0].Name);
+
+        Assert.Equal(
+            $"{token} Charlie",
+            body.Items[1].Name);
     }
 
     private async Task<CreatedProperty> CreatePropertyAsync(string? name = null)
@@ -409,7 +565,7 @@ public sealed class PropertyEndpointsTests
 
         using HttpResponseMessage response =
             await _client.PostAsJsonAsync(
-                PropertiesEndPoint,
+                PropertiesEndpoint,
                 request);
 
         Assert.Equal(

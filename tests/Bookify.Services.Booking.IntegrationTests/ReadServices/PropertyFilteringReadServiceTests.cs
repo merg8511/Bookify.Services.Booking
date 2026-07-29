@@ -1,6 +1,8 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.Common.Sorting;
 using Bookify.Services.Booking.Application.Properties;
+using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
@@ -53,6 +55,8 @@ public sealed class PropertyFilteringReadServiceTests
                     pageSize: 10,
                     name: "RANCHO",
                     isActive: null,
+                    sortField: PropertySortField.Name,
+                    sortDirection: SortDirection.Ascending,
                     cancellationToken);
 
         Assert.Equal(
@@ -78,6 +82,8 @@ public sealed class PropertyFilteringReadServiceTests
                     pageSize: 10,
                     name: null,
                     isActive: false,
+                    sortField: PropertySortField.Name,
+                    sortDirection: SortDirection.Ascending,
                     cancellationToken);
 
         PropertyListItemReadModel
@@ -100,6 +106,8 @@ public sealed class PropertyFilteringReadServiceTests
                 pageSize: 1,
                 name: "rancho",
                 isActive: true,
+                sortField: PropertySortField.Name,
+                sortDirection: SortDirection.Ascending,
                 cancellationToken);
 
         Assert.Single(combinedPage.Items);
@@ -119,6 +127,8 @@ public sealed class PropertyFilteringReadServiceTests
                     pageSize: 10,
                     name: "%",
                     isActive: null,
+                    sortField: PropertySortField.Name,
+                    sortDirection: SortDirection.Ascending,
                     cancellationToken);
 
         PropertyListItemReadModel
