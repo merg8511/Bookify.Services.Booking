@@ -1,6 +1,8 @@
 using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.Common.Sorting;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.Properties.GetById;
+using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Domain.Shared;
 
@@ -152,7 +154,15 @@ public sealed class GetPropertyByIdQueryHandlerTests
             return Task.FromResult(_response);
         }
 
-        public Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(int pageNumber, int pageSize, string? name, bool? isActive, CancellationToken cancellationToken = default)
+        public Task<PagedResult<PropertyListItemReadModel>>
+            GetPagedAsync(
+            int pageNumber,
+            int pageSize,
+            string? name,
+            bool? isActive,
+            PropertySortField sortBy,
+            SortDirection sortDirection,
+            CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
