@@ -16,7 +16,7 @@ internal sealed class DapperAvailabilityReadService :
             b.id AS "BookingId",
             b.property_id AS "PropertyId",
             b.rentable_unit_id AS "RentableUnitId",
-            ru.type AS "RentableUnitType,
+            ru.type AS "RentableUnitType",
             (ru.type = 'EntireProperty') AS "IsEntireProperty",
             b.check_in_date AS "CheckInDate",
             b.check_out_date AS "CheckOutDate",
