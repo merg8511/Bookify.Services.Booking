@@ -150,7 +150,7 @@ public sealed class RentableUnitTests
         // ASSERT
         Assert.True(result.IsFailure);
         Assert.Equal(
-            RentableUnitErrors.InvalidMaxBaseGuest,
+            RentableUnitErrors.InvalidMaxBaseGuests,
             result.Error);
     }
 
