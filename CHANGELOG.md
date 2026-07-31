@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.3.0...v0.4.0) (2026-07-31)
+
+
+### Features
+
+* **api:** add pagination and filtering to the properties endpoint ([af8b2f0](https://github.com/merg8511/Bookify.Services.Booking/commit/af8b2f0540a701c32fbc82c3a31eba40e0b428dc))
+* **api:** add safe dynamic sorting to property queries ([#13](https://github.com/merg8511/Bookify.Services.Booking/issues/13)) ([6274280](https://github.com/merg8511/Bookify.Services.Booking/commit/62742803785d02c2f3cbd527f3ca6603c8fbcbcb))
+
+
+### Bug Fixes
+
+* **application:** guard pagination invariants and correct validation messages ([af8b2f0](https://github.com/merg8511/Bookify.Services.Booking/commit/af8b2f0540a701c32fbc82c3a31eba40e0b428dc))
+* **infrastructure:** escape SQL wildcard characters in property name filters ([af8b2f0](https://github.com/merg8511/Bookify.Services.Booking/commit/af8b2f0540a701c32fbc82c3a31eba40e0b428dc))
+
 ## [0.3.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.2.0...v0.3.0) (2026-07-28)
 
 
