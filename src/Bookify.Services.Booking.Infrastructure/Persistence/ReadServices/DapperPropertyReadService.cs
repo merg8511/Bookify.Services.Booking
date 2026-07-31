@@ -1,6 +1,8 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.Common.Sorting;
 using Bookify.Services.Booking.Application.Properties;
+using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Dapper;
 using System.Data.Common;
@@ -66,6 +68,8 @@ internal sealed class DapperPropertyReadService
         int pageSize,
         string? name,
         bool? isActive,
+        PropertySortField sortField,
+        SortDirection sortDirection,
         CancellationToken cancellationToken = default)
     {
         long offset = ((long)pageNumber - 1) *
@@ -87,8 +91,13 @@ internal sealed class DapperPropertyReadService
                 isActive,
                 parameters);
 
+        string orderByClause =
+            BuildOrderByClause(
+                sortField,
+                sortDirection);
+
         string sql =
-            BuildPagedSql(whereClause);
+            BuildPagedSql(whereClause, orderByClause);
 
         await using DbConnection connection =
             await _connectionFactory
@@ -155,7 +164,42 @@ internal sealed class DapperPropertyReadService
                 conditions);
     }
 
-    private static string BuildPagedSql(string whereClause)
+    private static string BuildOrderByClause(
+        PropertySortField sortField,
+        SortDirection sortDirection)
+    {
+        return (sortField, sortDirection) switch
+        {
+            (PropertySortField.Name,
+            SortDirection.Ascending) =>
+                "p.name ASC, p.id ASC",
+
+            (PropertySortField.Name,
+            SortDirection.Descending) =>
+                "p.name DESC, p.id ASC",
+
+            (PropertySortField.IsActive,
+            SortDirection.Ascending) =>
+                "p.is_active ASC, " +
+                "p.name ASC, " +
+                "p.id ASC",
+
+            (PropertySortField.IsActive,
+            SortDirection.Descending) =>
+                "p.is_active DESC, " +
+                "p.name ASC, " +
+                "p.id ASC",
+
+            _ =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(sortField),
+                    sortField,
+                    "The property sort combination " +
+                    "is not supported.")
+        };
+    }
+
+    private static string BuildPagedSql(string whereClause, string orderByClause)
     {
         return
             $"""
@@ -166,8 +210,7 @@ internal sealed class DapperPropertyReadService
             FROM properties AS p
             {whereClause}
             ORDER BY
-                p.name ASC,
-                p.id ASC
+                {orderByClause}
             LIMIT @PageSize
             OFFSET @Offset;
 

@@ -13,19 +13,23 @@ using System.Data.Common;
 
 namespace Bookify.Services.Booking.IntegrationTests.ReadServices;
 
-[Trait("Category",
+[Trait(
+    "Category",
     "Integration")]
-public sealed class PropertyPaginationReadServiceTests
+public sealed class PropertySortingReadServiceTests
 {
     [Fact]
-    public async Task GetPagedAsync_ReturnsRequestedPageAndTotals()
+    public async Task GetPagedAsync_AppliesWhitelistedSorting()
     {
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current
+                .CancellationToken;
 
         await using var database =
             new PostgreSqlTestDatabase();
 
-        await database.StartAsync(cancellationToken);
+        await database.StartAsync(
+            cancellationToken);
 
         await using ServiceProvider serviceProvider =
             IntegrationTestServiceProvider.Create(
@@ -39,11 +43,13 @@ public sealed class PropertyPaginationReadServiceTests
                 .GetRequiredService<
                     BookingDbContext>();
 
-        await dbContext.Database.MigrateAsync(cancellationToken);
+        await dbContext.Database.MigrateAsync(
+            cancellationToken);
 
         IDbConnectionFactory connectionFactory =
             scope.ServiceProvider
-                .GetRequiredService<IDbConnectionFactory>();
+                .GetRequiredService<
+                    IDbConnectionFactory>();
 
         await SeedPropertiesAsync(
             connectionFactory,
@@ -51,61 +57,90 @@ public sealed class PropertyPaginationReadServiceTests
 
         IPropertyReadService readService =
             scope.ServiceProvider
-            .GetRequiredService<IPropertyReadService>();
+                .GetRequiredService<
+                    IPropertyReadService>();
 
         PagedResult<
-            PropertyListItemReadModel> page =
+            PropertyListItemReadModel> namePage =
             await readService.GetPagedAsync(
-                pageNumber: 2,
-                pageSize: 2,
+                pageNumber: 1,
+                pageSize: 10,
                 name: null,
                 isActive: null,
-                sortField: PropertySortField.Name,
-                sortDirection: SortDirection.Ascending,
+                sortField:
+                    PropertySortField.Name,
+                sortDirection:
+                    SortDirection.Descending,
+                cancellationToken);
+
+        Assert.Collection(
+            namePage.Items,
+            first =>
+                Assert.Equal(
+                    "Property Charlie",
+                    first.Name),
+            second =>
+                Assert.Equal(
+                    "Property Bravo",
+                    second.Name),
+            third =>
+                Assert.Equal(
+                    "Property Alpha",
+                    third.Name));
+
+        PagedResult<
+            PropertyListItemReadModel> statusPage =
+            await readService.GetPagedAsync(
+                pageNumber: 1,
+                pageSize: 10,
+                name: null,
+                isActive: null,
+                sortField:
+                    PropertySortField.IsActive,
+                sortDirection:
+                    SortDirection.Descending,
                 cancellationToken);
 
         Assert.Equal(
-            2,
-            page.PageNumber);
-
-        Assert.Equal(
-            2,
-            page.PageSize);
-
-        Assert.Equal(
-            5,
-            page.TotalRecords);
-
-        Assert.Equal(
             3,
-            page.TotalPages);
+            statusPage.Items.Count);
 
-        Assert.Collection(
-            page.Items,
-            first =>
-            {
-                Assert.Equal(
-                    "Property 03",
-                    first.Name);
-            },
-            second =>
-            {
-                Assert.Equal(
-                    "Property 04",
-                    second.Name);
-            });
+        Assert.True(
+            statusPage.Items[0].IsActive);
+
+        Assert.True(
+            statusPage.Items[1].IsActive);
+
+        Assert.False(
+            statusPage.Items[2].IsActive);
     }
 
     private static async Task SeedPropertiesAsync(
-       IDbConnectionFactory connectionFactory,
-       CancellationToken cancellationToken)
+        IDbConnectionFactory connectionFactory,
+        CancellationToken cancellationToken)
     {
+        PropertySeed[] properties =
+        [
+            new(
+                "Property Bravo",
+                true),
+
+            new(
+                "Property Alpha",
+                false),
+
+            new(
+                "Property Charlie",
+                true)
+        ];
+
         await using DbConnection connection =
             await connectionFactory
                 .OpenConnectionAsync(
                     cancellationToken);
 
-        for (int index = 1; index <= 5; index++)
+        foreach (PropertySeed property
+                 in properties)
         {
             var command =
                 new CommandDefinition(
@@ -126,7 +161,7 @@ public sealed class PropertyPaginationReadServiceTests
                         @TimeZoneId,
                         @CheckInTime,
                         @CheckOutTime,
-                        TRUE
+                        @IsActive
                     );
                     """,
                     new
@@ -134,8 +169,7 @@ public sealed class PropertyPaginationReadServiceTests
                         Id =
                             Guid.NewGuid(),
 
-                        Name =
-                            $"Property {index:00}",
+                        property.Name,
 
                         TimeZoneId =
                             "America/El_Salvador",
@@ -148,7 +182,9 @@ public sealed class PropertyPaginationReadServiceTests
                         CheckOutTime =
                             new TimeOnly(
                                 11,
-                                0)
+                                0),
+
+                        property.IsActive
                     },
                     cancellationToken:
                         cancellationToken);
@@ -157,4 +193,8 @@ public sealed class PropertyPaginationReadServiceTests
                 command);
         }
     }
+
+    private sealed record PropertySeed(
+        string Name,
+        bool IsActive);
 }

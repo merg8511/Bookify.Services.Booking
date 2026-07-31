@@ -29,7 +29,7 @@ public sealed class RentableUnitTests
         Assert.Equal(4, result.Value.MaximumCapacity);
         Assert.Equal(2, result.Value.MaxBaseGuests);
         Assert.True(result.Value.IsActive);
-        Assert.False(result.Value.isEntireProperty);
+        Assert.False(result.Value.IsEntireProperty);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class RentableUnitTests
 
         // ASSERT
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value.isEntireProperty);
+        Assert.True(result.Value.IsEntireProperty);
         Assert.Equal(
             RentableUnitType.EntireProperty,
             result.Value.Type);

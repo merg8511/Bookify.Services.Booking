@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.Common.Sorting;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Domain.Shared;
 
@@ -29,6 +30,10 @@ public sealed class GetPropertiesQueryHandler :
     {
         string? normalizedName = NormalizeName(query.Name);
 
+        PropertySortField sortField = PropertySorting.ParseSortField(query.SortBy);
+
+        SortDirection sortDirection = PropertySorting.ParseSortDirection(query.SortDirection);
+
         PagedResult<
             PropertyListItemReadModel> page =
             await _propertyReadService.GetPagedAsync(
@@ -36,6 +41,8 @@ public sealed class GetPropertiesQueryHandler :
                 query.PageSize,
                 normalizedName,
                 query.IsActive,
+                sortField,
+                sortDirection,
                 cancellationToken);
 
         return Result<PagedResult<PropertyListItemReadModel>>.Success(page);

@@ -28,6 +28,18 @@ public sealed class GetPropertiesQueryValidator
                 PaginationErrors.PageSizeExceeded);
         }
 
+        if (!PropertySorting.TryParseSortField(request.SortBy, out _))
+        {
+            return Result.Failure(GetPropertiesQueryErrors.InvalidSortBy);
+        }
+
+        if (!PropertySorting.TryParseSortDirection(
+            request.SortDirection, out _))
+        {
+            return Result.Failure(
+                GetPropertiesQueryErrors.InvalidSortDirection);
+        }
+
         return Result.Success();
     }
 }

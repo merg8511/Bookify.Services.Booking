@@ -49,9 +49,9 @@ if (app.Environment.IsDevelopment())
         "/diagnostics/database",
         async (
             BookingDbContext dbContext,
-            CancellationToken cancelationToken) =>
+            CancellationToken cancellationToken) =>
         {
-            bool canConnect = await dbContext.Database.CanConnectAsync(cancelationToken);
+            bool canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
 
             if (!canConnect)
             {

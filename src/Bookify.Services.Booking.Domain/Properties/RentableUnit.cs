@@ -36,7 +36,7 @@ public sealed class RentableUnit
     public int MaxBaseGuests { get; private set; }
     public bool IsActive { get; private set; }
 
-    public bool isEntireProperty =>
+    public bool IsEntireProperty =>
         Type == RentableUnitType.EntireProperty;
 
     public static Result<RentableUnit> Create(
@@ -152,10 +152,10 @@ public sealed class RentableUnit
             return true;
         }
 
-        return isEntireProperty || other.isEntireProperty;
+        return IsEntireProperty || other.IsEntireProperty;
     }
 
-    public static Result ValidateCapacity(
+    private static Result ValidateCapacity(
         int maximumCapacity,
         int maxBaseGuests)
     {
@@ -168,7 +168,7 @@ public sealed class RentableUnit
         if (maxBaseGuests <= 0)
         {
             return Result.Failure(
-                RentableUnitErrors.InvalidMaxBaseGuest);
+                RentableUnitErrors.InvalidMaxBaseGuests);
         }
 
         if (maxBaseGuests > maximumCapacity)

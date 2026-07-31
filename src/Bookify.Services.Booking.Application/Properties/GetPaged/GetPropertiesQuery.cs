@@ -8,4 +8,9 @@ public sealed record GetPropertiesQuery(
     int PageNumber,
     int PageSize,
     string? Name,
-    bool? IsActive) : IQuery<PagedResult<PropertyListItemReadModel>>;
+    bool? IsActive,
+    string? SortBy,
+    string? SortDirection)
+    : IQuery<
+        PagedResult<
+            PropertyListItemReadModel>>;

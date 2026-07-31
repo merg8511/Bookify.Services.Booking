@@ -20,7 +20,7 @@ public static class RentableUnitErrors
         "RentableUnit.InvalidMaximumCapacity",
         "The maximum capacity must be greater than zero.");
 
-    public static readonly Error InvalidMaxBaseGuest = Error.Validation(
+    public static readonly Error InvalidMaxBaseGuests = Error.Validation(
         "RentableUnit.InvalidMaxBaseGuest",
         "The number of guest included in the base rate must be greater than zero.");
 
