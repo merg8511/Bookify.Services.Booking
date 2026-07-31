@@ -72,7 +72,7 @@ internal sealed class RentableUnitConfiguration
                 .IsRequired();
 
         builder.Ignore(
-            rentableUnit => rentableUnit.isEntireProperty);
+            rentableUnit => rentableUnit.IsEntireProperty);
 
         builder.HasOne<Property>()
             .WithMany()

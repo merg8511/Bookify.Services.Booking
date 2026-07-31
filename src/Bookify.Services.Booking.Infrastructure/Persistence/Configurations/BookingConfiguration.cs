@@ -21,7 +21,7 @@ internal sealed class BookingConfiguration
                     "guest_count > 0");
 
                 tableBuilder.HasCheckConstraint(
-                    "ck_bookgins_stay_period",
+                    "ck_bookings_stay_period",
                     "check_out_date > check_in_date");
 
                 tableBuilder.HasCheckConstraint(

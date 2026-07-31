@@ -24,7 +24,7 @@ public sealed record Money
         }
 
         string normalizedCurrency =
-            currency
+            currency?
             .Trim()
             .ToUpperInvariant()
             ?? string.Empty;
