@@ -5,9 +5,10 @@ namespace Bookify.Services.Booking.Application.Availability;
 public interface IAvailabilityReadService
 {
     Task<IReadOnlyList<
-        OverlappingBookingReadModel>>
-        GetOverlappingBookingsAsync(
+            OverlappingBookingReadModel>>
+        GetInventoryConflictCandidatesAsync(
             Guid propertyId,
+            Guid requestedRentableUnitId,
             DateOnly requestedCheckInDate,
             DateOnly requestedCheckOutDate,
             CancellationToken cancellationToken = default);

@@ -51,8 +51,9 @@ public sealed class DapperAvailabilityReadServiceTests
         IReadOnlyList<
             OverlappingBookingReadModel> result =
             await readService
-                .GetOverlappingBookingsAsync(
+                .GetInventoryConflictCandidatesAsync(
                     data.PropertyId,
+                    data.RentableUnitId,
                     requestedCheckInDate,
                     requestedCheckOutDate,
                     cancellationToken);
@@ -249,6 +250,7 @@ public sealed class DapperAvailabilityReadServiceTests
 
         return new OverlapTestData(
             propertyId,
+            rentableUnitId,
             new HashSet<Guid>
             {
                 identicalBookingId,
@@ -435,6 +437,7 @@ public sealed class DapperAvailabilityReadServiceTests
 
     private sealed record OverlapTestData(
         Guid PropertyId,
+        Guid RentableUnitId,
         IReadOnlySet<Guid> ExpectedBookingIds,
         Guid CancelledBookingId,
         Guid EndsAtRequestedCheckInBookingId,
