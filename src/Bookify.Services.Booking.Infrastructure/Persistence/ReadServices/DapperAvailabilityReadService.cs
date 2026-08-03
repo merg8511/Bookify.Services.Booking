@@ -9,7 +9,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
 internal sealed class DapperAvailabilityReadService :
     IAvailabilityReadService
 {
-    private const string GetInventoryConflictCandidatesSql =
+    private const string GetInventoryConflictsSql =
         """
         WITH requested_unit AS
         (
@@ -38,7 +38,14 @@ internal sealed class DapperAvailabilityReadService :
         INNER JOIN rentable_units AS existing_unit
             ON existing_unit.id = b.rentable_unit_id
             AND existing_unit.property_id = b.property_id
-        WHERE b.check_in_date < @RequestedCheckOutDate
+        WHERE b.status IN
+            (
+                'PendingApproval',
+                'PendingPayment',
+                'Paid',
+                'Completed'
+            )
+            AND b.check_in_date < @RequestedCheckOutDate
             AND b.check_out_date > @RequestedCheckInDate
             AND
             (
@@ -64,7 +71,7 @@ internal sealed class DapperAvailabilityReadService :
     public async Task<
         IReadOnlyList<
             OverlappingBookingReadModel>>
-        GetInventoryConflictCandidatesAsync(
+        GetInventoryConflictsAsync(
             Guid propertyId,
             Guid requestedRentableUnitId,
             DateOnly requestedCheckInDate,
@@ -75,7 +82,7 @@ internal sealed class DapperAvailabilityReadService :
 
         var command =
             new CommandDefinition(
-                GetInventoryConflictCandidatesSql,
+                GetInventoryConflictsSql,
                 new
                 {
                     PropertyId = propertyId,
