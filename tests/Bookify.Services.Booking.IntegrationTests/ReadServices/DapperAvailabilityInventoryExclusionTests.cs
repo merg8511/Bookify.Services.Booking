@@ -41,7 +41,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
         IReadOnlyList<OverlappingBookingReadModel>
             roomAResult =
                 await readService
-                    .GetInventoryConflictCandidatesAsync(
+                    .GetInventoryConflictsAsync(
                         data.PropertyId,
                         data.RoomAId,
                         requestedCheckInDate,
@@ -51,7 +51,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
         IReadOnlyList<OverlappingBookingReadModel>
             roomBResult =
                 await readService
-                    .GetInventoryConflictCandidatesAsync(
+                    .GetInventoryConflictsAsync(
                         data.PropertyId,
                         data.RoomBId,
                         requestedCheckInDate,
@@ -61,7 +61,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
         IReadOnlyList<OverlappingBookingReadModel>
             entirePropertyResult =
                 await readService
-                    .GetInventoryConflictCandidatesAsync(
+                    .GetInventoryConflictsAsync(
                         data.PropertyId,
                         data.EntirePropertyId,
                         requestedCheckInDate,
@@ -97,21 +97,23 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 booking.BookingId ==
                 data.OtherPropertyBookingId);
 
-        OverlappingBookingReadModel
-            cancelledEntirePropertyBooking =
-                Assert.Single(
-                    roomAResult,
-                    booking =>
-                        booking.BookingId ==
-                        data.EntirePropertyBookingId);
+        Assert.DoesNotContain(
+            roomAResult,
+            booking =>
+                booking.BookingId ==
+                data.CancelledEntirePropertyBookingId);
 
-        Assert.Equal(
-            "Cancelled",
-            cancelledEntirePropertyBooking.Status);
+        Assert.DoesNotContain(
+            roomBResult,
+            booking =>
+                booking.BookingId ==
+                data.CancelledEntirePropertyBookingId);
 
-        Assert.True(
-            cancelledEntirePropertyBooking
-                .IsEntireProperty);
+        Assert.DoesNotContain(
+            entirePropertyResult,
+            booking =>
+                booking.BookingId ==
+                data.CancelledEntirePropertyBookingId);
     }
 
     private async Task<TestData> SeedAsync(CancellationToken cancellationToken)
@@ -125,6 +127,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
         Guid roomABookingId = Guid.NewGuid();
         Guid roomBBookingId = Guid.NewGuid();
         Guid entirePropertyBookingId = Guid.NewGuid();
+        Guid cancelledEntirePropertyBookingId = Guid.NewGuid();
         Guid adjacentBookingId = Guid.NewGuid();
         Guid otherPropertyBookingId = Guid.NewGuid();
 
@@ -252,6 +255,16 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                     @EntireCheckInDate,
                     @EntireCheckOutDate,
                     2,
+                    'PendingPayment',
+                    NULL
+                ),
+                (
+                    @CancelledEntirePropertyBookingId,
+                    @PropertyId,
+                    @EntirePropertyId,
+                    @EntireCheckInDate,
+                    @EntireCheckOutDate,
+                    2,
                     'Cancelled',
                     'PaymentExpired'
                 ),
@@ -278,59 +291,26 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 """,
                 new
                 {
-                    PropertyId =
-                        propertyId,
+                    PropertyId = propertyId,
+                    OtherPropertyId = otherPropertyId,
+                    RoomAId = roomAId,
+                    RoomBId = roomBId,
+                    EntirePropertyId = entirePropertyId,
+                    OtherPropertyRoomId = otherPropertyRoomId,
+                    RoomABookingId = roomABookingId,
+                    RoomBBookingId = roomBBookingId,
+                    EntirePropertyBookingId = entirePropertyBookingId,
+                    CancelledEntirePropertyBookingId = cancelledEntirePropertyBookingId,
+                    AdjacentBookingId = adjacentBookingId,
+                    OtherPropertyBookingId = otherPropertyBookingId,
 
-                    OtherPropertyId =
-                        otherPropertyId,
-
-                    RoomAId =
-                        roomAId,
-
-                    RoomBId =
-                        roomBId,
-
-                    EntirePropertyId =
-                        entirePropertyId,
-
-                    OtherPropertyRoomId =
-                        otherPropertyRoomId,
-
-                    RoomABookingId =
-                        roomABookingId,
-
-                    RoomBBookingId =
-                        roomBBookingId,
-
-                    EntirePropertyBookingId =
-                        entirePropertyBookingId,
-
-                    AdjacentBookingId =
-                        adjacentBookingId,
-
-                    OtherPropertyBookingId =
-                        otherPropertyBookingId,
-
-                    RequestedCheckInDate =
-                        Date(10),
-
-                    RequestedCheckOutDate =
-                        Date(15),
-
-                    ContainedCheckInDate =
-                        Date(11),
-
-                    ContainedCheckOutDate =
-                        Date(14),
-
-                    EntireCheckInDate =
-                        Date(12),
-
-                    EntireCheckOutDate =
-                        Date(13),
-
-                    AdjacentCheckInDate =
-                        Date(5)
+                    RequestedCheckInDate = Date(10),
+                    RequestedCheckOutDate = Date(15),
+                    ContainedCheckInDate = Date(11),
+                    ContainedCheckOutDate = Date(14),
+                    EntireCheckInDate = Date(12),
+                    EntireCheckOutDate = Date(13),
+                    AdjacentCheckInDate = Date(5)
                 },
                 cancellationToken:
                     cancellationToken);
@@ -346,22 +326,19 @@ public sealed class DapperAvailabilityInventoryExclusionTests
             roomABookingId,
             roomBBookingId,
             entirePropertyBookingId,
+            cancelledEntirePropertyBookingId,
             adjacentBookingId,
             otherPropertyBookingId);
     }
 
     private static void AssertBookingIds(
-        IReadOnlyList<
-            OverlappingBookingReadModel> result,
-        params Guid[] expectedBookingsIds)
+         IReadOnlyList<OverlappingBookingReadModel> result,
+         params Guid[] expectedBookingsIds)
     {
-        HashSet<Guid> actualBookingIds =
-            result.Select(
-                booking => booking.BookingId)
-            .ToHashSet();
+        HashSet<Guid> actualBookingIds = result.Select(booking => booking.BookingId).ToHashSet();
+        HashSet<Guid> expected = expectedBookingsIds.ToHashSet();
 
-        Assert.True(
-            actualBookingIds.SetEquals(expectedBookingsIds));
+        Assert.Equal(expected, actualBookingIds);
     }
 
     private static DateOnly Date(int day)
@@ -378,6 +355,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
         Guid RoomABookingId,
         Guid RoomBBookingId,
         Guid EntirePropertyBookingId,
+        Guid CancelledEntirePropertyBookingId,
         Guid AdjacentBookingId,
         Guid OtherPropertyBookingId);
 }
