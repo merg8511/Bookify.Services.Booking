@@ -6,7 +6,7 @@ public interface IAvailabilityReadService
 {
     Task<IReadOnlyList<
             OverlappingBookingReadModel>>
-        GetInventoryConflictCandidatesAsync(
+        GetInventoryConflictsAsync(
             Guid propertyId,
             Guid requestedRentableUnitId,
             DateOnly requestedCheckInDate,
