@@ -512,6 +512,44 @@ public sealed class BookingTests
         Assert.False(booking.BlocksInventory);
     }
 
+    [Fact]
+    public void BlocksInventory_ShouldMatchBookingLifecycle()
+    {
+        // Arrange
+        DomainBooking pendingApproval = CreateBooking();
+        DomainBooking pendingPayment = CreateBooking();
+        DomainBooking paid = CreateBooking();
+        DomainBooking completed = CreateBooking();
+        DomainBooking cancelled = CreateBooking();
+
+        pendingPayment.Approve();
+
+        paid.Approve();
+        paid.MarkAsPaid();
+
+        completed.Approve();
+        completed.MarkAsPaid();
+        completed.Complete();
+
+        cancelled.Reject();
+
+        // Assert
+        Assert.True(
+            pendingApproval.BlocksInventory);
+
+        Assert.True(
+            pendingPayment.BlocksInventory);
+
+        Assert.True(
+            paid.BlocksInventory);
+
+        Assert.True(
+            completed.BlocksInventory);
+
+        Assert.False(
+            cancelled.BlocksInventory);
+    }
+
     private static void AssertInvalidTransition(
         Result result)
     {

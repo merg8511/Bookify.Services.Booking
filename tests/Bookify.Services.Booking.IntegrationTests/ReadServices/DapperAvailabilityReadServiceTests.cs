@@ -51,7 +51,7 @@ public sealed class DapperAvailabilityReadServiceTests
         IReadOnlyList<
             OverlappingBookingReadModel> result =
             await readService
-                .GetInventoryConflictCandidatesAsync(
+                .GetInventoryConflictsAsync(
                     data.PropertyId,
                     data.RentableUnitId,
                     requestedCheckInDate,
@@ -66,9 +66,7 @@ public sealed class DapperAvailabilityReadServiceTests
                         booking.BookingId)
                 .ToHashSet();
 
-        Assert.True(
-            returnedBookingIds.SetEquals(
-                data.ExpectedBookingIds));
+        Assert.Equal(data.ExpectedBookingIds, returnedBookingIds);
 
         Assert.DoesNotContain(
             data.EndsAtRequestedCheckInBookingId,
@@ -89,57 +87,26 @@ public sealed class DapperAvailabilityReadServiceTests
                     data.PropertyId,
                     booking.PropertyId));
 
-        OverlappingBookingReadModel
-            cancelledBooking =
-                Assert.Single(
-                    result,
-                    booking =>
-                        booking.BookingId ==
-                        data.CancelledBookingId);
-
-        Assert.Equal(
-            "Cancelled",
-            cancelledBooking.Status);
+        Assert.DoesNotContain(
+            data.CancelledBookingId,
+            returnedBookingIds);
     }
 
     private async Task<OverlapTestData> SeedAsync(
         CancellationToken cancellationToken)
     {
-        Guid propertyId =
-            Guid.NewGuid();
-
-        Guid otherPropertyId =
-            Guid.NewGuid();
-
-        Guid rentableUnitId =
-            Guid.NewGuid();
-
-        Guid otherRentableUnitId =
-            Guid.NewGuid();
-
-        Guid identicalBookingId =
-            Guid.NewGuid();
-
-        Guid overlapsFromLeftBookingId =
-            Guid.NewGuid();
-
-        Guid overlapsFromRightBookingId =
-            Guid.NewGuid();
-
-        Guid containsRequestedBookingId =
-            Guid.NewGuid();
-
-        Guid cancelledBookingId =
-            Guid.NewGuid();
-
-        Guid endsAtRequestedCheckInBookingId =
-            Guid.NewGuid();
-
-        Guid startsAtRequestedCheckOutBookingId =
-            Guid.NewGuid();
-
-        Guid otherPropertyBookingId =
-            Guid.NewGuid();
+        Guid propertyId = Guid.NewGuid();
+        Guid otherPropertyId = Guid.NewGuid();
+        Guid rentableUnitId = Guid.NewGuid();
+        Guid otherRentableUnitId = Guid.NewGuid();
+        Guid identicalBookingId = Guid.NewGuid();
+        Guid overlapsFromLeftBookingId = Guid.NewGuid();
+        Guid overlapsFromRightBookingId = Guid.NewGuid();
+        Guid containsRequestedBookingId = Guid.NewGuid();
+        Guid cancelledBookingId = Guid.NewGuid();
+        Guid endsAtRequestedCheckInBookingId = Guid.NewGuid();
+        Guid startsAtRequestedCheckOutBookingId = Guid.NewGuid();
+        Guid otherPropertyBookingId = Guid.NewGuid();
 
         IDbConnectionFactory connectionFactory =
             _factory.Services
@@ -200,7 +167,7 @@ public sealed class DapperAvailabilityReadServiceTests
                 rentableUnitId,
                 Date(8),
                 Date(20),
-                "Completed",
+                "Paid",
                 null),
 
             new(
@@ -256,8 +223,7 @@ public sealed class DapperAvailabilityReadServiceTests
                 identicalBookingId,
                 overlapsFromLeftBookingId,
                 overlapsFromRightBookingId,
-                containsRequestedBookingId,
-                cancelledBookingId
+                containsRequestedBookingId
             },
             cancelledBookingId,
             endsAtRequestedCheckInBookingId,
