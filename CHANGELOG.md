@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.4.0...v0.5.0) (2026-08-04)
+
+
+### Features
+
+* **infrastructure:** filter availability candidates by shared inventory ([#17](https://github.com/merg8511/Bookify.Services.Booking/issues/17)) ([d3a3418](https://github.com/merg8511/Bookify.Services.Booking/commit/d3a3418aab6328ef410ac9b4e9a0d9fe96deaeed))
+* **infrastructure:** filter availability conflicts by blocking booking statuses ([6573375](https://github.com/merg8511/Bookify.Services.Booking/commit/6573375c8ff6ee9d28a1c54d3f07c2ebc2c8a686))
+* **infrastructure:** implement Dapper query for overlapping bookings ([#15](https://github.com/merg8511/Bookify.Services.Booking/issues/15)) ([3a67dea](https://github.com/merg8511/Bookify.Services.Booking/commit/3a67dea6319350c6a043d5a0e6a86c6e3f2fe8d0))
+
 ## [0.4.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.3.0...v0.4.0) (2026-07-31)
 
 
