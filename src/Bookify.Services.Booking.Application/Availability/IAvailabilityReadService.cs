@@ -12,4 +12,13 @@ public interface IAvailabilityReadService
             DateOnly requestedCheckInDate,
             DateOnly requestedCheckOutDate,
             CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<
+            AvailableRentableUnitReadModel>>
+        GetAvailableUnitsAsync(
+            Guid propertyId,
+            DateOnly requestedCheckInDate,
+            DateOnly requestedCheckOutDate,
+            int guestCount,
+            CancellationToken cancellationToken = default);
 }

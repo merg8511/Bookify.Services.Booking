@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Endpoints.Properties.Create;
+using Bookify.Services.Booking.Api.Endpoints.Properties.GetAvailability;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetById;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetPaged;
 
@@ -21,6 +22,9 @@ internal static class PropertiesEndpoints
             propertiesGroup);
 
         GetPropertyByIdEndpoint.Map(
+            propertiesGroup);
+
+        GetAvailabilityEndpoint.Map(
             propertiesGroup);
     }
 }

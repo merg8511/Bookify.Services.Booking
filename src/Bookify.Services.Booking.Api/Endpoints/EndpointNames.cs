@@ -4,13 +4,16 @@ internal static class EndpointNames
 {
     internal static class Properties
     {
-        public const string Create =
+        internal const string Create =
             "Properties.Create";
 
-        public const string GetById =
+        internal const string GetById =
             "Properties.GetById";
 
-        public const string List =
+        internal const string List =
             "Properties.List";
+
+        internal const string GetAvailability =
+            "Properties.GetAvailability";
     }
 }
