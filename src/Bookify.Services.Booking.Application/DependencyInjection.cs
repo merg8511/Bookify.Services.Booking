@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
+using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.Messaging;
 using Bookify.Services.Booking.Application.Properties.Create;
@@ -31,6 +32,11 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<CreatePropertyCommand, Guid>,
             CreatePropertyCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<
+                CreateBookingCommand>,
+            CreateBookingCommandValidator>();
 
         services.AddScoped<
             IQueryHandler<
