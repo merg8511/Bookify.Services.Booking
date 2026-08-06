@@ -1,10 +1,15 @@
 using Bookify.Services.Booking.Api.Contracts.Pagination;
 using Bookify.Services.Booking.Api.Endpoints.Properties.Create;
+using Bookify.Services.Booking.Api.Endpoints.Properties.GetAvailability;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetById;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetPaged;
+using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.IntegrationTests.Contracts;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
+using Dapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using System.Data.Common;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -17,10 +22,12 @@ public sealed class PropertyEndpointsTests
 {
     private const string PropertiesEndpoint = "/api/v1/properties";
     private readonly HttpClient _client;
+    private readonly BookingApiFactory _factory;
     private static CancellationToken CancellationToken => TestContext.Current.CancellationToken;
     public PropertyEndpointsTests(BookingApiFactory factory)
     {
         _client = factory.Client;
+        _factory = factory;
     }
 
     [Fact]
@@ -554,6 +561,61 @@ public sealed class PropertyEndpointsTests
             body.Items[1].Name);
     }
 
+    [Fact]
+    public async Task
+    GetAvailability_WithValidRequest_ReturnsAvailableUnits()
+    {
+        // Arrange
+        AvailabilityTestData data =
+            await SeedAvailabilityScenarioAsync(
+                TestContext.Current
+                    .CancellationToken);
+
+        HttpClient client =
+            _factory.CreateClient();
+
+        string url =
+            $"/api/v1/properties/" +
+            $"{data.PropertyId}/availability" +
+            "?checkInDate=2026-08-10" +
+            "&checkOutDate=2026-08-15" +
+            "&guestCount=2";
+
+        // Act
+        HttpResponseMessage response =
+            await client.GetAsync(
+                url,
+                TestContext.Current
+                    .CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
+
+        GetAvailabilityResponse? content =
+            await response.Content
+                .ReadFromJsonAsync<
+                    GetAvailabilityResponse>(
+                        TestContext.Current
+                            .CancellationToken);
+
+        Assert.NotNull(
+            content);
+
+        Assert.Equal(
+            5,
+            content.NumberOfNights);
+
+        AvailableRentableUnitResponse unit =
+            Assert.Single(
+                content.AvailableUnits);
+
+        Assert.Equal(
+            data.RoomBId,
+            unit.Id);
+    }
+
     private async Task<CreatedProperty> CreatePropertyAsync(string? name = null)
     {
         var request =
@@ -610,4 +672,102 @@ public sealed class PropertyEndpointsTests
         Uri Location)
     {
     }
+
+    private async Task<AvailabilityTestData> SeedAvailabilityScenarioAsync(
+        CancellationToken cancellationToken)
+    {
+        Guid propertyId = Guid.NewGuid();
+        Guid roomAId = Guid.NewGuid();
+        Guid roomBId = Guid.NewGuid();
+        Guid entirePropertyId = Guid.NewGuid();
+        Guid inactiveRoomId = Guid.NewGuid();
+        Guid lowCapacityRoomId = Guid.NewGuid();
+        Guid roomABookingId = Guid.NewGuid();
+        Guid roomBCancelledBookingId = Guid.NewGuid();
+
+        IDbConnectionFactory connectionFactory =
+            _factory.Services.GetRequiredService<IDbConnectionFactory>();
+
+        await using DbConnection connection =
+            await connectionFactory.OpenConnectionAsync(cancellationToken);
+
+        var command = new CommandDefinition(
+            """
+            INSERT INTO properties
+            (
+                id, name, time_zone_id, check_in_time, check_out_time, is_active
+            )
+            VALUES
+            (
+                @PropertyId, 'Availability Property', 'America/El_Salvador', '15:00', '11:00', TRUE
+            );
+
+            INSERT INTO rentable_units
+            (
+                id, property_id, name, type, maximum_capacity, max_base_guests, is_active
+            )
+            VALUES
+            (
+                @RoomAId, @PropertyId, 'Room A', 'Room', 4, 2, TRUE
+            ),
+            (
+                @RoomBId, @PropertyId, 'Room B', 'Room', 2, 2, TRUE
+            ),
+            (
+                @EntirePropertyId, @PropertyId, 'Entire Property', 'EntireProperty', 10, 6, TRUE
+            ),
+            (
+                @InactiveRoomId, @PropertyId, 'Inactive Room', 'Room', 10, 4, FALSE
+            ),
+            (
+                @LowCapacityRoomId, @PropertyId, 'Small Room', 'Room', 1, 1, TRUE
+            );
+
+            INSERT INTO bookings
+            (
+                id, property_id, rentable_unit_id, check_in_date, check_out_date, guest_count, status, cancellation_reason
+            )
+            VALUES
+            (
+                @RoomABookingId, @PropertyId, @RoomAId, '2026-08-10', '2026-08-15', 2, 'Paid', NULL
+            ),
+            (
+                @RoomBCancelledBookingId, @PropertyId, @RoomBId, '2026-08-10', '2026-08-15', 2, 'Cancelled', 'PaymentExpired'
+            );
+            """,
+            new
+            {
+                PropertyId = propertyId,
+                RoomAId = roomAId,
+                RoomBId = roomBId,
+                EntirePropertyId = entirePropertyId,
+                InactiveRoomId = inactiveRoomId,
+                LowCapacityRoomId = lowCapacityRoomId,
+                RoomABookingId = roomABookingId,
+                RoomBCancelledBookingId = roomBCancelledBookingId
+            },
+            cancellationToken: cancellationToken);
+
+        await connection.ExecuteAsync(command);
+
+        return new AvailabilityTestData(
+            propertyId,
+            roomAId,
+            roomBId,
+            entirePropertyId,
+            inactiveRoomId,
+            lowCapacityRoomId,
+            roomABookingId,
+            roomBCancelledBookingId);
+    }
+
+    private sealed record AvailabilityTestData(
+        Guid PropertyId,
+        Guid RoomAId,
+        Guid RoomBId,
+        Guid EntirePropertyId,
+        Guid InactiveRoomId,
+        Guid LowCapacityRoomId,
+        Guid RoomABookingId,
+        Guid RoomBCancelledBookingId);
 }
