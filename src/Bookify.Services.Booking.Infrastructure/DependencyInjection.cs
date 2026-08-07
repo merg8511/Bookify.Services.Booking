@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.Bookings;
+using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Infrastructure.Persistence;
@@ -89,5 +90,9 @@ public static class DependencyInjection
         services.AddScoped<
             IAvailabilityReadService,
             DapperAvailabilityReadService>();
+
+        services.AddScoped<
+            IBookingAvailabilityReader,
+            DapperBookingAvailabilityReader>();
     }
 }
