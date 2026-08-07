@@ -34,4 +34,35 @@ public static class CreateBookingErrors
             "Booking.NotAvailable",
             "The requested rentable unit is not available " +
             "for the selected stay period.");
+
+    public static Error PropertyNotFound(
+        Guid propertyId) =>
+        Error.NotFound(
+            "Property.NotFound",
+            $"The property with identifier " +
+            $"'{propertyId}' was not found.");
+
+    public static Error PropertyInactive(
+        Guid propertyId) =>
+        Error.Conflict(
+            "Booking.PropertyInactive",
+            $"The property with identifier " +
+            $"'{propertyId}' is inactive and cannot receive new bookings.");
+
+    public static Error RentableUnitNotFound(
+        Guid rentableUnitId) =>
+        Error.NotFound(
+            "RentableUnit.NotFound",
+            $"The rentable unit with identifier " +
+            $"'{rentableUnitId}' was not found.");
+
+    public static Error RentableUnitPropertyMismatch(
+        Guid rentableUnitId,
+        Guid propertyId) =>
+        Error.Validation(
+            "Booking.RentableUnitPropertyMismatch",
+            $"The rentable unit with identifier " +
+            $"'{rentableUnitId}' does not belong to " +
+            $"the property with identifier " +
+            $"'{propertyId}'");
 }
