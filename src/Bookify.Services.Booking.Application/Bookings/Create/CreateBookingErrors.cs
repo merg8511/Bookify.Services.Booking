@@ -28,4 +28,10 @@ public static class CreateBookingErrors
         Error.Validation(
             "Booking.GuestCountRequired",
             "The guest count is required.");
+
+    public static readonly Error NotAvailable =
+        Error.Conflict(
+            "Booking.NotAvailable",
+            "The requested rentable unit is not available " +
+            "for the selected stay period.");
 }
