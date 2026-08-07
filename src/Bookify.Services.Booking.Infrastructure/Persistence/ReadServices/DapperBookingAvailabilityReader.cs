@@ -72,7 +72,7 @@ internal sealed class DapperBookingAvailabilityReader :
                     PropertyId = propertyId,
                     RequestedRentableUnitId = requestedRentableUnitId,
                     RequestedCheckInDate = requestedCheckInDate,
-                    requestedCheckOutDate = requestedCheckOutDate
+                    RequestedCheckOutDate = requestedCheckOutDate
                 },
                 cancellationToken: cancellationToken);
 
