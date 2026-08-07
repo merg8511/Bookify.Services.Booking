@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
+using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.Messaging;
 using Bookify.Services.Booking.Application.Properties.Create;
@@ -16,6 +17,9 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(
         this IServiceCollection services)
     {
+        // ==========================================
+        //  Core / CQRS Infrastructure
+        // ==========================================
         services.AddScoped(
             typeof(ICommandExecutor<>),
             typeof(CommandExecutor<>));
@@ -28,40 +32,52 @@ public static class DependencyInjection
             typeof(IQueryExecutor<,>),
             typeof(QueryExecutor<,>));
 
+
+        // ==========================================
+        //  Module: Properties
+        // ==========================================
         services.AddScoped<
             ICommandHandler<CreatePropertyCommand, Guid>,
             CreatePropertyCommandHandler>();
-
-        services.AddScoped<
-            IQueryHandler<
-                GetPropertyByIdQuery,
-                PropertyDetailsReadModel>,
-            GetPropertyByIdQueryHandler>();
 
         services.AddScoped<
             IRequestValidator<GetPropertyByIdQuery>,
             GetPropertyByIdQueryValidator>();
 
         services.AddScoped<
+            IQueryHandler<GetPropertyByIdQuery, PropertyDetailsReadModel>,
+            GetPropertyByIdQueryHandler>();
+
+        services.AddScoped<
             IRequestValidator<GetPropertiesQuery>,
             GetPropertiesQueryValidator>();
 
         services.AddScoped<
-            IQueryHandler<
-                GetPropertiesQuery,
-                PagedResult<
-                    PropertyListItemReadModel>>,
+            IQueryHandler<GetPropertiesQuery, PagedResult<PropertyListItemReadModel>>,
             GetPropertiesQueryHandler>();
 
+
+        // ==========================================
+        //  Module: Bookings
+        // ==========================================
         services.AddScoped<
-            IRequestValidator<
-                GetAvailabilityQuery>,
+            IRequestValidator<CreateBookingCommand>,
+            CreateBookingCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<CreateBookingCommand, Guid>,
+            CreateBookingCommandHandler>();
+
+
+        // ==========================================
+        //  Module: Availability
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<GetAvailabilityQuery>,
             GetAvailabilityQueryValidator>();
 
         services.AddScoped<
-            IQueryHandler<
-                GetAvailabilityQuery,
-                AvailabilityReadModel>,
+            IQueryHandler<GetAvailabilityQuery, AvailabilityReadModel>,
             GetAvailabilityQueryHandler>();
 
         return services;

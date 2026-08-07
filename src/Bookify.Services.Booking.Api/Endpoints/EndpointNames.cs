@@ -16,4 +16,10 @@ internal static class EndpointNames
         internal const string GetAvailability =
             "Properties.GetAvailability";
     }
+
+    internal static class Bookings
+    {
+        internal const string Create =
+            "Bookings.Create";
+    }
 }
