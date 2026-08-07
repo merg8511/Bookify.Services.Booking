@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.5.0...v0.6.0) (2026-08-07)
+
+
+### Features
+
+* **api:** add integral availability query endpoint ([#20](https://github.com/merg8511/Bookify.Services.Booking/issues/20)) ([ae115b0](https://github.com/merg8511/Bookify.Services.Booking/commit/ae115b03e0a7e7bb74929d76ae17205b5cfee1cc))
+* **api:** implement create booking flow with validation, availability check and atomic persistence ([#23](https://github.com/merg8511/Bookify.Services.Booking/issues/23)) ([#24](https://github.com/merg8511/Bookify.Services.Booking/issues/24)) ([047dc4f](https://github.com/merg8511/Bookify.Services.Booking/commit/047dc4fcbdb9ae5e2a5233e7fae994eef35e3129))
+
 ## [0.5.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.4.0...v0.5.0) (2026-08-04)
 
 
