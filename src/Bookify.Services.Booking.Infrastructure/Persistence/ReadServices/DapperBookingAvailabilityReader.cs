@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Dapper;
+using Microsoft.EntityFrameworkCore.Storage;
 using System.Data.Common;
 
 namespace Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
@@ -48,11 +49,12 @@ internal sealed class DapperBookingAvailabilityReader :
         )
         """;
 
-    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly BookingDbContext _dbContext;
 
-    public DapperBookingAvailabilityReader(IDbConnectionFactory connectionFactory)
+    public DapperBookingAvailabilityReader(BookingDbContext dbContext)
     {
-        _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
+        _dbContext = dbContext ?? throw
+            new ArgumentNullException(nameof(dbContext));
     }
 
     public async Task<bool> HasConflictAsync(
@@ -62,7 +64,12 @@ internal sealed class DapperBookingAvailabilityReader :
         DateOnly requestedCheckOutDate,
         CancellationToken cancellationToken = default)
     {
-        await using DbConnection connection = await _connectionFactory.OpenConnectionAsync(cancellationToken);
+        DbTransaction transaction = GetRequiredTransaction();
+
+        DbConnection connection = transaction.Connection ??
+            throw new InvalidOperationException(
+                "The current transaction does not " +
+                "have an associated database connection.");
 
         var command =
             new CommandDefinition(
@@ -74,8 +81,23 @@ internal sealed class DapperBookingAvailabilityReader :
                     RequestedCheckInDate = requestedCheckInDate,
                     RequestedCheckOutDate = requestedCheckOutDate
                 },
+                transaction: transaction,
                 cancellationToken: cancellationToken);
 
         return await connection.ExecuteScalarAsync<bool>(command);
+    }
+
+    private DbTransaction GetRequiredTransaction()
+    {
+        IDbContextTransaction? transaction = _dbContext.Database.CurrentTransaction;
+
+        if (transaction is null)
+        {
+            throw new InvalidOperationException(
+                "A database transaction must be active " +
+                "before checking booking availability.");
+        }
+
+        return transaction.GetDbTransaction();
     }
 }
