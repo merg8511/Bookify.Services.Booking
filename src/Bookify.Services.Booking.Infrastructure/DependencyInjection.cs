@@ -7,10 +7,12 @@ using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Infrastructure.Persistence;
+using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
 using Bookify.Services.Booking.Infrastructure.Persistence.Dapper;
 using Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
 using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
+using Bookify.Services.Booking.Infrastructure.Persistence.Transactions;
 using Bookify.Services.Booking.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,19 +29,24 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
+        // ==========================================
+        //  Time & System Utilities
+        // ==========================================
         services.AddSingleton<IClock, SystemClock>();
-
         DapperTypeHandlers.Register();
 
+
+        // ==========================================
+        //  Database Core Setup (EF Core & Npgsql)
+        // ==========================================
         services.AddSingleton<NpgsqlDataSource>(
             _ => NpgsqlDataSource.Create(connectionString));
 
         services.AddDbContext<BookingDbContext>(
             (serviceProvider, options) =>
             {
-                NpgsqlDataSource dataSource =
-                    serviceProvider
-                        .GetRequiredService<NpgsqlDataSource>();
+                NpgsqlDataSource dataSource = serviceProvider
+                    .GetRequiredService<NpgsqlDataSource>();
 
                 options.UseNpgsql(dataSource);
             });
@@ -48,21 +55,38 @@ public static class DependencyInjection
             IDbConnectionFactory,
             NpgsqlConnectionFactory>();
 
-        AddPersistence(
-            services,
-            connectionString);
+
+        // Llamada a la persistencia (sin parámetro extra)
+        AddPersistence(services);
 
         return services;
     }
 
-    private static void AddPersistence(
-        IServiceCollection services,
-        string connectionString)
+    private static void AddPersistence(IServiceCollection services)
     {
+        // ==========================================
+        //  Transactions & Unit of Work
+        // ==========================================
         services.AddScoped<IUnitOfWork>(
-            serviceProvider =>
-                serviceProvider.GetRequiredService<BookingDbContext>());
+            serviceProvider => serviceProvider
+                .GetRequiredService<BookingDbContext>());
 
+        services.AddScoped<
+            ITransactionManager,
+            EfCoreTransactionManager>();
+
+
+        // ==========================================
+        //  Concurrency & Locks
+        // ==========================================
+        services.AddScoped<
+            IBookingInventoryLock,
+            PostgreSqlBookingInventoryLock>();
+
+
+        // ==========================================
+        //  Repositories (Write Side / Domain)
+        // ==========================================
         services.AddScoped<
             IPropertyRepository,
             PropertyRepository>();
@@ -75,6 +99,10 @@ public static class DependencyInjection
             IBookingRepository,
             BookingRepository>();
 
+
+        // ==========================================
+        //  Read Services (Read Side / Dapper)
+        // ==========================================
         services.AddScoped<
             IPropertyReadService,
             DapperPropertyReadService>();

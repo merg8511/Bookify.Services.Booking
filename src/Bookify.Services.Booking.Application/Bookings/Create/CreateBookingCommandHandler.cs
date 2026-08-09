@@ -16,14 +16,18 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
     private readonly IRentableUnitRepository _rentableUnitRepository;
     private readonly IBookingRepository _bookingRepository;
     private readonly IBookingAvailabilityReader _bookingAvailabilityReader;
+    private readonly IBookingInventoryLock _bookingInventoryLock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ITransactionManager _transactionManager;
 
     public CreateBookingCommandHandler(
         IPropertyRepository propertyRepository,
         IRentableUnitRepository rentableUnitRepository,
         IBookingRepository bookingRepository,
         IBookingAvailabilityReader bookingAvailabilityReader,
-        IUnitOfWork unitOfWork)
+        IBookingInventoryLock bookingInventoryLock,
+        IUnitOfWork unitOfWork,
+        ITransactionManager transactionManager)
     {
         _propertyRepository = propertyRepository
             ?? throw new ArgumentNullException(nameof(propertyRepository));
@@ -37,8 +41,14 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
         _bookingAvailabilityReader = bookingAvailabilityReader
             ?? throw new ArgumentNullException(nameof(bookingAvailabilityReader));
 
+        _bookingInventoryLock = bookingInventoryLock
+            ?? throw new ArgumentNullException(nameof(bookingInventoryLock));
+
         _unitOfWork = unitOfWork
             ?? throw new ArgumentNullException(nameof(unitOfWork));
+
+        _transactionManager = transactionManager ??
+            throw new ArgumentNullException(nameof(transactionManager));
     }
 
     public async Task<Result<Guid>> HandleAsync(
@@ -68,81 +78,134 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                 guestCountResult.Error);
         }
 
-        Property? property = await _propertyRepository
-                                .GetByIdAsync(
-                                    command.PropertyId,
-                                    cancellationToken);
+        await using ITransaction transaction =
+            await _transactionManager.BeginAsync(cancellationToken);
 
-        if (property is null)
+        try
         {
-            return Result<Guid>.Failure(
-                CreateBookingErrors
-                    .PropertyNotFound(command.PropertyId));
-        }
-
-        if (!property.IsActive)
-        {
-            return Result<Guid>.Failure(
-                CreateBookingErrors
-                    .PropertyInactive(command.PropertyId));
-        }
-
-        RentableUnit? rentableUnit =
-            await _rentableUnitRepository
-                .GetByIdAsync(
-                    command.RentableUnitId,
+            bool propertyLocked =
+                await _bookingInventoryLock
+                    .TryAcquireAsync(
+                    command.PropertyId,
                     cancellationToken);
 
-        if (rentableUnit is null)
-        {
-            return Result<Guid>.Failure(
-                CreateBookingErrors
-                    .RentableUnitNotFound(command.RentableUnitId));
-        }
+            if (!propertyLocked)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    CreateBookingErrors
+                        .PropertyNotFound(command.PropertyId),
+                    cancellationToken);
+            }
 
-        if (rentableUnit.PropertyId != property.Id)
-        {
-            return Result<Guid>.Failure(
-                CreateBookingErrors
-                    .RentableUnitPropertyMismatch(
+            Property? property =
+                await _propertyRepository
+                    .GetByIdAsync(
+                        command.PropertyId,
+                        cancellationToken);
+
+            if (property is null)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    CreateBookingErrors
+                        .PropertyNotFound(
+                            command.PropertyId),
+                    cancellationToken);
+            }
+
+            if (!property.IsActive)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    CreateBookingErrors
+                        .PropertyInactive(command.PropertyId),
+                    cancellationToken);
+            }
+
+            RentableUnit? rentableUnit =
+                await _rentableUnitRepository
+                    .GetByIdAsync(
+                        command.RentableUnitId,
+                        cancellationToken);
+
+            if (rentableUnit is null)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    CreateBookingErrors
+                        .RentableUnitNotFound(command.RentableUnitId),
+                    cancellationToken);
+            }
+
+            if (rentableUnit.PropertyId != property.Id)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    CreateBookingErrors
+                        .RentableUnitPropertyMismatch(
+                            rentableUnit.Id,
+                            property.Id),
+                    cancellationToken);
+            }
+
+            Result<DomainBooking> bookingResult =
+                DomainBooking.Create(
+                    rentableUnit,
+                    stayPeriodResult.Value,
+                    guestCountResult.Value);
+
+            if (bookingResult.IsFailure)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    bookingResult.Error,
+                    cancellationToken);
+            }
+
+            bool hasConflict =
+                await _bookingAvailabilityReader
+                    .HasConflictAsync(
+                        property.Id,
                         rentableUnit.Id,
-                        property.Id));
-        }
+                        stayPeriodResult.Value.CheckInDate,
+                        stayPeriodResult.Value.CheckOutDate,
+                        cancellationToken);
 
-        Result<DomainBooking> bookingResult =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriodResult.Value,
-                guestCountResult.Value);
-
-        if (bookingResult.IsFailure)
-        {
-            return Result<Guid>.Failure(
-                bookingResult.Error);
-        }
-
-        bool hasConflict =
-            await _bookingAvailabilityReader
-                .HasConflictAsync(
-                    property.Id,
-                    rentableUnit.Id,
-                    stayPeriodResult.Value.CheckInDate,
-                    stayPeriodResult.Value.CheckOutDate,
+            if (hasConflict)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    CreateBookingErrors
+                        .NotAvailable,
                     cancellationToken);
+            }
 
-        if (hasConflict)
-        {
-            return Result<Guid>.Failure(
-                CreateBookingErrors
-                    .NotAvailable);
+            DomainBooking booking = bookingResult.Value;
+
+            _bookingRepository.Add(booking);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return Result<Guid>.Success(booking.Id);
         }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
 
-        DomainBooking booking = bookingResult.Value;
+    private static async Task<Result<Guid>>
+        RollbackFailureAsync(
+            ITransaction transaction,
+            Error error,
+            CancellationToken cancellationToken)
+    {
+        await transaction.RollbackAsync(cancellationToken);
 
-        _bookingRepository.Add(booking);
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return Result<Guid>.Success(booking.Id);
+        return Result<Guid>.Failure(error);
     }
 }

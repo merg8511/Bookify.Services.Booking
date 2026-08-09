@@ -28,10 +28,24 @@ public sealed class DapperBookingAvailabilityReaderTests
 
         using IServiceScope scope = _factory.Services.CreateScope();
 
+        ITransactionManager transactionManager =
+            scope.ServiceProvider.GetRequiredService<ITransactionManager>();
+
+        IBookingInventoryLock inventoryLock =
+            scope.ServiceProvider.GetRequiredService<IBookingInventoryLock>();
+
         IBookingAvailabilityReader reader =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IBookingAvailabilityReader>();
+            scope.ServiceProvider.GetRequiredService<IBookingAvailabilityReader>();
+
+        await using ITransaction transaction =
+            await transactionManager.BeginAsync(cancellationToken);
+
+        bool acquired =
+            await inventoryLock.TryAcquireAsync(
+                data.PropertyId,
+                cancellationToken);
+
+        Assert.True(acquired);
 
         // ACT
         bool sameRoomConflict =
@@ -80,6 +94,8 @@ public sealed class DapperBookingAvailabilityReaderTests
         Assert.True(entirePropertyConflict);
         Assert.False(adjacentPeriodConflict);
         Assert.True(roomBlockedByEntireProperty);
+
+        await transaction.RollbackAsync(cancellationToken);
     }
 
     private async Task<TestData> SeedAsync(
