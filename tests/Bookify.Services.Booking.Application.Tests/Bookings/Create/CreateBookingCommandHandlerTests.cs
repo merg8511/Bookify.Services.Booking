@@ -5,6 +5,7 @@ using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Errors;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
+using System.Transactions;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Application.Tests.Bookings.Create;
@@ -12,8 +13,7 @@ namespace Bookify.Services.Booking.Application.Tests.Bookings.Create;
 public sealed class CreateBookingCommandHandlerTests
 {
     [Fact]
-    public async Task
-        HandleAsync_WithValidCommand_PersistsBooking()
+    public async Task HandleAsync_WithValidCommand_PersistsBooking()
     {
         // ARRANGE
         Property property = CreateProperty();
@@ -26,6 +26,8 @@ public sealed class CreateBookingCommandHandlerTests
         var rentableUnitRepository = new SpyRentableUnitRepository(rentableUnit);
         var bookingRepository = new SpyBookingRepository();
         var availabilityReader = new StubBookingAvailabilityReader(hasConflict: false);
+        var inventoryLock = new StubBookingInventoryLock(acquired: true);
+        var transactionManager = new StubTransactionManager();
         var unitOfWork = new SpyUnitOfWork();
 
         var handler = new CreateBookingCommandHandler(
@@ -33,7 +35,9 @@ public sealed class CreateBookingCommandHandlerTests
                 rentableUnitRepository,
                 bookingRepository,
                 availabilityReader,
-                unitOfWork);
+                inventoryLock,
+                unitOfWork,
+                transactionManager);
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -89,6 +93,22 @@ public sealed class CreateBookingCommandHandlerTests
 
         Assert.Equal(
             1,
+            transactionManager.BeginCallCount);
+
+        Assert.Equal(
+            1,
+            inventoryLock.CallCount);
+
+        Assert.Equal(
+            1,
+            transactionManager.Transaction.CommitCallCount);
+
+        Assert.Equal(
+            0,
+            transactionManager.Transaction.RollbackCallCount);
+
+        Assert.Equal(
+            1,
             unitOfWork.SaveChangesCallCount);
     }
 
@@ -114,7 +134,9 @@ public sealed class CreateBookingCommandHandlerTests
                     rentableUnit),
                 bookingRepository,
                 availabilityReader,
-                unitOfWork);
+                new StubBookingInventoryLock(),
+                unitOfWork,
+                new StubTransactionManager());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -169,7 +191,9 @@ public sealed class CreateBookingCommandHandlerTests
                     rentableUnit),
                 bookingRepository,
                 availabilityReader,
-                unitOfWork);
+                new StubBookingInventoryLock(),
+                unitOfWork,
+                new StubTransactionManager());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -216,7 +240,9 @@ public sealed class CreateBookingCommandHandlerTests
                     rentableUnit: null),
                 bookingRepository,
                 availabilityReader,
-                unitOfWork);
+                new StubBookingInventoryLock(),
+                unitOfWork,
+                new StubTransactionManager());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -269,7 +295,9 @@ public sealed class CreateBookingCommandHandlerTests
                     rentableUnit),
                 bookingRepository,
                 availabilityReader,
-                unitOfWork);
+                new StubBookingInventoryLock(),
+                unitOfWork,
+                new StubTransactionManager());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -322,7 +350,9 @@ public sealed class CreateBookingCommandHandlerTests
                     rentableUnit),
                 bookingRepository,
                 availabilityReader,
-                unitOfWork);
+                new StubBookingInventoryLock(),
+                unitOfWork,
+                new StubTransactionManager());
 
         // ACT
         Result<Guid> result =
@@ -371,7 +401,9 @@ public sealed class CreateBookingCommandHandlerTests
                     rentableUnit),
                 bookingRepository,
                 availabilityReader,
-                unitOfWork);
+                new StubBookingInventoryLock(),
+                unitOfWork,
+                new StubTransactionManager());
 
         // ACT
         Result<Guid> result =
@@ -410,17 +442,19 @@ public sealed class CreateBookingCommandHandlerTests
 
         var bookingRepository = new SpyBookingRepository();
         var availabilityReader = new StubBookingAvailabilityReader(hasConflict: true);
+        var inventoryLock = new StubBookingInventoryLock(acquired: true);
+        var transactionManager = new StubTransactionManager();
         var unitOfWork = new SpyUnitOfWork();
 
         var handler =
             new CreateBookingCommandHandler(
-                new SpyPropertyRepository(
-                    property),
-                new SpyRentableUnitRepository(
-                    rentableUnit),
+                new SpyPropertyRepository(property),
+                new SpyRentableUnitRepository(rentableUnit),
                 bookingRepository,
                 availabilityReader,
-                unitOfWork);
+                inventoryLock,
+                unitOfWork,
+                transactionManager);
 
         // ACT
         Result<Guid> result =
@@ -444,6 +478,13 @@ public sealed class CreateBookingCommandHandlerTests
         Assert.Equal(
             0,
             unitOfWork.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            transactionManager.Transaction.CommitCallCount);
+        Assert.Equal(
+            1,
+            transactionManager.Transaction.RollbackCallCount);
     }
 
     [Fact]
@@ -459,7 +500,9 @@ public sealed class CreateBookingCommandHandlerTests
                 new SpyBookingRepository(),
                 new StubBookingAvailabilityReader(
                     hasConflict: false),
-                new SpyUnitOfWork());
+                new StubBookingInventoryLock(),
+                new SpyUnitOfWork(),
+                new StubTransactionManager());
 
         // ACT
         Task Action()
@@ -648,6 +691,83 @@ public sealed class CreateBookingCommandHandlerTests
             SaveChangesCallCount++;
 
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubBookingInventoryLock :
+        IBookingInventoryLock
+    {
+        private readonly bool _acquired;
+
+        public StubBookingInventoryLock(bool acquired = true)
+        {
+            _acquired = acquired;
+        }
+
+        public int CallCount
+        {
+            get;
+            private set;
+        }
+
+        public Task<bool> TryAcquireAsync(
+            Guid propertyId,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            return Task.FromResult(_acquired);
+        }
+    }
+
+    private sealed class SpyTransaction : ITransaction
+    {
+        public int CommitCallCount
+        {
+            get;
+            private set;
+        }
+
+        public int RollbackCallCount
+        {
+            get;
+            private set;
+        }
+
+        public Task CommitAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CommitCallCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task RollbackAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RollbackCallCount++;
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class StubTransactionManager : ITransactionManager
+    {
+        public SpyTransaction Transaction { get; } = new();
+        public int BeginCallCount
+        {
+            get;
+            private set;
+        }
+
+        public Task<ITransaction> BeginAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            BeginCallCount++;
+            return Task.FromResult<ITransaction>(Transaction);
         }
     }
 }
