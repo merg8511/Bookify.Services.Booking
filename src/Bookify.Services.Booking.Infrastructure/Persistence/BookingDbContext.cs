@@ -2,6 +2,7 @@ using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 using Bookify.Services.Booking.Domain.Properties;
 using Microsoft.EntityFrameworkCore;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
+using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
 
 namespace Bookify.Services.Booking.Infrastructure.Persistence;
 
@@ -20,6 +21,9 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
 
     public DbSet<DomainBooking> Bookings =>
         Set<DomainBooking>();
+
+    internal DbSet<IdempotencyRequest> IdempotencyRequests =>
+        Set<IdempotencyRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
