@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
@@ -79,6 +80,14 @@ public static class DependencyInjection
         services.AddScoped<
             IQueryHandler<GetAvailabilityQuery, AvailabilityReadModel>,
             GetAvailabilityQueryHandler>();
+
+
+        // ==========================================
+        //  Module: Idempotency
+        // ==========================================
+        services.AddScoped<
+            IIdempotencyProcessor,
+            IdempotencyProcessor>();
 
         return services;
     }
