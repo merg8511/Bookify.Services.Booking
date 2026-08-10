@@ -1,3 +1,5 @@
+using Bookify.Services.Booking.Application.Abstractions.Idempotency;
+
 namespace Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
 
 internal sealed class IdempotencyRequest
@@ -86,5 +88,29 @@ internal sealed class IdempotencyRequest
         StatusCode = statusCode;
         ResponseBody = responseBody;
         Status = IdempotencyRequestStatus.Completed;
+    }
+
+    public void Restart(
+        string requestHash,
+        DateTimeOffset createdAt,
+        DateTimeOffset expiresAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestHash);
+
+        if (Status != IdempotencyRequestStatus.Completed)
+        {
+            throw new InvalidOperationException(
+                "Only a completed idempotency request " +
+                "can be restarted.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(expiresAt, createdAt);
+
+        RequestHash = requestHash;
+        Status = IdempotencyRequestStatus.InProgress;
+        StatusCode = null;
+        ResponseBody = null;
+        CreatedAt = createdAt;
+        ExpiresAt = expiresAt;
     }
 }
