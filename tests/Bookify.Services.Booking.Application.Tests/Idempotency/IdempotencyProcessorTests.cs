@@ -39,7 +39,7 @@ public sealed class IdempotencyProcessorTests
 
         Assert.Equal(
             1,
-            store.CreateCallCount);
+            store.ClaimCallCount);
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public sealed class IdempotencyProcessorTests
 
         Assert.Equal(
             1,
-            store.RestartCallCount);
+            store.ClaimCallCount);
 
         Assert.Equal(
             context.RequestHash,
@@ -220,7 +220,7 @@ public sealed class IdempotencyProcessorTests
 
         Assert.Equal(
             0,
-            store.RestartCallCount);
+            store.ClaimCallCount);
     }
 
     [Fact]
@@ -268,6 +268,87 @@ public sealed class IdempotencyProcessorTests
             store.Stored?.ResponseBody);
     }
 
+    [Fact]
+    public async Task BeginAsync_WhenConcurrentRequestClaimsKeyFirst_ReturnsInProgressConflict()
+    {
+        // Arrange
+        var store = new ConcurrentWinnerStore();
+
+        var processor =
+            new IdempotencyProcessor(
+                store,
+                new FixedClock(
+                    UtcNow));
+
+        IdempotencyRequestContext context = CreateContext();
+
+        // Act
+        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(context);
+
+        // Assert
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            IdempotencyErrors.RequestInProgress,
+            result.Error);
+
+        Assert.Equal(
+            1,
+            store.ClaimCallCount);
+    }
+
+    private sealed class ConcurrentWinnerStore :
+        IIdempotencyStore
+    {
+        private int _getCallCount;
+        public int ClaimCallCount { get; private set; }
+
+        public Task<StoredIdempotencyRequest?>
+            GetAsync(
+                IdempotencyRequestContext context,
+                CancellationToken cancellationToken = default)
+        {
+            _getCallCount++;
+
+            if (_getCallCount == 1)
+            {
+                return Task.FromResult<StoredIdempotencyRequest?>(null);
+            }
+
+            return Task.FromResult<
+                StoredIdempotencyRequest?>(
+                    new StoredIdempotencyRequest(
+                        context.RequestHash,
+                        IdempotencyRequestStatus
+                            .InProgress,
+                        StatusCode: null,
+                        ResponseBody: null,
+                        ExpiresAt:
+                            UtcNow.AddHours(24)));
+        }
+
+        public Task<bool> TryClaimAsync(
+            IdempotencyRequestContext context,
+            DateTimeOffset createdAt,
+            DateTimeOffset expiresAt,
+            CancellationToken cancellationToken = default)
+        {
+            ClaimCallCount++;
+
+            // Otro request ganó la carrera.
+            return Task.FromResult(false);
+        }
+
+        public Task CompleteAsync(
+            IdempotencyRequestContext context,
+            int statusCode,
+            string? responseBody,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
     private static IdempotencyProcessor CreateProcessor(FakeIdempotencyStore store)
     {
         return new IdempotencyProcessor(
@@ -304,74 +385,40 @@ public sealed class IdempotencyProcessorTests
     private sealed class FakeIdempotencyStore :
         IIdempotencyStore
     {
-        public StoredIdempotencyRequest?
-            Stored
-        {
-            get;
-            set;
-        }
+        public StoredIdempotencyRequest? Stored { get; set; }
+        public bool ClaimSucceeds { get; set; } = true;
+        public int ClaimCallCount { get; private set; }
+        public int CompleteCallCount { get; private set; }
 
-        public int CreateCallCount
-        {
-            get;
-            private set;
-        }
-
-        public int RestartCallCount
-        {
-            get;
-            private set;
-        }
-
-        public int CompleteCallCount
-        {
-            get;
-            private set;
-        }
-
-        public Task<StoredIdempotencyRequest?> GetAsync(IdempotencyRequestContext context, CancellationToken cancellationToken = default)
+        public Task<StoredIdempotencyRequest?> GetAsync(
+            IdempotencyRequestContext context,
+            CancellationToken cancellationToken = default)
         {
             return Task.FromResult(Stored);
         }
 
-        public Task CreateAsync(
+        public Task<bool> TryClaimAsync(
             IdempotencyRequestContext context,
             DateTimeOffset createdAt,
             DateTimeOffset expiresAt,
             CancellationToken cancellationToken = default)
         {
-            CreateCallCount++;
+            ClaimCallCount++;
+
+            if (!ClaimSucceeds)
+            {
+                return Task.FromResult(false);
+            }
 
             Stored =
                 new StoredIdempotencyRequest(
                     context.RequestHash,
-                    IdempotencyRequestStatus
-                        .InProgress,
+                    IdempotencyRequestStatus.InProgress,
                     StatusCode: null,
                     ResponseBody: null,
                     expiresAt);
 
-            return Task.CompletedTask;
-        }
-
-        public Task RestartAsync(
-            IdempotencyRequestContext context,
-            DateTimeOffset createdAt,
-            DateTimeOffset expiresAt,
-            CancellationToken cancellationToken = default)
-        {
-            RestartCallCount++;
-
-            Stored =
-                new StoredIdempotencyRequest(
-                    context.RequestHash,
-                    IdempotencyRequestStatus
-                        .InProgress,
-                    StatusCode: null,
-                    ResponseBody: null,
-                    expiresAt);
-
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
 
         public Task CompleteAsync(
