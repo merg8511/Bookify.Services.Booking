@@ -6,13 +6,7 @@ public interface IIdempotencyStore
         IdempotencyRequestContext context,
         CancellationToken cancellationToken = default);
 
-    Task CreateAsync(
-        IdempotencyRequestContext context,
-        DateTimeOffset createdAt,
-        DateTimeOffset expiresAt,
-        CancellationToken cancellationToken = default);
-
-    Task RestartAsync(
+    Task<bool> TryClaimAsync(
         IdempotencyRequestContext context,
         DateTimeOffset createdAt,
         DateTimeOffset expiresAt,
