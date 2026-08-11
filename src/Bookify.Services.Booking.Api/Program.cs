@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Endpoints;
+using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Infrastructure;
@@ -24,6 +25,9 @@ builder.Services
 
 var app = builder.Build();
 
+app.UseRouting();
+
+app.UseMiddleware<IdempotencyMiddleware>();
 app.MapGet("/health",
     () => Results.Ok(
         new
