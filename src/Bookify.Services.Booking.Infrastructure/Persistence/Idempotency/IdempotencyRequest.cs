@@ -8,25 +8,6 @@ internal sealed class IdempotencyRequest
     {
     }
 
-    public IdempotencyRequest(
-        Guid id,
-        string key,
-        string httpMethod,
-        string endpoint,
-        string requestHash,
-        DateTimeOffset createdAt,
-        DateTimeOffset expiresAt)
-    {
-        Id = id;
-        Key = key;
-        HttpMethod = httpMethod;
-        Endpoint = endpoint;
-        RequestHash = requestHash;
-        Status = IdempotencyRequestStatus.InProgress;
-        CreatedAt = createdAt;
-        ExpiresAt = expiresAt;
-    }
-
     public Guid Id { get; private set; }
     public string Key { get; private set; } = string.Empty;
     public string HttpMethod { get; private set; } = string.Empty;
@@ -37,37 +18,6 @@ internal sealed class IdempotencyRequest
     public string? ResponseBody { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
-
-    public static IdempotencyRequest Create(
-        string key,
-        string httpMethod,
-        string endpoint,
-        string requestHash,
-        DateTimeOffset createdAt,
-        DateTimeOffset expiresAt)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        ArgumentException.ThrowIfNullOrWhiteSpace(httpMethod);
-        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestHash);
-
-        if (expiresAt <= createdAt)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(expiresAt),
-                "The expiration time must be later " +
-                "than the creation time.");
-        }
-
-        return new IdempotencyRequest(
-            Guid.NewGuid(),
-            key,
-            httpMethod,
-            endpoint,
-            requestHash,
-            createdAt,
-            expiresAt);
-    }
 
     public void Complete(
         int statusCode,
@@ -88,29 +38,5 @@ internal sealed class IdempotencyRequest
         StatusCode = statusCode;
         ResponseBody = responseBody;
         Status = IdempotencyRequestStatus.Completed;
-    }
-
-    public void Restart(
-        string requestHash,
-        DateTimeOffset createdAt,
-        DateTimeOffset expiresAt)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestHash);
-
-        if (Status != IdempotencyRequestStatus.Completed)
-        {
-            throw new InvalidOperationException(
-                "Only a completed idempotency request " +
-                "can be restarted.");
-        }
-
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(expiresAt, createdAt);
-
-        RequestHash = requestHash;
-        Status = IdempotencyRequestStatus.InProgress;
-        StatusCode = null;
-        ResponseBody = null;
-        CreatedAt = createdAt;
-        ExpiresAt = expiresAt;
     }
 }

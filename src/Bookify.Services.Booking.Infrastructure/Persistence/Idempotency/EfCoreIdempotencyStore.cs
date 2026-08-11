@@ -37,41 +37,79 @@ internal sealed class EfCoreIdempotencyStore : IIdempotencyStore
             .SingleOrDefaultAsync(cancellationToken);
     }
 
-    public async Task CreateAsync(
+    public async Task<bool> TryClaimAsync(
         IdempotencyRequestContext context,
         DateTimeOffset createdAt,
         DateTimeOffset expiresAt,
         CancellationToken cancellationToken = default)
     {
-        IdempotencyRequest request =
-            IdempotencyRequest.Create(
-                context.Key,
-                context.HttpMethod,
-                context.Endpoint,
-                context.RequestHash,
-                createdAt,
-                expiresAt);
+        ArgumentOutOfRangeException.ThrowIfLessThan(expiresAt, createdAt);
 
-        _dbContext.IdempotencyRequests.Add(request);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-    }
+        try
+        {
+            Guid id = Guid.NewGuid();
 
-    public async Task RestartAsync(
-        IdempotencyRequestContext context,
-        DateTimeOffset createdAt,
-        DateTimeOffset expiresAt,
-        CancellationToken cancellationToken = default)
-    {
-        IdempotencyRequest request =
-            await GetRequiredTrackedAsync(context, cancellationToken);
+            int affectedRows =
+                await _dbContext.Database
+                    .ExecuteSqlInterpolatedAsync(
+                        $"""
+                        INSERT INTO idempotency_requests
+                        AS current_request
+                        (
+                            id,
+                            key,
+                            http_method,
+                            endpoint,
+                            request_hash,
+                            status,
+                            status_code,
+                            response_body,
+                            created_at,
+                            expires_at
+                        )
+                        VALUES
+                        (
+                            {id},
+                            {context.Key},
+                            {context.HttpMethod},
+                            {context.Endpoint},
+                            {context.RequestHash},
+                            'InProgress',
+                            NULL,
+                            NULL,
+                            {createdAt},
+                            {expiresAt}
+                        )
+                        ON CONFLICT
+                        (
+                            http_method,
+                            endpoint,
+                            key
+                        )
+                        DO UPDATE SET
+                            request_hash = EXCLUDED.request_hash,
+                            status = 'InProgress',
+                            status_code = NULL,
+                            response_body = NULL,
+                            created_at = EXCLUDED.created_at,
+                            expires_at = EXCLUDED.expires_at
+                        WHERE
+                            current_request.status = 'Completed'
+                                AND current_request.expires_at <= EXCLUDED.created_at;
+                        """,
+                        cancellationToken);
 
-        request.Restart(
-            context.RequestHash,
-            createdAt,
-            expiresAt);
+            await transaction.CommitAsync(cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            return affectedRows == 1;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
     }
 
     public async Task CompleteAsync(
@@ -112,10 +150,7 @@ internal sealed class EfCoreIdempotencyStore : IIdempotencyStore
                         request.Endpoint == context.Endpoint,
                         cancellationToken);
 
-        return request ?? throw new InvalidOperationException("The idempotency request was not found.");
+        return request ??
+            throw new InvalidOperationException("The idempotency request was not found.");
     }
-
-
-
-
 }
