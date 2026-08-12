@@ -38,6 +38,6 @@ public static class GetAvailabilityErrors
         Error.Conflict(
             "Availability.PropertyInactive",
             $"The property with identifier '{propertyId}' is inactive and " +
-            $"cannot receive avaiability request.");
+            $"cannot receive availability request.");
 
 }

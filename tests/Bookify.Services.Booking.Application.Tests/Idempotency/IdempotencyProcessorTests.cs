@@ -191,7 +191,7 @@ public sealed class IdempotencyProcessorTests
     }
 
     [Fact]
-    public async Task BeginAsync_WithExpiredRequestStillInProgress_DoesNotRestart()
+    public async Task BeginAsync_WithExpiredRequestStillInProgress_RestartsAndReturnsExecute()
     {
         // ARRANGE
         var store =
@@ -199,28 +199,42 @@ public sealed class IdempotencyProcessorTests
             {
                 Stored =
                     new StoredIdempotencyRequest(
-                        "HASH-A",
-                        IdempotencyRequestStatus
-                            .InProgress,
+                        "OLD-HASH",
+                        IdempotencyRequestStatus.InProgress,
                         StatusCode: null,
                         ResponseBody: null,
                         ExpiresAt:
                             UtcNow.AddMinutes(-1))
             };
 
-        var processor = CreateProcessor(store);
+        var processor =
+            CreateProcessor(store);
+
+        IdempotencyRequestContext context =
+            CreateContext();
 
         // ACT
-        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(CreateContext());
+        Result<IdempotencyProcessingResult> result =
+            await processor.BeginAsync(context);
 
         // ASSERT
-        Assert.Equal(
-            IdempotencyErrors.RequestInProgress,
-            result.Error);
+        Assert.True(result.IsSuccess);
 
         Assert.Equal(
-            0,
+            IdempotencyProcessingAction.Execute,
+            result.Value.Action);
+
+        Assert.Equal(
+            1,
             store.ClaimCallCount);
+
+        Assert.Equal(
+            context.RequestHash,
+            store.Stored?.RequestHash);
+
+        Assert.Equal(
+            IdempotencyRequestStatus.InProgress,
+            store.Stored?.Status);
     }
 
     [Fact]

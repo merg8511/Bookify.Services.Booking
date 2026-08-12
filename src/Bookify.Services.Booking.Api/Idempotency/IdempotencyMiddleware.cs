@@ -110,11 +110,11 @@ internal sealed class IdempotencyMiddleware
 
             if (statusCode == 200 && httpContext.Request.Method == "POST" && responseBody?.Contains("\"id\"", StringComparison.Ordinal) == true)
             {
-                statusCode = 201; 
+                statusCode = 201;
             }
             else if (statusCode == 200 && responseBody?.Contains("\"status\":409", StringComparison.Ordinal) == true)
             {
-                statusCode = 409; 
+                statusCode = 409;
             }
 
             await idempotencyProcessor.CompleteAsync(
@@ -204,23 +204,26 @@ internal sealed class IdempotencyMiddleware
         HttpContext httpContext,
         IdempotencyProcessingResult result)
     {
-        int statusCode = result.StatusCode ??
+        int statusCode =
+            result.StatusCode ??
             throw new InvalidOperationException(
                 "A replay result must contain " +
                 "an HTTP status code.");
+
+        httpContext.Response.StatusCode =
+            statusCode;
 
         if (result.ResponseBody is null)
         {
             return;
         }
 
-        httpContext.Response.ContentType = GetReplayContentType(statusCode);
-        httpContext.Response.StatusCode = statusCode;
+        httpContext.Response.ContentType =
+            GetReplayContentType(statusCode);
 
-        await httpContext.Response
-            .WriteAsync(
-                result.ResponseBody,
-                httpContext.RequestAborted);
+        await httpContext.Response.WriteAsync(
+            result.ResponseBody,
+            httpContext.RequestAborted);
     }
 
     private static string GetReplayContentType(int statusCode)

@@ -177,7 +177,7 @@ public sealed class CommandExecutor<TCommand, TResponse>
         _logger.LogInformation(
             "Completed command {CommandName}. " +
             "Success: {IsSuccess}. " +
-            "ErrorCode: {ErrorCode}" +
+            "ErrorCode: {ErrorCode}. " +
             "DurationMs: {DurationMs}",
             commandName,
             result.IsSuccess,
