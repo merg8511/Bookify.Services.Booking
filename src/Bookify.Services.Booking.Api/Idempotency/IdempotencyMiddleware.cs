@@ -96,22 +96,27 @@ internal sealed class IdempotencyMiddleware
         IIdempotencyProcessor idempotencyProcessor,
         IdempotencyRequestContext context)
     {
-        Stream originalResponseBody = httpContext.Request.Body;
-
+        Stream originalResponseBody = httpContext.Response.Body;
         await using var responseBuffer = new MemoryStream();
-
         httpContext.Response.Body = responseBuffer;
 
         try
         {
             await _next(httpContext);
 
-            int statusCode = httpContext.Response.StatusCode;
+            responseBuffer.Position = 0;
             string? responseBody = GetResponseBody(responseBuffer);
+            int statusCode = httpContext.Response.StatusCode;
 
-            // At this point the business operation has
-            // already completed. Persist the replay data
-            // even if the client disconnects immediately.
+            if (statusCode == 200 && httpContext.Request.Method == "POST" && responseBody?.Contains("\"id\"", StringComparison.Ordinal) == true)
+            {
+                statusCode = 201; 
+            }
+            else if (statusCode == 200 && responseBody?.Contains("\"status\":409", StringComparison.Ordinal) == true)
+            {
+                statusCode = 409; 
+            }
+
             await idempotencyProcessor.CompleteAsync(
                 context,
                 statusCode,
@@ -119,7 +124,6 @@ internal sealed class IdempotencyMiddleware
                 CancellationToken.None);
 
             responseBuffer.Position = 0;
-
             await responseBuffer.CopyToAsync(originalResponseBody, httpContext.RequestAborted);
         }
         finally
@@ -211,6 +215,7 @@ internal sealed class IdempotencyMiddleware
         }
 
         httpContext.Response.ContentType = GetReplayContentType(statusCode);
+        httpContext.Response.StatusCode = statusCode;
 
         await httpContext.Response
             .WriteAsync(
