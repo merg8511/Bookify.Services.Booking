@@ -65,6 +65,9 @@ internal static class ErrorHttpExtensions
             ErrorType.NotFound =>
                 ProblemTypeUris.NotFound,
 
+            ErrorType.Conflict =>
+                ProblemTypeUris.Conflict,
+
             _ =>
                 ProblemTypeUris.ServerError
         };
@@ -79,6 +82,9 @@ internal static class ErrorHttpExtensions
 
             ErrorType.NotFound =>
                 "Resource not found",
+
+            ErrorType.Conflict =>
+                "Conflict",
 
             _ =>
                 "Server error"
