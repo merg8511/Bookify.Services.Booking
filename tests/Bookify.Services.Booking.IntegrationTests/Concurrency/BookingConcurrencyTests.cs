@@ -274,6 +274,49 @@ public sealed class BookingConcurrencyTests
             roomBBookings);
     }
 
+    [Fact]
+    public async Task Post_WithoutIdempotencyKey_ReturnsBadRequest()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        TestProperty data = await SeedPropertyAsync(
+            includeSecondRoom: false,
+            cancellationToken);
+
+        var request = new CreateBookingRequest(
+            data.PropertyId,
+            data.RoomAId,
+            Date(10),
+            Date(15),
+            GuestCount: 2);
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, BookingsEndpoint);
+        message.Content = JsonContent.Create(request);
+
+        // ACT
+        using HttpResponseMessage response =
+            await _client.SendAsync(message, cancellationToken);
+
+        // ASSERT
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        ProblemDetailsResponse problem =
+            Assert.IsType<ProblemDetailsResponse>(
+                await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(cancellationToken));
+
+        Assert.Equal("Idempotency.KeyRequired", problem.Code);
+
+        long bookings = await CountBlockingBookingsForUnitAsync(
+            data.PropertyId,
+            data.RoomAId,
+            Date(10),
+            Date(15),
+            cancellationToken);
+
+        Assert.Equal(0, bookings);
+    }
+
     private async Task<BookingAttempt[]> SendConcurrentlyAsync(
         CreateBookingRequest request,
         int requestCount,
@@ -307,6 +350,7 @@ public sealed class BookingConcurrencyTests
                     request =>
                         SendAfterGateAsync(
                             request,
+                            Guid.NewGuid().ToString("N"),
                             startGate.Task,
                             cancellationToken))
                 .ToArray();
@@ -318,16 +362,19 @@ public sealed class BookingConcurrencyTests
 
     private async Task<BookingAttempt> SendAfterGateAsync(
         CreateBookingRequest request,
-        Task starGate,
+        string idempotencyKey,
+        Task startGate,
         CancellationToken cancellationToken)
     {
-        await starGate.WaitAsync(cancellationToken);
+        await startGate.WaitAsync(cancellationToken);
+
+        using var requestMessage = new HttpRequestMessage(HttpMethod.Post, BookingsEndpoint);
+
+        requestMessage.Headers.TryAddWithoutValidation("Idempotency-key", idempotencyKey);
+        requestMessage.Content = JsonContent.Create(request);
 
         using HttpResponseMessage response =
-            await _client.PostAsJsonAsync(
-                BookingsEndpoint,
-                request,
-                cancellationToken);
+            await _client.SendAsync(requestMessage, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.Created)
         {

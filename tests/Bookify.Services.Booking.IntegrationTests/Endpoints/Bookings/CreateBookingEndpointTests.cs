@@ -41,11 +41,7 @@ public sealed class CreateBookingEndpointTests
                 GuestCount: 2);
 
         // ACT
-        HttpResponseMessage response =
-            await client.PostAsJsonAsync(
-                "/api/v1/bookings",
-                request,
-                cancellationToken);
+        HttpResponseMessage response = await PostBookingAsync(request, cancellationToken);
 
         // ASSERT - HTTP
         Assert.Equal(
@@ -148,12 +144,7 @@ public sealed class CreateBookingEndpointTests
                 GuestCount: 0);
 
         // ACT
-        HttpResponseMessage response =
-            await client.PostAsJsonAsync(
-                "/api/v1/bookings",
-                request,
-                TestContext.Current
-                    .CancellationToken);
+        HttpResponseMessage response = await PostBookingAsync(request, TestContext.Current.CancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -183,12 +174,7 @@ public sealed class CreateBookingEndpointTests
                 GuestCount: 2);
 
         // ACT
-        HttpResponseMessage response =
-            await client.PostAsJsonAsync(
-                "/api/v1/bookings",
-                request,
-                TestContext.Current
-                    .CancellationToken);
+        HttpResponseMessage response = await PostBookingAsync(request, TestContext.Current.CancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -221,22 +207,14 @@ public sealed class CreateBookingEndpointTests
                 Date(15),
                 GuestCount: 2);
 
-        HttpResponseMessage firstResponse =
-            await client.PostAsJsonAsync(
-                "/api/v1/bookings",
-                request,
-                cancellationToken);
+        HttpResponseMessage firstResponse = await PostBookingAsync(request, cancellationToken);
 
         Assert.Equal(
             HttpStatusCode.Created,
             firstResponse.StatusCode);
 
         // ACT
-        HttpResponseMessage secondResponse =
-            await client.PostAsJsonAsync(
-                "/api/v1/bookings",
-                request,
-                cancellationToken);
+        HttpResponseMessage secondResponse = await PostBookingAsync(request, cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -251,6 +229,28 @@ public sealed class CreateBookingEndpointTests
                 .MediaType);
     }
 
+    private async Task<HttpResponseMessage> PostBookingAsync(
+        CreateBookingRequest request,
+        CancellationToken cancellationToken)
+    {
+        HttpClient client = _factory.CreateClient();
+
+        using var message =
+            new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/v1/bookings");
+
+        message.Headers
+            .Add("Idempotency-Key",
+                Guid.NewGuid()
+                    .ToString("N"));
+
+        message.Content = JsonContent.Create(request);
+
+        return await client.SendAsync(
+            message,
+            cancellationToken);
+    }
     private async Task<SeedData> SeedPropertyWithRoomAsync(CancellationToken cancellationToken)
     {
         Property property =
