@@ -19,7 +19,7 @@ internal static class GetAvailabilityEndpoint
                 EndpointNames.Properties.GetAvailability)
             .WithSummary(
                 "Gets the rentable units available " +
-                "for a requeted stay period and " +
+                "for a requested stay period and " +
                 "guest count.")
             .Produces<GetAvailabilityResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)

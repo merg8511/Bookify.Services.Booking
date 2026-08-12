@@ -15,6 +15,6 @@ public interface IIdempotencyStore
     Task CompleteAsync(
         IdempotencyRequestContext context,
         int statusCode,
-        string? responseBoby,
+        string? responseBody,
         CancellationToken cancellationToken = default);
 }
