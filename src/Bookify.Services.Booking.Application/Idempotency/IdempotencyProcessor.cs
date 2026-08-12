@@ -43,13 +43,12 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
                 cancellationToken);
         }
 
-        if (IsExpiredCompleted(existingRequest, utcNow))
+        if (IsExpired(existingRequest, utcNow))
         {
-            return await
-                TryClaimOrResolveAsync(
-                    context,
-                    utcNow,
-                    cancellationToken);
+            return await TryClaimOrResolveAsync(
+                context,
+                utcNow,
+                cancellationToken);
         }
 
         return ResolveExisting(
@@ -126,7 +125,7 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
             IdempotencyRequestContext context,
             DateTimeOffset utcNow)
     {
-        if (IsExpiredCompleted(request, utcNow))
+        if (IsExpired(request, utcNow))
         {
             throw new InvalidOperationException(
                 "An expired completed idempotency " +
@@ -168,12 +167,11 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
             $"'{request.Status}'");
     }
 
-    private static bool IsExpiredCompleted(
+    private static bool IsExpired(
         StoredIdempotencyRequest request,
         DateTimeOffset utcNow)
     {
-        return request.Status == IdempotencyRequestStatus.Completed &&
-            request.ExpiresAt <= utcNow;
+        return request.ExpiresAt <= utcNow;
     }
 
     private static void ValidateContext(IdempotencyRequestContext context)

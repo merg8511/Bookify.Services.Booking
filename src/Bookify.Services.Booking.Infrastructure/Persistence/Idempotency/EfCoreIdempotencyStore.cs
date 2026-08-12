@@ -96,8 +96,7 @@ internal sealed class EfCoreIdempotencyStore : IIdempotencyStore
                             created_at = EXCLUDED.created_at,
                             expires_at = EXCLUDED.expires_at
                         WHERE
-                            current_request.status = 'Completed'
-                                AND current_request.expires_at <= EXCLUDED.created_at;
+                            current_request.expires_at <= EXCLUDED.created_at;
                         """,
                         cancellationToken);
 
