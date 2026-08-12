@@ -88,7 +88,7 @@ public sealed class QueryExecutor<TQuery, TResponse>
             queryName,
             result.IsSuccess,
             errorCode,
-            elapsed.TotalMicroseconds);
+            elapsed.TotalMilliseconds);
     }
 }
 
