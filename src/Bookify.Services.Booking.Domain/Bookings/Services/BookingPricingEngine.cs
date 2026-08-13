@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
@@ -38,47 +39,67 @@ public static class BookingPricingEngine
         return extraGuestNightlyRate.Multiply(extraGuestNights);
     }
 
+
+
     public static Result<Money> CalculateAccommodationPrice(
         Money regularNightlyRate,
         Money weekendNightlyRate,
         StayPeriod stayPeriod)
     {
+        return CalculateAccommodationPrice(
+            regularNightlyRate,
+            weekendNightlyRate,
+            stayPeriod,
+            Array.Empty<PricingSeason>());
+    }
+
+    public static Result<Money> CalculateAccommodationPrice(
+        Money regularNightlyRate,
+        Money weekendNightlyRate,
+        StayPeriod stayPeriod,
+        IReadOnlyCollection<PricingSeason> seasons)
+    {
         ArgumentNullException.ThrowIfNull(regularNightlyRate);
         ArgumentNullException.ThrowIfNull(weekendNightlyRate);
         ArgumentNullException.ThrowIfNull(stayPeriod);
+        ArgumentNullException.ThrowIfNull(seasons);
 
-        int regularNightCount = 0;
-        int weekendNightCount = 0;
+        Money total = regularNightlyRate.Multiply(0).Value;
 
         for (
             DateOnly night = stayPeriod.CheckInDate;
             night < stayPeriod.CheckOutDate;
             night = night.AddDays(1))
         {
-            if (WeekendPricingPolicy.IsWeekendNight(night))
+            Money fallbackRate =
+                WeekendPricingPolicy.IsWeekendNight(night)
+                    ? weekendNightlyRate
+                    : regularNightlyRate;
+
+            Result<Money> nightlyRateResult =
+                SeasonPricingPolicy.ResolveNightlyRate(
+                    night,
+                    fallbackRate,
+                    seasons);
+
+            if (nightlyRateResult.IsFailure)
             {
-                weekendNightCount++;
+                return Result<Money>.Failure(
+                    nightlyRateResult.Error);
             }
-            else
+
+            Result<Money> totalResult =
+                total.Add(nightlyRateResult.Value);
+
+            if (totalResult.IsFailure)
             {
-                regularNightCount++;
+                return Result<Money>
+                    .Failure(totalResult.Error);
             }
+
+            total = totalResult.Value;
         }
 
-        Result<Money> regularPriceResult = regularNightlyRate.Multiply(regularNightCount);
-
-        if (regularPriceResult.IsFailure)
-        {
-            return Result<Money>.Failure(regularPriceResult.Error);
-        }
-
-        Result<Money> weekendPriceResult = weekendNightlyRate.Multiply(weekendNightCount);
-
-        if (weekendPriceResult.IsFailure)
-        {
-            return Result<Money>.Failure(weekendPriceResult.Error);
-        }
-
-        return regularPriceResult.Value.Add(weekendPriceResult.Value);
+        return Result<Money>.Success(total);
     }
 }
