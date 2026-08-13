@@ -249,6 +249,166 @@ public sealed class BookingPricingEngineTests
             result.Value.Currency);
     }
 
+    [Fact]
+    public void CalculateAccommodationPrice_WithOnlyRegularNights_ShouldUseRegularRate()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 9, 14),
+                new DateOnly(2026, 9, 16))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculateAccommodationPrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                stayPeriod);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            200m,
+            result.Value.Amount);
+
+        Assert.Equal(
+            "USD",
+            result.Value.Currency);
+    }
+
+    [Fact]
+    public void CalculateAccommodationPrice_WithOnlyWeekendNights_ShouldUseWeekendRate()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 9, 11),
+                new DateOnly(2026, 9, 13))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculateAccommodationPrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                stayPeriod);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            280m,
+            result.Value.Amount);
+
+        Assert.Equal(
+            "USD",
+            result.Value.Currency);
+    }
+
+    [Fact]
+    public void CalculateAccommodationPrice_WithMixedNights_ShouldUseRateForEachNight()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 9, 10),
+                new DateOnly(2026, 9, 14))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculateAccommodationPrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                stayPeriod);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            480m,
+            result.Value.Amount);
+
+        Assert.Equal(
+            "USD",
+            result.Value.Currency);
+    }
+
+    [Fact]
+    public void CalculateAccommodationPrice_ShouldNotChargeCheckOutDate()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 9, 10),
+                new DateOnly(2026, 9, 11))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculateAccommodationPrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                stayPeriod);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            100m,
+            result.Value.Amount);
+    }
+
     private static RentableUnit CreateRentableUnit()
     {
         return RentableUnit.Create(
