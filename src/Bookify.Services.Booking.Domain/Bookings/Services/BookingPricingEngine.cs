@@ -102,4 +102,70 @@ public static class BookingPricingEngine
 
         return Result<Money>.Success(total);
     }
+
+    public static Result<PriceBreakdown> CalculatePrice(
+        Money regularNightlyRate,
+        Money weekendNightlyRate,
+        Money extraGuestNightlyRate,
+        RentableUnit rentableUnit,
+        GuestCount guestCount,
+        StayPeriod stayPeriod)
+    {
+        return CalculatePrice(
+            regularNightlyRate,
+            weekendNightlyRate,
+            extraGuestNightlyRate,
+            rentableUnit,
+            guestCount,
+            stayPeriod,
+            Array.Empty<PricingSeason>());
+    }
+
+    public static Result<PriceBreakdown> CalculatePrice(
+        Money regularNightlyRate,
+        Money weekendNightlyRate,
+        Money extraGuestNightlyRate,
+        RentableUnit rentableUnit,
+        GuestCount guestCount,
+        StayPeriod stayPeriod,
+        IReadOnlyCollection<PricingSeason> seasons)
+    {
+        ArgumentNullException.ThrowIfNull(regularNightlyRate);
+        ArgumentNullException.ThrowIfNull(weekendNightlyRate);
+        ArgumentNullException.ThrowIfNull(extraGuestNightlyRate);
+        ArgumentNullException.ThrowIfNull(rentableUnit);
+        ArgumentNullException.ThrowIfNull(guestCount);
+        ArgumentNullException.ThrowIfNull(stayPeriod);
+        ArgumentNullException.ThrowIfNull(seasons);
+
+        Result<Money> accomodationPriceResult =
+            CalculateAccommodationPrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                stayPeriod,
+                seasons);
+
+        if (accomodationPriceResult.IsFailure)
+        {
+            return Result<PriceBreakdown>.Failure(
+                accomodationPriceResult.Error);
+        }
+
+        Result<Money> extraGuestPriceResult =
+            CalculateExtraGuestPrice(
+                extraGuestNightlyRate,
+                rentableUnit,
+                guestCount,
+                stayPeriod);
+
+        if (extraGuestPriceResult.IsFailure)
+        {
+            return Result<PriceBreakdown>.Failure(
+                extraGuestPriceResult.Error);
+        }
+
+        return PriceBreakdown.Create(
+            accomodationPriceResult.Value,
+            extraGuestPriceResult.Value);
+    }
 }
