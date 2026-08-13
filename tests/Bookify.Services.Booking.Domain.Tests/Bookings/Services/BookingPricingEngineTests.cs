@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.Services;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
@@ -409,6 +410,152 @@ public sealed class BookingPricingEngineTests
             result.Value.Amount);
     }
 
+    [Fact]
+    public void CalculateAccommodationPrice_WhenSeasonApplies_ShouldOverrideRegularRate()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        PricingSeason season =
+            PricingSeason.Create(
+                new DateOnly(2026, 12, 24),
+                new DateOnly(2026, 12, 28),
+                Money.Create(
+                    220m,
+                    "USD")
+                .Value,
+                priority: 10)
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 12, 24),
+                new DateOnly(2026, 12, 25))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculateAccommodationPrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                stayPeriod,
+                [season]);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            220m,
+            result.Value.Amount);
+    }
+
+    [Fact]
+    public void CalculateAccommodationPrice_WhenSeasonAppliesOnWeekend_ShouldOverrideWeekendRate()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        PricingSeason christmas =
+            PricingSeason.Create(
+                new DateOnly(2026, 12, 24),
+                new DateOnly(2026, 12, 27),
+                Money.Create(
+                    250m,
+                    "USD")
+                .Value,
+                priority: 20)
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 12, 25),
+                new DateOnly(2026, 12, 26))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculateAccommodationPrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                stayPeriod,
+                [christmas]);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            250m,
+            result.Value.Amount);
+    }
+
+    [Fact]
+    public void CalculateAccommodationPrice_WithMixedRegularWeekendAndSeasonNights_ShouldResolveEachNight()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        PricingSeason christmas =
+            PricingSeason.Create(
+                new DateOnly(2026, 12, 25),
+                new DateOnly(2026, 12, 27),
+                Money.Create(
+                    250m,
+                    "USD")
+                .Value,
+                priority: 20)
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 12, 24),
+                new DateOnly(2026, 12, 28))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculateAccommodationPrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                stayPeriod,
+                [christmas]);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            700m,
+            result.Value.Amount);
+    }
     private static RentableUnit CreateRentableUnit()
     {
         return RentableUnit.Create(
