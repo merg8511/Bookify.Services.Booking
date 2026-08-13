@@ -37,4 +37,48 @@ public static class BookingPricingEngine
 
         return extraGuestNightlyRate.Multiply(extraGuestNights);
     }
+
+    public static Result<Money> CalculateAccommodationPrice(
+        Money regularNightlyRate,
+        Money weekendNightlyRate,
+        StayPeriod stayPeriod)
+    {
+        ArgumentNullException.ThrowIfNull(regularNightlyRate);
+        ArgumentNullException.ThrowIfNull(weekendNightlyRate);
+        ArgumentNullException.ThrowIfNull(stayPeriod);
+
+        int regularNightCount = 0;
+        int weekendNightCount = 0;
+
+        for (
+            DateOnly night = stayPeriod.CheckInDate;
+            night < stayPeriod.CheckOutDate;
+            night = night.AddDays(1))
+        {
+            if (WeekendPricingPolicy.IsWeekendNight(night))
+            {
+                weekendNightCount++;
+            }
+            else
+            {
+                regularNightCount++;
+            }
+        }
+
+        Result<Money> regularPriceResult = regularNightlyRate.Multiply(regularNightCount);
+
+        if (regularPriceResult.IsFailure)
+        {
+            return Result<Money>.Failure(regularPriceResult.Error);
+        }
+
+        Result<Money> weekendPriceResult = weekendNightlyRate.Multiply(weekendNightCount);
+
+        if (weekendPriceResult.IsFailure)
+        {
+            return Result<Money>.Failure(weekendPriceResult.Error);
+        }
+
+        return regularPriceResult.Value.Add(weekendPriceResult.Value);
+    }
 }
