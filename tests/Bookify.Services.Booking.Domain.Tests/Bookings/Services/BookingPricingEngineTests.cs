@@ -556,6 +556,145 @@ public sealed class BookingPricingEngineTests
             700m,
             result.Value.Amount);
     }
+
+    [Fact]
+    public void CalculatePrice_WithAccommodationAndExtraGuests_ShouldReturnBreakdown()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        Money extraGuestNightlyRate =
+            Money.Create(
+                25m,
+                "USD")
+            .Value;
+
+        RentableUnit rentableUnit =
+            CreateRentableUnit();
+
+        GuestCount guestCount =
+            GuestCount.Create(4)
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 9, 14),
+                new DateOnly(2026, 9, 16))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculatePrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                extraGuestNightlyRate,
+                rentableUnit,
+                guestCount,
+                stayPeriod);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            200m,
+            result.Value.AccommodationPrice.Amount);
+
+        Assert.Equal(
+            100m,
+            result.Value.ExtraGuestPrice.Amount);
+
+        Assert.Equal(
+            300m,
+            result.Value.TotalPrice.Amount);
+
+        Assert.Equal(
+            "USD",
+            result.Value.TotalPrice.Currency);
+    }
+
+    [Fact]
+    public void CalculatePrice_WhenSeasonApplies_ShouldUseSeasonRateInBreakdown()
+    {
+        // ARRANGE
+        Money regularNightlyRate =
+            Money.Create(
+                100m,
+                "USD")
+            .Value;
+
+        Money weekendNightlyRate =
+            Money.Create(
+                140m,
+                "USD")
+            .Value;
+
+        Money extraGuestNightlyRate =
+            Money.Create(
+                25m,
+                "USD")
+            .Value;
+
+        PricingSeason christmas =
+            PricingSeason.Create(
+                new DateOnly(2026, 12, 24),
+                new DateOnly(2026, 12, 27),
+                Money.Create(
+                    250m,
+                    "USD")
+                .Value,
+                priority: 20)
+            .Value;
+
+        RentableUnit rentableUnit =
+            CreateRentableUnit();
+
+        GuestCount guestCount =
+            GuestCount.Create(3)
+            .Value;
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                new DateOnly(2026, 12, 25),
+                new DateOnly(2026, 12, 26))
+            .Value;
+
+        // ACT
+        var result =
+            BookingPricingEngine.CalculatePrice(
+                regularNightlyRate,
+                weekendNightlyRate,
+                extraGuestNightlyRate,
+                rentableUnit,
+                guestCount,
+                stayPeriod,
+                [christmas]);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            250m,
+            result.Value.AccommodationPrice.Amount);
+
+        Assert.Equal(
+            25m,
+            result.Value.ExtraGuestPrice.Amount);
+
+        Assert.Equal(
+            275m,
+            result.Value.TotalPrice.Amount);
+    }
+
     private static RentableUnit CreateRentableUnit()
     {
         return RentableUnit.Create(
