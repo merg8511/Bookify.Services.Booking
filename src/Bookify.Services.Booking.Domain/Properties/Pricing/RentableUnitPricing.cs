@@ -6,6 +6,7 @@ namespace Bookify.Services.Booking.Domain.Properties.Pricing;
 
 public sealed record RentableUnitPricing
 {
+    private RentableUnitPricing() { }
     private RentableUnitPricing(
         Money regularNightlyRate,
         Money weekendNightlyRate,
@@ -16,9 +17,9 @@ public sealed record RentableUnitPricing
         ExtraGuestNightlyRate = extraGuestNightRate;
     }
 
-    public Money RegularNightlyRate { get; }
-    public Money WeekendNightlyRate { get; }
-    public Money ExtraGuestNightlyRate { get; }
+    public Money RegularNightlyRate { get; private set; } = null!;
+    public Money WeekendNightlyRate { get; private set; } = null!;
+    public Money ExtraGuestNightlyRate { get; private set; } = null!;
 
     public static Result<RentableUnitPricing> Create(
         Money regularNightlyRate,
