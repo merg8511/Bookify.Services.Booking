@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Properties.Errors;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 
@@ -418,6 +419,103 @@ public sealed class RentableUnitTests
 
         // ASSERT
         Assert.False(result);
+    }
+
+    [Fact]
+    public void Create_ShouldStartWithoutPricingConfiguration()
+    {
+        // ACT
+        RentableUnit unit =
+            CreateUnit();
+
+        // ASSERT
+        Assert.Null(
+            unit.Pricing);
+    }
+
+    [Fact]
+    public void ConfigurePricing_WithValidPricing_ShouldAssignPricing()
+    {
+        // ARRANGE
+        RentableUnit unit =
+            CreateUnit();
+
+        RentableUnitPricing pricing =
+            RentableUnitPricing.Create(
+                Money.Create(
+                    100m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    140m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    25m,
+                    "USD")
+                .Value)
+            .Value;
+
+        // ACT
+        unit.ConfigurePricing(
+            pricing);
+
+        // ASSERT
+        Assert.Equal(
+            pricing,
+            unit.Pricing);
+    }
+
+    [Fact]
+    public void ConfigurePricing_WhenCalledAgain_ShouldReplacePricing()
+    {
+        // ARRANGE
+        RentableUnit unit =
+            CreateUnit();
+
+        RentableUnitPricing initialPricing =
+            RentableUnitPricing.Create(
+                Money.Create(
+                    100m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    140m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    25m,
+                    "USD")
+                .Value)
+            .Value;
+
+        RentableUnitPricing updatedPricing =
+            RentableUnitPricing.Create(
+                Money.Create(
+                    120m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    160m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    30m,
+                    "USD")
+                .Value)
+            .Value;
+
+        unit.ConfigurePricing(
+            initialPricing);
+
+        // ACT
+        unit.ConfigurePricing(
+            updatedPricing);
+
+        // ASSERT
+        Assert.Equal(
+            updatedPricing,
+            unit.Pricing);
     }
 
     private static RentableUnit CreateUnit()
