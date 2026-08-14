@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Domain.Properties.Errors;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 
@@ -34,6 +35,7 @@ public sealed class RentableUnit
     public RentableUnitType Type { get; private set; }
     public int MaximumCapacity { get; private set; }
     public int MaxBaseGuests { get; private set; }
+    public RentableUnitPricing? Pricing { get; private set; }
     public bool IsActive { get; private set; }
 
     public bool IsEntireProperty =>
@@ -119,6 +121,12 @@ public sealed class RentableUnit
         MaxBaseGuests = maxBaseGuests;
 
         return Result.Success();
+    }
+
+    public void ConfigurePricing(RentableUnitPricing pricing)
+    {
+        ArgumentNullException.ThrowIfNull(pricing);
+        Pricing = pricing;
     }
 
     public void Activate()
