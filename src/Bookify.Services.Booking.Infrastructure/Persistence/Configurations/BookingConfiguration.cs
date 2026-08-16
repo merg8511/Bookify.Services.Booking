@@ -142,6 +142,10 @@ internal sealed class BookingConfiguration
             booking =>
                 booking.BlocksInventory);
 
+        builder.Ignore(
+            booking =>
+                booking.PriceSnapshot);
+
         builder.HasOne<Property>()
             .WithMany()
             .HasForeignKey(
