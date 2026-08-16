@@ -6,6 +6,11 @@ namespace Bookify.Services.Booking.Domain.Bookings.Pricing;
 
 public sealed record PricingSeason
 {
+    private PricingSeason()
+    {
+        NightlyRate = null!;
+    }
+
     private PricingSeason(
         DateOnly startDate,
         DateOnly endDate,
@@ -18,10 +23,10 @@ public sealed record PricingSeason
         Priority = priority;
     }
 
-    public DateOnly StartDate { get; }
-    public DateOnly EndDate { get; }
-    public Money NightlyRate { get; }
-    public int Priority { get; }
+    public DateOnly StartDate { get; private set; }
+    public DateOnly EndDate { get; private set; }
+    public Money NightlyRate { get; private set; }
+    public int Priority { get; private set; }
 
     public static Result<PricingSeason> Create(
         DateOnly startDate,
