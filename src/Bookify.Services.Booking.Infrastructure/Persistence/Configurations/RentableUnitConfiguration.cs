@@ -181,6 +181,93 @@ internal sealed class RentableUnitConfiguration
                     .IsRequired();
             });
 
+        builder.OwnsMany(
+            rentableUnit =>
+                rentableUnit.PricingSeasons,
+            seasonBuilder =>
+            {
+                seasonBuilder.ToTable(
+                    "rentable_unit_pricing_seasons",
+                    tableBuilder =>
+                    {
+                        tableBuilder.HasCheckConstraint(
+                            "ck_rentable_unit_pricing_seasons_date_range",
+                            "end_date > start_date");
+
+                        tableBuilder.HasCheckConstraint(
+                            "ck_rentable_unit_pricing_seasons_priority",
+                            "priority >= 0");
+
+                        tableBuilder.HasCheckConstraint(
+                            "ck_rentable_unit_pricing_seasons_currency_format",
+                            "nightly_rate_currency ~ '^[A-Z]{3}$'");
+                    });
+
+                seasonBuilder.Property<Guid>("RentableUnitId")
+                    .HasColumnName("rentable_unit_id")
+                    .HasColumnType("uuid");
+
+                seasonBuilder.Property<int>("Id")
+                    .HasColumnName("id")
+                    .ValueGeneratedOnAdd();
+
+                seasonBuilder.HasKey(
+                        "RentableUnitId",
+                        "Id")
+                    .HasName("pk_rentable_unit_pricing_seasons");
+
+                seasonBuilder
+                    .WithOwner()
+                    .HasForeignKey("RentableUnitId");
+
+                seasonBuilder.Property(
+                        season => season.StartDate)
+                    .HasColumnName("start_date")
+                    .HasColumnType("date")
+                    .IsRequired();
+
+                seasonBuilder.Property(
+                        season => season.EndDate)
+                    .HasColumnName("end_date")
+                    .HasColumnType("date")
+                    .IsRequired();
+
+                seasonBuilder.Property(
+                        season => season.Priority)
+                    .HasColumnName("priority")
+                    .IsRequired();
+
+                seasonBuilder.OwnsOne(
+                    season =>
+                        season.NightlyRate,
+                    moneyBuilder =>
+                    {
+                        moneyBuilder.Property(
+                                money => money.Amount)
+                            .HasColumnName(
+                                "nightly_rate_amount")
+                            .HasColumnType("numeric")
+                            .IsRequired();
+
+                        moneyBuilder.Property(
+                                money => money.Currency)
+                            .HasColumnName(
+                                "nightly_rate_currency")
+                            .HasMaxLength(3)
+                            .IsRequired();
+                    });
+
+                seasonBuilder.Navigation(
+                        season =>
+                            season.NightlyRate)
+                    .IsRequired();
+            });
+
+        builder.Navigation(
+                rentableUnit =>
+                    rentableUnit.PricingSeasons)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasOne<Property>()
             .WithMany()
             .HasForeignKey(
