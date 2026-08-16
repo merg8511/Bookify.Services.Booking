@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Domain.Bookings.Errors;
+using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
@@ -20,6 +21,7 @@ public sealed class Booking
         Guid rentableUnitId,
         StayPeriod stayPeriod,
         GuestCount guestCount,
+        PriceSnapshot? priceSnapshot,
         BookingStatus status)
     {
         Id = id;
@@ -27,6 +29,7 @@ public sealed class Booking
         RentableUnitId = rentableUnitId;
         StayPeriod = stayPeriod;
         GuestCount = guestCount;
+        PriceSnapshot = priceSnapshot;
         Status = status;
     }
 
@@ -35,6 +38,7 @@ public sealed class Booking
     public Guid RentableUnitId { get; private set; }
     public StayPeriod StayPeriod { get; private set; }
     public GuestCount GuestCount { get; private set; }
+    public PriceSnapshot? PriceSnapshot { get; private set; }
     public BookingStatus Status { get; private set; }
     public BookingCancellationReason? CancellationReason { get; private set; }
 
@@ -49,31 +53,26 @@ public sealed class Booking
         StayPeriod stayPeriod,
         GuestCount guestCount)
     {
-        ArgumentNullException.ThrowIfNull(rentableUnit);
-        ArgumentNullException.ThrowIfNull(stayPeriod);
-        ArgumentNullException.ThrowIfNull(guestCount);
-
-        if (!rentableUnit.IsActive)
-        {
-            return Result<Booking>.Failure(
-                BookingErrors.RentableUnitInactive);
-        }
-
-        if (!rentableUnit.CanAccommodate(guestCount))
-        {
-            return Result<Booking>.Failure(
-                BookingErrors.GuestCapacityExceeded);
-        }
-
-        var booking = new Booking(
-            Guid.NewGuid(),
-            rentableUnit.PropertyId,
-            rentableUnit.Id,
+        return CreateInternal(
+            rentableUnit,
             stayPeriod,
             guestCount,
-            BookingStatus.PendingApproval);
+            priceSnapshot: null);
+    }
 
-        return Result<Booking>.Success(booking);
+    public static Result<Booking> Create(
+        RentableUnit rentableUnit,
+        StayPeriod stayPeriod,
+        GuestCount guestCount,
+        PriceSnapshot priceSnapshot)
+    {
+        ArgumentNullException.ThrowIfNull(priceSnapshot);
+
+        return CreateInternal(
+            rentableUnit,
+            stayPeriod,
+            guestCount,
+            priceSnapshot);
     }
 
     public Result Approve()
@@ -111,6 +110,40 @@ public sealed class Booking
         return TransitionTo(
             expectedCurrentStatus: BookingStatus.Paid,
             targetStatus: BookingStatus.Completed);
+    }
+
+    private static Result<Booking> CreateInternal(
+        RentableUnit rentableUnit,
+        StayPeriod stayPeriod,
+        GuestCount guestCount,
+        PriceSnapshot? priceSnapshot)
+    {
+        ArgumentNullException.ThrowIfNull(rentableUnit);
+        ArgumentNullException.ThrowIfNull(stayPeriod);
+        ArgumentNullException.ThrowIfNull(guestCount);
+
+        if (!rentableUnit.IsActive)
+        {
+            return Result<Booking>.Failure(
+                BookingErrors.RentableUnitInactive);
+        }
+
+        if (!rentableUnit.CanAccommodate(guestCount))
+        {
+            return Result<Booking>.Failure(
+                BookingErrors.GuestCapacityExceeded);
+        }
+
+        var booking = new Booking(
+            Guid.NewGuid(),
+            rentableUnit.PropertyId,
+            rentableUnit.Id,
+            stayPeriod,
+            guestCount,
+            priceSnapshot,
+            BookingStatus.PendingApproval);
+
+        return Result<Booking>.Success(booking);
     }
 
     private Result TransitionTo(
