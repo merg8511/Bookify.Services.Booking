@@ -133,6 +133,124 @@ internal sealed class BookingConfiguration
                     .IsRequired();
             });
 
+        builder.OwnsOne(
+            booking =>
+                booking.PriceSnapshot,
+            snapshotBuilder =>
+            {
+                snapshotBuilder.ToTable(
+                    "booking_price_snapshots",
+                    tableBuilder =>
+                    {
+                        tableBuilder.HasCheckConstraint(
+                            "ck_booking_price_snapshots_amounts",
+                            "accommodation_price_amount >= 0 " +
+                            "AND extra_guest_price_amount >= 0 " +
+                            "AND total_price_amount >= 0");
+
+                        tableBuilder.HasCheckConstraint(
+                            "ck_booking_price_snapshots_currencies",
+                            "accommodation_price_currency = " +
+                            "extra_guest_price_currency " +
+                            "AND accommodation_price_currency = " +
+                            "total_price_currency");
+
+                        tableBuilder.HasCheckConstraint(
+                            "ck_booking_price_snapshots_currency_format",
+                            "accommodation_price_currency ~ '^[A-Z]{3}$' " +
+                            "AND extra_guest_price_currency ~ '^[A-Z]{3}$' " +
+                            "AND total_price_currency ~ '^[A-Z]{3}$'");
+
+                        tableBuilder.HasCheckConstraint(
+                            "ck_booking_price_snapshots_total",
+                            "total_price_amount = " +
+                            "accommodation_price_amount + " +
+                            "extra_guest_price_amount");
+                    });
+
+                snapshotBuilder
+                    .Property<Guid>("BookingId")
+                    .HasColumnName("booking_id")
+                    .HasColumnType("uuid");
+
+                snapshotBuilder
+                    .HasKey("BookingId")
+                    .HasName("pk_booking_price_snapshots");
+
+                snapshotBuilder
+                    .WithOwner()
+                    .HasForeignKey("BookingId");
+
+                snapshotBuilder.OwnsOne(
+                    snapshot =>
+                        snapshot.AccommodationPrice,
+                    moneyBuilder =>
+                    {
+                        moneyBuilder.Property(
+                                money => money.Amount)
+                            .HasColumnName("accommodation_price_amount")
+                            .HasColumnType("numeric")
+                            .IsRequired();
+
+                        moneyBuilder.Property(
+                                money => money.Currency)
+                            .HasColumnName("accommodation_price_currency")
+                            .HasMaxLength(3)
+                            .IsRequired();
+                    });
+
+                snapshotBuilder.Navigation(
+                    snapshot =>
+                        snapshot.AccommodationPrice)
+                    .IsRequired();
+
+                snapshotBuilder.OwnsOne(
+                    snapshot =>
+                        snapshot.ExtraGuestPrice,
+                    moneyBuilder =>
+                    {
+                        moneyBuilder.Property(
+                                money => money.Amount)
+                            .HasColumnName("extra_guest_price_amount")
+                            .HasColumnType("numeric")
+                            .IsRequired();
+
+                        moneyBuilder.Property(
+                                money => money.Currency)
+                            .HasColumnName("extra_guest_price_currency")
+                            .HasMaxLength(3)
+                            .IsRequired();
+                    });
+
+                snapshotBuilder.Navigation(
+                        snapshot =>
+                            snapshot.ExtraGuestPrice)
+                    .IsRequired();
+
+                snapshotBuilder.OwnsOne(
+                    snapshot =>
+                        snapshot.TotalPrice,
+                    moneyBuilder =>
+                    {
+                        moneyBuilder.Property(
+                                money => money.Amount)
+                            .HasColumnName("total_price_amount")
+                            .HasColumnType("numeric")
+                            .IsRequired();
+
+                        moneyBuilder.Property(
+                                money => money.Currency)
+                            .HasColumnName("total_price_currency")
+                            .HasMaxLength(3)
+                            .IsRequired();
+                    });
+
+                snapshotBuilder.Navigation(
+                        snapshot =>
+                            snapshot.TotalPrice)
+                    .IsRequired();
+            });
+
         builder.Navigation(
                 booking =>
                     booking.GuestCount)
@@ -141,10 +259,6 @@ internal sealed class BookingConfiguration
         builder.Ignore(
             booking =>
                 booking.BlocksInventory);
-
-        builder.Ignore(
-            booking =>
-                booking.PriceSnapshot);
 
         builder.HasOne<Property>()
             .WithMany()
