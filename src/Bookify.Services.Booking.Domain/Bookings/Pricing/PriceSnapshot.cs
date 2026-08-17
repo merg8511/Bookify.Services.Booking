@@ -4,6 +4,13 @@ namespace Bookify.Services.Booking.Domain.Bookings.Pricing;
 
 public sealed record PriceSnapshot
 {
+    private PriceSnapshot()
+    {
+        AccommodationPrice = null!;
+        ExtraGuestPrice = null!;
+        TotalPrice = null!;
+    }
+
     private PriceSnapshot(
         Money accomodationPrice,
         Money extraGuestPrice,
@@ -14,9 +21,9 @@ public sealed record PriceSnapshot
         TotalPrice = totalPrice;
     }
 
-    public Money AccommodationPrice { get; }
-    public Money ExtraGuestPrice { get; }
-    public Money TotalPrice { get; }
+    public Money AccommodationPrice { get; private set; }
+    public Money ExtraGuestPrice { get; private set; }
+    public Money TotalPrice { get; private set; }
 
     public static PriceSnapshot Create(
         PriceBreakdown priceBreakdown)
