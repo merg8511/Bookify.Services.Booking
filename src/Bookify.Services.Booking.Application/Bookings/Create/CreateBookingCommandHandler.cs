@@ -1,8 +1,11 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
+using Bookify.Services.Booking.Domain.Bookings.Pricing;
+using Bookify.Services.Booking.Domain.Bookings.Services;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 
@@ -78,6 +81,9 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                 guestCountResult.Error);
         }
 
+        StayPeriod stayPeriod = stayPeriodResult.Value;
+        GuestCount guestCount = guestCountResult.Value;
+
         await using ITransaction transaction =
             await _transactionManager.BeginAsync(cancellationToken);
 
@@ -149,11 +155,44 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                     cancellationToken);
             }
 
+            RentableUnitPricing? pricing = rentableUnit.Pricing;
+
+            if (pricing is null)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    CreateBookingErrors
+                        .PricingNotConfigured(rentableUnit.Id),
+                    cancellationToken);
+            }
+
+            Result<PriceBreakdown> priceResult =
+                BookingPricingEngine.CalculatePrice(
+                    pricing.RegularNightlyRate,
+                    pricing.WeekendNightlyRate,
+                    pricing.ExtraGuestNightlyRate,
+                    rentableUnit,
+                    guestCount,
+                    stayPeriod,
+                    rentableUnit.PricingSeasons);
+
+            if(priceResult.IsFailure)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    priceResult.Error,
+                    cancellationToken);
+            }
+
+            PriceSnapshot priceSnapshot =
+                    PriceSnapshot.Create(priceResult.Value);
+
             Result<DomainBooking> bookingResult =
                 DomainBooking.Create(
                     rentableUnit,
-                    stayPeriodResult.Value,
-                    guestCountResult.Value);
+                    stayPeriod,
+                    guestCount,
+                    priceSnapshot);
 
             if (bookingResult.IsFailure)
             {

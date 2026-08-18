@@ -35,6 +35,13 @@ public static class CreateBookingErrors
             "The requested rentable unit is not available " +
             "for the selected stay period.");
 
+    public static Error PricingNotConfigured(Guid rentableUnitId) =>
+        Error.Conflict(
+            "Booking.PricingNotConfigured",
+            $"The rentable unit with identifier " +
+            $"'{rentableUnitId}' does not have pricing " +
+            $"configured and cannot be booked");
+
     public static Error PropertyNotFound(
         Guid propertyId) =>
         Error.NotFound(
