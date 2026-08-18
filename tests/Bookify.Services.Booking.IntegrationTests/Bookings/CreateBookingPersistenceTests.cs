@@ -4,7 +4,9 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Properties;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
 using Bookify.Services.Booking.Domain.Shared;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
@@ -49,6 +51,22 @@ public sealed class CreateBookingPersistenceTests
                 maximumCapacity: 4,
                 maxBaseGuests: 2)
             .Value;
+
+        rentableUnit.ConfigurePricing(
+    RentableUnitPricing.Create(
+        Money.Create(
+            100m,
+            "USD")
+        .Value,
+        Money.Create(
+            140m,
+            "USD")
+        .Value,
+        Money.Create(
+            25m,
+            "USD")
+        .Value)
+    .Value);
 
         using (
             IServiceScope seedScope = _factory.Services.CreateScope())

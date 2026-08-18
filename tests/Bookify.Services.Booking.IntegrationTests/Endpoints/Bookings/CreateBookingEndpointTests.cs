@@ -1,13 +1,15 @@
-using System.Net;
-using System.Net.Http.Json;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
-using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
+using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Properties;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
-using Bookify.Services.Booking.Domain.Bookings;
+using System.Net;
+using System.Net.Http.Json;
+using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.IntegrationTests.Endpoints.Bookings;
 
@@ -274,6 +276,22 @@ public sealed class CreateBookingEndpointTests
                     maximumCapacity: 4,
                     maxBaseGuests: 2)
                 .Value;
+
+        rentableUnit.ConfigurePricing(
+    RentableUnitPricing.Create(
+        Money.Create(
+            100m,
+            "USD")
+        .Value,
+        Money.Create(
+            140m,
+            "USD")
+        .Value,
+        Money.Create(
+            25m,
+            "USD")
+        .Value)
+    .Value);
 
         using IServiceScope scope = _factory.Services.CreateScope();
 

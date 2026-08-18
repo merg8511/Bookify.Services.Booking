@@ -1,15 +1,17 @@
-using System.Data.Common;
-using System.Net;
-using System.Text;
-using System.Text.Json;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Domain.Properties;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.IntegrationTests.Contracts;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
+using System.Data.Common;
+using System.Net;
+using System.Text;
+using System.Text.Json;
 
 namespace Bookify.Services.Booking.IntegrationTests.Idempotency;
 
@@ -581,6 +583,26 @@ public sealed class IdempotencyEndpointTests
             snapshot.ResponseBody);
     }
 
+    private static void ConfigurePricing(
+    RentableUnit rentableUnit)
+    {
+        rentableUnit.ConfigurePricing(
+            RentableUnitPricing.Create(
+                Money.Create(
+                    100m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    140m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    25m,
+                    "USD")
+                .Value)
+            .Value);
+    }
+
     private async Task<HttpAttempt>
         SendBookingAsync(
             string key,
@@ -679,6 +701,14 @@ public sealed class IdempotencyEndpointTests
                         maxBaseGuests: 2)
                     .Value
                 : null;
+
+        ConfigurePricing(roomA);
+
+        if (roomB is not null)
+        {
+            ConfigurePricing(
+                roomB);
+        }
 
         using IServiceScope scope =
             _factory.Services
