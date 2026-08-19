@@ -13,7 +13,7 @@ using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Application.Bookings.Create;
 
-public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingCommand, Guid>
+public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingCommand, CreateBookingResult>
 {
     private readonly IPropertyRepository _propertyRepository;
     private readonly IRentableUnitRepository _rentableUnitRepository;
@@ -54,7 +54,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
             throw new ArgumentNullException(nameof(transactionManager));
     }
 
-    public async Task<Result<Guid>> HandleAsync(
+    public async Task<Result<CreateBookingResult>> HandleAsync(
         CreateBookingCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -67,7 +67,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
         if (stayPeriodResult.IsFailure)
         {
-            return Result<Guid>.Failure(
+            return Result<CreateBookingResult>.Failure(
                 stayPeriodResult.Error);
         }
 
@@ -77,7 +77,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
         if (guestCountResult.IsFailure)
         {
-            return Result<Guid>.Failure(
+            return Result<CreateBookingResult>.Failure(
                 guestCountResult.Error);
         }
 
@@ -176,7 +176,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                     stayPeriod,
                     rentableUnit.PricingSeasons);
 
-            if(priceResult.IsFailure)
+            if (priceResult.IsFailure)
             {
                 return await RollbackFailureAsync(
                     transaction,
@@ -228,7 +228,16 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
             await transaction.CommitAsync(cancellationToken);
 
-            return Result<Guid>.Success(booking.Id);
+            var result = new CreateBookingResult(
+                booking.Id,
+                booking.Status,
+                priceSnapshot.AccommodationPrice.Amount,
+                priceSnapshot.ExtraGuestPrice.Amount,
+                priceSnapshot.TotalPrice.Amount,
+                priceSnapshot.TotalPrice.Currency);
+
+
+            return Result<CreateBookingResult>.Success(result);
         }
         catch
         {
@@ -237,7 +246,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
         }
     }
 
-    private static async Task<Result<Guid>>
+    private static async Task<Result<CreateBookingResult>>
         RollbackFailureAsync(
             ITransaction transaction,
             Error error,
@@ -245,6 +254,6 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
     {
         await transaction.RollbackAsync(cancellationToken);
 
-        return Result<Guid>.Failure(error);
+        return Result<CreateBookingResult>.Failure(error);
     }
 }

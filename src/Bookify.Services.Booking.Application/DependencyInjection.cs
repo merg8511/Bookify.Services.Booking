@@ -66,7 +66,7 @@ public static class DependencyInjection
             CreateBookingCommandValidator>();
 
         services.AddScoped<
-            ICommandHandler<CreateBookingCommand, Guid>,
+            ICommandHandler<CreateBookingCommand, CreateBookingResult>,
             CreateBookingCommandHandler>();
 
 
