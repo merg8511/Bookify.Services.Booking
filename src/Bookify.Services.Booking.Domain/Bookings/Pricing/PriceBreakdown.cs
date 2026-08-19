@@ -20,14 +20,14 @@ public sealed record PriceBreakdown
     public Money TotalPrice { get; }
 
     public static Result<PriceBreakdown> Create(
-        Money accomodationPrice,
+        Money accommodationPrice,
         Money extraGuestPrice)
     {
-        ArgumentNullException.ThrowIfNull(accomodationPrice);
+        ArgumentNullException.ThrowIfNull(accommodationPrice);
         ArgumentNullException.ThrowIfNull(extraGuestPrice);
 
         Result<Money> totalPriceResult =
-            accomodationPrice.Add(extraGuestPrice);
+            accommodationPrice.Add(extraGuestPrice);
 
         if (totalPriceResult.IsFailure)
         {
@@ -36,7 +36,7 @@ public sealed record PriceBreakdown
 
         return Result<PriceBreakdown>.Success(
             new PriceBreakdown(
-                accomodationPrice,
+                accommodationPrice,
                 extraGuestPrice,
                 totalPriceResult.Value));
     }

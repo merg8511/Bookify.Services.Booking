@@ -138,17 +138,17 @@ public static class BookingPricingEngine
         ArgumentNullException.ThrowIfNull(stayPeriod);
         ArgumentNullException.ThrowIfNull(seasons);
 
-        Result<Money> accomodationPriceResult =
+        Result<Money> accommodationPriceResult =
             CalculateAccommodationPrice(
                 regularNightlyRate,
                 weekendNightlyRate,
                 stayPeriod,
                 seasons);
 
-        if (accomodationPriceResult.IsFailure)
+        if (accommodationPriceResult.IsFailure)
         {
             return Result<PriceBreakdown>.Failure(
-                accomodationPriceResult.Error);
+                accommodationPriceResult.Error);
         }
 
         Result<Money> extraGuestPriceResult =
@@ -165,7 +165,7 @@ public static class BookingPricingEngine
         }
 
         return PriceBreakdown.Create(
-            accomodationPriceResult.Value,
+            accommodationPriceResult.Value,
             extraGuestPriceResult.Value);
     }
 }

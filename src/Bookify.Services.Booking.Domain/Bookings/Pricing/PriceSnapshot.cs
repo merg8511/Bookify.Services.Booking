@@ -12,11 +12,11 @@ public sealed record PriceSnapshot
     }
 
     private PriceSnapshot(
-        Money accomodationPrice,
+        Money accommodationPrice,
         Money extraGuestPrice,
         Money totalPrice)
     {
-        AccommodationPrice = accomodationPrice;
+        AccommodationPrice = accommodationPrice;
         ExtraGuestPrice = extraGuestPrice;
         TotalPrice = totalPrice;
     }
