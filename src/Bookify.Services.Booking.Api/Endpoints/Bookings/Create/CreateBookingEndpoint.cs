@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Domain.Bookings;
+using Bookify.Services.Booking.Domain.Shared;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
@@ -35,7 +36,7 @@ internal static class CreateBookingEndpoint
         CreateBookingRequest request,
         ICommandExecutor<
             CreateBookingCommand,
-            Guid> commandExecutor,
+            CreateBookingResult> commandExecutor,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -47,21 +48,27 @@ internal static class CreateBookingEndpoint
                 request.CheckOutDate,
                 request.GuestCount);
 
-        var result = await commandExecutor.ExecuteAsync(command, cancellationToken);
+        Result<CreateBookingResult> result = await commandExecutor.ExecuteAsync(command, cancellationToken);
 
         return result.ToHttpResult(
             httpContext,
-            bookingId =>
+            booking =>
             {
+                var price =
+                    new CreateBookingPriceResponse(
+                        booking.AccommodationPrice,
+                        booking.ExtraGuestPrice,
+                        booking.TotalPrice,
+                        booking.Currency);
+
                 var response =
                     new CreateBookingResponse(
-                        bookingId,
-                        BookingStatus
-                            .PendingApproval
-                            .ToString());
+                        booking.Id,
+                        booking.Status.ToString(),
+                        price);
 
                 string location = BookingsEndpoints
-                                    .GetResourceLocation(bookingId);
+                                    .GetResourceLocation(booking.Id);
 
                 return TypedResults.Created(
                     location,
