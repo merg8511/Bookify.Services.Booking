@@ -21,5 +21,8 @@ internal static class EndpointNames
     {
         internal const string Create =
             "Bookings.Create";
+
+        internal const string Approve =
+            "Bookings.Approve";
     }
 }

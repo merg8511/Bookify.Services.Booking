@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Api.Endpoints.Bookings.Approve;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
 
 namespace Bookify.Services.Booking.Api.Endpoints.Bookings;
@@ -14,6 +15,7 @@ internal static class BookingsEndpoints
                 .WithTags("Bookings");
 
         CreateBookingEndpoint.Map(bookingsGroup);
+        ApproveBookingEndpoint.Map(bookingsGroup);
     }
 
     internal static string GetResourceLocation(Guid bookingId)
