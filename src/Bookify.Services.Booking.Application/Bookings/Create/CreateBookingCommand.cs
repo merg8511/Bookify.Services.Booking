@@ -7,4 +7,4 @@ public sealed record CreateBookingCommand(
     Guid RentableUnitId,
     DateOnly? CheckInDate,
     DateOnly? CheckOutDate,
-    int? GuestCount) : ICommand<Guid>;
+    int? GuestCount) : ICommand<CreateBookingResult>;

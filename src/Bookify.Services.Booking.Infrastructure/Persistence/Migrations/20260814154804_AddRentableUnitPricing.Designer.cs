@@ -3,6 +3,7 @@ using System;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(BookingDbContext))]
-    partial class BookingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814154804_AddRentableUnitPricing")]
+    partial class AddRentableUnitPricing
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -243,108 +246,6 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_bookings_rentable_units_rentable_unit_id");
 
-                    b.OwnsOne("Bookify.Services.Booking.Domain.Bookings.Pricing.PriceSnapshot", "PriceSnapshot", b1 =>
-                        {
-                            b1.Property<Guid>("BookingId")
-                                .HasColumnType("uuid")
-                                .HasColumnName("booking_id");
-
-                            b1.HasKey("BookingId")
-                                .HasName("pk_booking_price_snapshots");
-
-                            b1.ToTable("booking_price_snapshots", null, t =>
-                                {
-                                    t.HasCheckConstraint("ck_booking_price_snapshots_amounts", "accommodation_price_amount >= 0 AND extra_guest_price_amount >= 0 AND total_price_amount >= 0");
-
-                                    t.HasCheckConstraint("ck_booking_price_snapshots_currencies", "accommodation_price_currency = extra_guest_price_currency AND accommodation_price_currency = total_price_currency");
-
-                                    t.HasCheckConstraint("ck_booking_price_snapshots_currency_format", "accommodation_price_currency ~ '^[A-Z]{3}$' AND extra_guest_price_currency ~ '^[A-Z]{3}$' AND total_price_currency ~ '^[A-Z]{3}$'");
-
-                                    t.HasCheckConstraint("ck_booking_price_snapshots_total", "total_price_amount = accommodation_price_amount + extra_guest_price_amount");
-                                });
-
-                            b1.WithOwner()
-                                .HasForeignKey("BookingId");
-
-                            b1.OwnsOne("Bookify.Services.Booking.Domain.Shared.ValueObjects.Money", "AccommodationPrice", b2 =>
-                                {
-                                    b2.Property<Guid>("PriceSnapshotBookingId")
-                                        .HasColumnType("uuid");
-
-                                    b2.Property<decimal>("Amount")
-                                        .HasColumnType("numeric")
-                                        .HasColumnName("accommodation_price_amount");
-
-                                    b2.Property<string>("Currency")
-                                        .IsRequired()
-                                        .HasMaxLength(3)
-                                        .HasColumnType("character varying(3)")
-                                        .HasColumnName("accommodation_price_currency");
-
-                                    b2.HasKey("PriceSnapshotBookingId");
-
-                                    b2.ToTable("booking_price_snapshots");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("PriceSnapshotBookingId");
-                                });
-
-                            b1.OwnsOne("Bookify.Services.Booking.Domain.Shared.ValueObjects.Money", "ExtraGuestPrice", b2 =>
-                                {
-                                    b2.Property<Guid>("PriceSnapshotBookingId")
-                                        .HasColumnType("uuid");
-
-                                    b2.Property<decimal>("Amount")
-                                        .HasColumnType("numeric")
-                                        .HasColumnName("extra_guest_price_amount");
-
-                                    b2.Property<string>("Currency")
-                                        .IsRequired()
-                                        .HasMaxLength(3)
-                                        .HasColumnType("character varying(3)")
-                                        .HasColumnName("extra_guest_price_currency");
-
-                                    b2.HasKey("PriceSnapshotBookingId");
-
-                                    b2.ToTable("booking_price_snapshots");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("PriceSnapshotBookingId");
-                                });
-
-                            b1.OwnsOne("Bookify.Services.Booking.Domain.Shared.ValueObjects.Money", "TotalPrice", b2 =>
-                                {
-                                    b2.Property<Guid>("PriceSnapshotBookingId")
-                                        .HasColumnType("uuid");
-
-                                    b2.Property<decimal>("Amount")
-                                        .HasColumnType("numeric")
-                                        .HasColumnName("total_price_amount");
-
-                                    b2.Property<string>("Currency")
-                                        .IsRequired()
-                                        .HasMaxLength(3)
-                                        .HasColumnType("character varying(3)")
-                                        .HasColumnName("total_price_currency");
-
-                                    b2.HasKey("PriceSnapshotBookingId");
-
-                                    b2.ToTable("booking_price_snapshots");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("PriceSnapshotBookingId");
-                                });
-
-                            b1.Navigation("AccommodationPrice")
-                                .IsRequired();
-
-                            b1.Navigation("ExtraGuestPrice")
-                                .IsRequired();
-
-                            b1.Navigation("TotalPrice")
-                                .IsRequired();
-                        });
-
                     b.OwnsOne("Bookify.Services.Booking.Domain.Bookings.ValueObjects.StayPeriod", "StayPeriod", b1 =>
                         {
                             b1.Property<Guid>("BookingId")
@@ -389,8 +290,6 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                     b.Navigation("GuestCount")
                         .IsRequired();
 
-                    b.Navigation("PriceSnapshot");
-
                     b.Navigation("StayPeriod")
                         .IsRequired();
                 });
@@ -403,76 +302,6 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_rentable_units_properties_id");
-
-                    b.OwnsMany("Bookify.Services.Booking.Domain.Bookings.Pricing.PricingSeason", "PricingSeasons", b1 =>
-                        {
-                            b1.Property<Guid>("RentableUnitId")
-                                .HasColumnType("uuid")
-                                .HasColumnName("rentable_unit_id");
-
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("integer")
-                                .HasColumnName("id");
-
-                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
-
-                            b1.Property<DateOnly>("EndDate")
-                                .HasColumnType("date")
-                                .HasColumnName("end_date");
-
-                            b1.Property<int>("Priority")
-                                .HasColumnType("integer")
-                                .HasColumnName("priority");
-
-                            b1.Property<DateOnly>("StartDate")
-                                .HasColumnType("date")
-                                .HasColumnName("start_date");
-
-                            b1.HasKey("RentableUnitId", "Id")
-                                .HasName("pk_rentable_unit_pricing_seasons");
-
-                            b1.ToTable("rentable_unit_pricing_seasons", null, t =>
-                                {
-                                    t.HasCheckConstraint("ck_rentable_unit_pricing_seasons_currency_format", "nightly_rate_currency ~ '^[A-Z]{3}$'");
-
-                                    t.HasCheckConstraint("ck_rentable_unit_pricing_seasons_date_range", "end_date > start_date");
-
-                                    t.HasCheckConstraint("ck_rentable_unit_pricing_seasons_priority", "priority >= 0");
-                                });
-
-                            b1.WithOwner()
-                                .HasForeignKey("RentableUnitId");
-
-                            b1.OwnsOne("Bookify.Services.Booking.Domain.Shared.ValueObjects.Money", "NightlyRate", b2 =>
-                                {
-                                    b2.Property<Guid>("PricingSeasonRentableUnitId")
-                                        .HasColumnType("uuid");
-
-                                    b2.Property<int>("PricingSeasonId")
-                                        .HasColumnType("integer");
-
-                                    b2.Property<decimal>("Amount")
-                                        .HasColumnType("numeric")
-                                        .HasColumnName("nightly_rate_amount");
-
-                                    b2.Property<string>("Currency")
-                                        .IsRequired()
-                                        .HasMaxLength(3)
-                                        .HasColumnType("character varying(3)")
-                                        .HasColumnName("nightly_rate_currency");
-
-                                    b2.HasKey("PricingSeasonRentableUnitId", "PricingSeasonId");
-
-                                    b2.ToTable("rentable_unit_pricing_seasons");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("PricingSeasonRentableUnitId", "PricingSeasonId");
-                                });
-
-                            b1.Navigation("NightlyRate")
-                                .IsRequired();
-                        });
 
                     b.OwnsOne("Bookify.Services.Booking.Domain.Properties.Pricing.RentableUnitPricing", "Pricing", b1 =>
                         {
@@ -575,8 +404,6 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Pricing");
-
-                    b.Navigation("PricingSeasons");
                 });
 #pragma warning restore 612, 618
         }

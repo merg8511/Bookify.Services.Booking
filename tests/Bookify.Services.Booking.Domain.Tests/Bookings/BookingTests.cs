@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Errors;
+using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
@@ -550,6 +551,27 @@ public sealed class BookingTests
             cancelled.BlocksInventory);
     }
 
+    [Fact]
+    public void Create_WithoutPriceSnapshot_ShouldCreateBookingWithoutSnapshot()
+    {
+        // ARRANGE
+        RentableUnit rentableUnit = CreateRentableUnit();
+        StayPeriod stayPeriod = CreateStayPeriod();
+        GuestCount guestCount = GuestCount.Create(2).Value;
+
+        // ACT
+        var result =
+            DomainBooking.Create(
+                rentableUnit,
+                stayPeriod,
+                guestCount);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Null(result.Value.PriceSnapshot);
+    }
+
     private static void AssertInvalidTransition(
         Result result)
     {
@@ -562,6 +584,116 @@ public sealed class BookingTests
         Assert.Equal(
             ErrorType.Conflict,
             result.Error.Type);
+    }
+
+    [Fact]
+    public void Create_WithPriceSnapshot_ShouldStoreSnapshot()
+    {
+        // ARRANGE
+        RentableUnit rentableUnit = CreateRentableUnit();
+        StayPeriod stayPeriod = CreateStayPeriod();
+        GuestCount guestCount = GuestCount.Create(2).Value;
+
+        PriceSnapshot priceSnapshot = CreatePriceSnapshot();
+
+        // ACT
+        var result =
+            DomainBooking.Create(
+                rentableUnit,
+                stayPeriod,
+                guestCount,
+                priceSnapshot);
+
+        // ASSERT
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            priceSnapshot,
+            result.Value.PriceSnapshot);
+
+        Assert.Equal(
+            450m,
+            result.Value
+                .PriceSnapshot!
+                .TotalPrice
+                .Amount);
+
+        Assert.Equal(
+            "USD",
+            result.Value
+                .PriceSnapshot!
+                .TotalPrice
+                .Currency);
+    }
+
+    [Fact]
+    public void Create_WithNullPriceSnapshot_ShouldThrow()
+    {
+        // ARRANGE
+        RentableUnit rentableUnit = CreateRentableUnit();
+        StayPeriod stayPeriod = CreateStayPeriod();
+        GuestCount guestCount = GuestCount.Create(2).Value;
+
+        // ACT
+        void Action()
+        {
+            DomainBooking.Create(
+                rentableUnit,
+                stayPeriod,
+                guestCount,
+                null!);
+        }
+
+        // ASSERT
+        Assert.Throws<ArgumentNullException>(Action);
+    }
+
+    [Fact]
+    public void PriceSnapshot_ShouldRemainUnchangedThroughBookingLifecycle()
+    {
+        // ARRANGE
+        PriceSnapshot priceSnapshot = CreatePriceSnapshot();
+
+        DomainBooking booking =
+            DomainBooking.Create(
+                CreateRentableUnit(),
+                CreateStayPeriod(),
+                GuestCount.Create(2).Value,
+                priceSnapshot)
+            .Value;
+
+        // ACT
+        booking.Approve();
+        booking.MarkAsPaid();
+        booking.Complete();
+
+        // ASSERT
+        Assert.Equal(
+            BookingStatus.Completed,
+            booking.Status);
+
+        Assert.Equal(
+            priceSnapshot,
+            booking.PriceSnapshot);
+
+        Assert.Equal(
+            450m,
+            booking
+                .PriceSnapshot!
+                .TotalPrice
+                .Amount);
+    }
+
+    private static PriceSnapshot CreatePriceSnapshot()
+    {
+        PriceBreakdown priceBreakdown =
+            PriceBreakdown.Create(
+                Money.Create(400m, "USD").Value,
+                Money.Create(50m, "USD").Value)
+            .Value;
+
+        return PriceSnapshot.Create(priceBreakdown);
     }
 
     private static DomainBooking CreateBooking()

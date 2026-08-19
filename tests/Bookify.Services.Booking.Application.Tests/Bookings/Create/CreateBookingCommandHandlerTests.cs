@@ -3,9 +3,11 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Errors;
+using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Properties;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
 using Bookify.Services.Booking.Domain.Shared;
-using System.Transactions;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Application.Tests.Bookings.Create;
@@ -46,21 +48,21 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.True(result.IsSuccess);
 
         Assert.NotEqual(
             Guid.Empty,
-            result.Value);
+            result.Value.Id);
 
         Assert.NotNull(bookingRepository.AddedBooking);
 
         DomainBooking booking = bookingRepository.AddedBooking;
 
         Assert.Equal(
-            result.Value,
+            result.Value.Id,
             booking.Id);
 
         Assert.Equal(
@@ -86,6 +88,61 @@ public sealed class CreateBookingCommandHandlerTests
         Assert.Equal(
             BookingStatus.PendingApproval,
             booking.Status);
+
+        Assert.NotNull(
+            booking.PriceSnapshot);
+
+        Assert.Equal(
+    booking.Id,
+    result.Value.Id);
+
+        Assert.Equal(
+            BookingStatus.PendingApproval,
+            result.Value.Status);
+
+        Assert.Equal(
+            540m,
+            result.Value.AccommodationPrice);
+
+        Assert.Equal(
+            125m,
+            result.Value.ExtraGuestPrice);
+
+        Assert.Equal(
+            665m,
+            result.Value.TotalPrice);
+
+        Assert.Equal(
+            "USD",
+            result.Value.Currency);
+
+        Assert.Equal(
+            540m,
+            booking
+                .PriceSnapshot
+                .AccommodationPrice
+                .Amount);
+
+        Assert.Equal(
+            125m,
+            booking
+                .PriceSnapshot
+                .ExtraGuestPrice
+                .Amount);
+
+        Assert.Equal(
+            665m,
+            booking
+                .PriceSnapshot
+                .TotalPrice
+                .Amount);
+
+        Assert.Equal(
+            "USD",
+            booking
+                .PriceSnapshot
+                .TotalPrice
+                .Currency);
 
         Assert.Equal(
             1,
@@ -145,7 +202,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -202,7 +259,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.Equal(
@@ -251,7 +308,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.Equal(
@@ -306,7 +363,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.Equal(
@@ -355,7 +412,7 @@ public sealed class CreateBookingCommandHandlerTests
                 new StubTransactionManager());
 
         // ACT
-        Result<Guid> result =
+        Result<CreateBookingResult> result =
             await handler.HandleAsync(
                 CreateValidCommand(
                     property.Id,
@@ -406,7 +463,7 @@ public sealed class CreateBookingCommandHandlerTests
                 new StubTransactionManager());
 
         // ACT
-        Result<Guid> result =
+        Result<CreateBookingResult> result =
             await handler.HandleAsync(
                 CreateValidCommand(
                     property.Id,
@@ -457,7 +514,7 @@ public sealed class CreateBookingCommandHandlerTests
                 transactionManager);
 
         // ACT
-        Result<Guid> result =
+        Result<CreateBookingResult> result =
             await handler.HandleAsync(
                 CreateValidCommand(
                     property.Id,
@@ -517,6 +574,194 @@ public sealed class CreateBookingCommandHandlerTests
                 Action);
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenPricingIsNotConfigured_ReturnsFailureWithoutSaving()
+    {
+        // ARRANGE
+        Property property =
+            CreateProperty();
+
+        RentableUnit rentableUnit =
+            CreateRentableUnitWithoutPricing(
+                property.Id,
+                maximumCapacity: 4);
+
+        var bookingRepository =
+            new SpyBookingRepository();
+
+        var availabilityReader =
+            new StubBookingAvailabilityReader(
+                hasConflict: false);
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        var transactionManager =
+            new StubTransactionManager();
+
+        var handler =
+            new CreateBookingCommandHandler(
+                new SpyPropertyRepository(
+                    property),
+                new SpyRentableUnitRepository(
+                    rentableUnit),
+                bookingRepository,
+                availabilityReader,
+                new StubBookingInventoryLock(
+                    acquired: true),
+                unitOfWork,
+                transactionManager);
+
+        // ACT
+        Result<CreateBookingResult> result =
+            await handler.HandleAsync(
+                CreateValidCommand(
+                    property.Id,
+                    rentableUnit.Id,
+                    guestCount: 2));
+
+        // ASSERT
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            CreateBookingErrors
+                .PricingNotConfigured(
+                    rentableUnit.Id),
+            result.Error);
+
+        Assert.Null(
+            bookingRepository.AddedBooking);
+
+        Assert.Equal(
+            0,
+            availabilityReader.CallCount);
+
+        Assert.Equal(
+            0,
+            unitOfWork.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            transactionManager
+                .Transaction
+                .CommitCallCount);
+
+        Assert.Equal(
+            1,
+            transactionManager
+                .Transaction
+                .RollbackCallCount);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPricingCalculationFails_ReturnsDomainFailureWithoutSaving()
+    {
+        // ARRANGE
+        Property property =
+            CreateProperty();
+
+        RentableUnit rentableUnit =
+            CreateRentableUnit(
+                property.Id,
+                maximumCapacity: 4);
+
+        PricingSeason firstSeason =
+            PricingSeason.Create(
+                Date(10),
+                Date(12),
+                Money.Create(
+                    200m,
+                    "USD")
+                .Value,
+                priority: 20)
+            .Value;
+
+        PricingSeason secondSeason =
+            PricingSeason.Create(
+                Date(10),
+                Date(13),
+                Money.Create(
+                    250m,
+                    "USD")
+                .Value,
+                priority: 20)
+            .Value;
+
+        rentableUnit.AddPricingSeason(
+            firstSeason);
+
+        rentableUnit.AddPricingSeason(
+            secondSeason);
+
+        var bookingRepository =
+            new SpyBookingRepository();
+
+        var availabilityReader =
+            new StubBookingAvailabilityReader(
+                hasConflict: false);
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        var transactionManager =
+            new StubTransactionManager();
+
+        var handler =
+            new CreateBookingCommandHandler(
+                new SpyPropertyRepository(
+                    property),
+                new SpyRentableUnitRepository(
+                    rentableUnit),
+                bookingRepository,
+                availabilityReader,
+                new StubBookingInventoryLock(
+                    acquired: true),
+                unitOfWork,
+                transactionManager);
+
+        var command =
+            new CreateBookingCommand(
+                property.Id,
+                rentableUnit.Id,
+                Date(10),
+                Date(11),
+                GuestCount: 1);
+
+        // ACT
+        Result<CreateBookingResult> result =
+            await handler.HandleAsync(
+                command);
+
+        // ASSERT
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            PricingSeasonErrors
+                .AmbiguousPriority(
+                    Date(10),
+                    20),
+            result.Error);
+
+        Assert.Null(
+            bookingRepository.AddedBooking);
+
+        Assert.Equal(
+            0,
+            availabilityReader.CallCount);
+
+        Assert.Equal(
+            0,
+            unitOfWork.SaveChangesCallCount);
+
+        Assert.Equal(
+            1,
+            transactionManager
+                .Transaction
+                .RollbackCallCount);
+    }
+
     private static CreateBookingCommand
         CreateValidCommand(
             Guid propertyId,
@@ -549,12 +794,42 @@ public sealed class CreateBookingCommandHandlerTests
             Guid propertyId,
             int maximumCapacity)
     {
+        RentableUnit rentableUnit =
+            CreateRentableUnitWithoutPricing(
+                propertyId,
+                maximumCapacity);
+
+        rentableUnit.ConfigurePricing(CreatePricing());
+
+        return rentableUnit;
+    }
+
+    private static RentableUnit CreateRentableUnitWithoutPricing(
+        Guid propertyId,
+        int maximumCapacity)
+    {
+
         return RentableUnit.Create(
             propertyId,
             "Room A",
             RentableUnitType.Room,
             maximumCapacity,
             maxBaseGuests: 1).Value;
+    }
+
+    private static RentableUnitPricing CreatePricing()
+    {
+        return RentableUnitPricing.Create(
+        Money.Create(
+            100m,
+            "USD").Value,
+        Money.Create(
+            140m,
+            "USD").Value,
+        Money.Create(
+            25m,
+            "USD").Value)
+    .Value;
     }
 
     private static DateOnly Date(int day)

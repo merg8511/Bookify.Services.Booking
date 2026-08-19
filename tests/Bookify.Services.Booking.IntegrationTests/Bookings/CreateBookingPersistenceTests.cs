@@ -4,7 +4,9 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Properties;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
 using Bookify.Services.Booking.Domain.Shared;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
@@ -50,8 +52,23 @@ public sealed class CreateBookingPersistenceTests
                 maxBaseGuests: 2)
             .Value;
 
-        using (
-            IServiceScope seedScope = _factory.Services.CreateScope())
+        rentableUnit.ConfigurePricing(
+            RentableUnitPricing.Create(
+                Money.Create(
+                    100m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    140m,
+                    "USD")
+                .Value,
+                Money.Create(
+                    25m,
+                    "USD")
+                .Value)
+            .Value);
+
+        using (IServiceScope seedScope = _factory.Services.CreateScope())
         {
             IPropertyRepository propertyRepository =
                 seedScope
@@ -74,7 +91,7 @@ public sealed class CreateBookingPersistenceTests
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        Result<Guid> creationResult;
+        Result<CreateBookingResult> creationResult;
 
         using (
             IServiceScope commandScope =
@@ -82,13 +99,13 @@ public sealed class CreateBookingPersistenceTests
         {
             ICommandExecutor<
                 CreateBookingCommand,
-                Guid> executor =
+                CreateBookingResult> executor =
                     commandScope
                         .ServiceProvider
                             .GetRequiredService<
                                 ICommandExecutor<
                                     CreateBookingCommand,
-                                    Guid>>();
+                                    CreateBookingResult>>();
 
             var command =
                 new CreateBookingCommand(
@@ -113,7 +130,7 @@ public sealed class CreateBookingPersistenceTests
 
         Assert.NotEqual(
             Guid.Empty,
-            creationResult.Value);
+            creationResult.Value.Id);
 
         using IServiceScope assertionScope =
             _factory.Services.CreateScope();
@@ -126,10 +143,30 @@ public sealed class CreateBookingPersistenceTests
         DomainBooking? persistedBooking =
             await bookingRepository
                 .GetByIdAsync(
-                creationResult.Value,
-                cancellationToken);
+                    creationResult.Value.Id,
+                    cancellationToken);
 
         Assert.NotNull(persistedBooking);
+
+        Assert.Equal(
+            BookingStatus.PendingApproval,
+            creationResult.Value.Status);
+
+        Assert.NotNull(persistedBooking.PriceSnapshot);
+
+        Assert.Equal(
+            persistedBooking
+                .PriceSnapshot
+                .TotalPrice
+                .Amount,
+            creationResult.Value.TotalPrice);
+
+        Assert.Equal(
+            persistedBooking
+                .PriceSnapshot
+                .TotalPrice
+                .Currency,
+            creationResult.Value.Currency);
 
         Assert.Equal(
             property.Id,
