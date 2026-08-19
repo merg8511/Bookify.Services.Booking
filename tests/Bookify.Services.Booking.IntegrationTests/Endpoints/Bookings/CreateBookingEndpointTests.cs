@@ -75,6 +75,25 @@ public sealed class CreateBookingEndpointTests
                 .ToString(),
             body.Status);
 
+        Assert.NotNull(
+            body.Price);
+
+        Assert.Equal(
+            540m,
+            body.Price.AccommodationPrice);
+
+        Assert.Equal(
+            0m,
+            body.Price.ExtraGuestPrice);
+
+        Assert.Equal(
+            540m,
+            body.Price.TotalPrice);
+
+        Assert.Equal(
+            "USD",
+            body.Price.Currency);
+
         Assert.NotNull(response.Headers.Location);
 
         Assert.Equal(
@@ -128,6 +147,36 @@ public sealed class CreateBookingEndpointTests
         Assert.Equal(
             booking.Status.ToString(),
             body.Status);
+
+        Assert.NotNull(booking.PriceSnapshot);
+
+        Assert.Equal(
+            booking
+                .PriceSnapshot
+                .AccommodationPrice
+                .Amount,
+            body.Price.AccommodationPrice);
+
+        Assert.Equal(
+            booking
+                .PriceSnapshot
+                .ExtraGuestPrice
+                .Amount,
+            body.Price.ExtraGuestPrice);
+
+        Assert.Equal(
+            booking
+                .PriceSnapshot
+                .TotalPrice
+                .Amount,
+            body.Price.TotalPrice);
+
+        Assert.Equal(
+            booking
+                .PriceSnapshot
+                .TotalPrice
+                .Currency,
+            body.Price.Currency);
     }
 
     [Fact]

@@ -8,7 +8,6 @@ using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Properties.Pricing;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
-using System.Transactions;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Application.Tests.Bookings.Create;
@@ -49,21 +48,21 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.True(result.IsSuccess);
 
         Assert.NotEqual(
             Guid.Empty,
-            result.Value);
+            result.Value.Id);
 
         Assert.NotNull(bookingRepository.AddedBooking);
 
         DomainBooking booking = bookingRepository.AddedBooking;
 
         Assert.Equal(
-            result.Value,
+            result.Value.Id,
             booking.Id);
 
         Assert.Equal(
@@ -91,7 +90,31 @@ public sealed class CreateBookingCommandHandlerTests
             booking.Status);
 
         Assert.NotNull(
-    booking.PriceSnapshot);
+            booking.PriceSnapshot);
+
+        Assert.Equal(
+    booking.Id,
+    result.Value.Id);
+
+        Assert.Equal(
+            BookingStatus.PendingApproval,
+            result.Value.Status);
+
+        Assert.Equal(
+            540m,
+            result.Value.AccommodationPrice);
+
+        Assert.Equal(
+            125m,
+            result.Value.ExtraGuestPrice);
+
+        Assert.Equal(
+            665m,
+            result.Value.TotalPrice);
+
+        Assert.Equal(
+            "USD",
+            result.Value.Currency);
 
         Assert.Equal(
             540m,
@@ -179,7 +202,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -236,7 +259,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.Equal(
@@ -285,7 +308,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.Equal(
@@ -340,7 +363,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command);
 
         // ASSERT
         Assert.Equal(
@@ -389,7 +412,7 @@ public sealed class CreateBookingCommandHandlerTests
                 new StubTransactionManager());
 
         // ACT
-        Result<Guid> result =
+        Result<CreateBookingResult> result =
             await handler.HandleAsync(
                 CreateValidCommand(
                     property.Id,
@@ -440,7 +463,7 @@ public sealed class CreateBookingCommandHandlerTests
                 new StubTransactionManager());
 
         // ACT
-        Result<Guid> result =
+        Result<CreateBookingResult> result =
             await handler.HandleAsync(
                 CreateValidCommand(
                     property.Id,
@@ -491,7 +514,7 @@ public sealed class CreateBookingCommandHandlerTests
                 transactionManager);
 
         // ACT
-        Result<Guid> result =
+        Result<CreateBookingResult> result =
             await handler.HandleAsync(
                 CreateValidCommand(
                     property.Id,
@@ -590,7 +613,7 @@ public sealed class CreateBookingCommandHandlerTests
                 transactionManager);
 
         // ACT
-        Result<Guid> result =
+        Result<CreateBookingResult> result =
             await handler.HandleAsync(
                 CreateValidCommand(
                     property.Id,
@@ -706,7 +729,7 @@ public sealed class CreateBookingCommandHandlerTests
                 GuestCount: 1);
 
         // ACT
-        Result<Guid> result =
+        Result<CreateBookingResult> result =
             await handler.HandleAsync(
                 command);
 
