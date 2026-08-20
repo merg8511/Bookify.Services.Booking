@@ -27,5 +27,8 @@ internal static class EndpointNames
 
         internal const string Reject =
             "Bookings.Reject";
+
+        internal const string MarkAsPaid =
+            "Bookings.MarkAsPaid";
     }
 }
