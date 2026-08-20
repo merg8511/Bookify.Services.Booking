@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
 using Bookify.Services.Booking.Application.Bookings.Approve;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
@@ -77,6 +78,14 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<ApproveBookingCommand>,
             ApproveBookingCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<RejectBookingCommand>,
+            RejectBookingCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<RejectBookingCommand>,
+            RejectBookingCommandHandler>();
 
 
         // ==========================================
