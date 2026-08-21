@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
 using Bookify.Services.Booking.Application.Bookings.Approve;
+using Bookify.Services.Booking.Application.Bookings.Complete;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
 using Bookify.Services.Booking.Application.Bookings.MarkAsPaid;
@@ -104,6 +105,14 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<ExpireBookingPaymentCommand>,
             ExpireBookingPaymentCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<CompleteBookingCommand>,
+            CompleteBookingCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<CompleteBookingCommand>,
+            CompleteBookingCommandHandler>();
 
 
         // ==========================================
