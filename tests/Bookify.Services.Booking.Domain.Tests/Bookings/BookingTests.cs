@@ -685,6 +685,134 @@ public sealed class BookingTests
                 .Amount);
     }
 
+    [Fact]
+    public void Cancel_WhenPendingApproval_ShouldCancelBooking()
+    {
+        // ARRANGE
+        DomainBooking booking =
+            CreateBooking();
+
+        // ACT
+        Result result =
+            booking.Cancel();
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            BookingStatus.Cancelled,
+            booking.Status);
+
+        Assert.Equal(
+            BookingCancellationReason.CancelledByGuest,
+            booking.CancellationReason);
+
+        Assert.False(
+            booking.BlocksInventory);
+    }
+
+    [Fact]
+    public void Cancel_WhenPendingPayment_ShouldCancelBooking()
+    {
+        // ARRANGE
+        DomainBooking booking =
+            CreateBooking();
+
+        Result approvalResult =
+            booking.Approve();
+
+        Assert.True(
+            approvalResult.IsSuccess);
+
+        // ACT
+        Result result =
+            booking.Cancel();
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            BookingStatus.Cancelled,
+            booking.Status);
+
+        Assert.Equal(
+            BookingCancellationReason.CancelledByGuest,
+            booking.CancellationReason);
+
+        Assert.False(
+            booking.BlocksInventory);
+    }
+
+    [Fact]
+    public void Cancel_WhenPaid_ShouldReturnFailure()
+    {
+        // ARRANGE
+        DomainBooking booking =
+            CreateBooking();
+
+        Assert.True(
+            booking.Approve().IsSuccess);
+
+        Assert.True(
+            booking.MarkAsPaid().IsSuccess);
+
+        // ACT
+        Result result =
+            booking.Cancel();
+
+        // ASSERT
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            "Booking.InvalidStatusTransition",
+            result.Error.Code);
+
+        Assert.Equal(
+            ErrorType.Conflict,
+            result.Error.Type);
+
+        Assert.Equal(
+            BookingStatus.Paid,
+            booking.Status);
+
+        Assert.Null(
+            booking.CancellationReason);
+    }
+
+    [Fact]
+    public void Cancel_WhenAlreadyCancelled_ShouldReturnFailure()
+    {
+        // ARRANGE
+        DomainBooking booking =
+            CreateBooking();
+
+        Assert.True(
+            booking.Cancel().IsSuccess);
+
+        // ACT
+        Result result =
+            booking.Cancel();
+
+        // ASSERT
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            "Booking.InvalidStatusTransition",
+            result.Error.Code);
+
+        Assert.Equal(
+            ErrorType.Conflict,
+            result.Error.Type);
+
+        Assert.Equal(
+            BookingStatus.Cancelled,
+            booking.Status);
+
+        Assert.Equal(
+            BookingCancellationReason.CancelledByGuest,
+            booking.CancellationReason);
+    }
+
     private static PriceSnapshot CreatePriceSnapshot()
     {
         PriceBreakdown priceBreakdown =
