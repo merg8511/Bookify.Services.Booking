@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Approve;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
+using Bookify.Services.Booking.Api.Endpoints.Bookings.ExpirePayment;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.MarkAsPaid;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Reject;
 
@@ -20,6 +21,7 @@ internal static class BookingsEndpoints
         ApproveBookingEndpoint.Map(bookingsGroup);
         RejectBookingEndpoint.Map(bookingsGroup);
         MarkBookingAsPaidEndpoint.Map(bookingsGroup);
+        ExpireBookingPaymentEndpoint.Map(bookingsGroup);
     }
 
     internal static string GetResourceLocation(Guid bookingId)
