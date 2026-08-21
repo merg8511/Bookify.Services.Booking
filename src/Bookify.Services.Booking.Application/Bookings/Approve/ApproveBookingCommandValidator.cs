@@ -10,7 +10,7 @@ public sealed class ApproveBookingCommandValidator
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if(request.BookingId == Guid.Empty)
+        if (request.BookingId == Guid.Empty)
         {
             return Result.Failure(
                 ApproveBookingErrors.InvalidBookingId);
