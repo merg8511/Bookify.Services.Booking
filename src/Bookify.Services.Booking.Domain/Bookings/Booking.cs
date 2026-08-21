@@ -112,6 +112,30 @@ public sealed class Booking
             targetStatus: BookingStatus.Completed);
     }
 
+    public Result Cancel()
+    {
+        if (Status == BookingStatus.PendingApproval)
+        {
+            return TransitionTo(
+                expectedCurrentStatus: BookingStatus.PendingApproval,
+                targetStatus: BookingStatus.Cancelled,
+                cancellationReason: BookingCancellationReason.CancelledByGuest);
+        }
+
+        if (Status == BookingStatus.PendingPayment)
+        {
+            return TransitionTo(
+                expectedCurrentStatus: BookingStatus.PendingPayment,
+                targetStatus: BookingStatus.Cancelled,
+                cancellationReason: BookingCancellationReason.CancelledByGuest);
+        }
+
+        return Result.Failure(
+            BookingErrors.InvalidStatusTransition(
+                Status,
+                BookingStatus.Cancelled));
+    }
+
     private static Result<Booking> CreateInternal(
         RentableUnit rentableUnit,
         StayPeriod stayPeriod,
