@@ -36,5 +36,8 @@ internal static class EndpointNames
 
         internal const string Complete =
             "Bookings.Complete";
+
+        internal const string Cancel =
+            "Bookings.Cancel";
     }
 }
