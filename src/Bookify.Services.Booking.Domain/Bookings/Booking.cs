@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Domain.Bookings.Errors;
+using Bookify.Services.Booking.Domain.Bookings.Events;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
@@ -78,31 +79,48 @@ public sealed class Booking : AggregateRoot
 
     public Result Approve()
     {
-        return TransitionTo(
+        Result result = TransitionTo(
             expectedCurrentStatus: BookingStatus.PendingApproval,
             targetStatus: BookingStatus.PendingPayment);
+
+        if (result.IsFailure)
+        {
+            return result;
+        }
+
+        RaiseDomainEvent(
+            new BookingApprovedDomainEvent(Id));
+
+        return Result.Success();
     }
 
     public Result Reject()
     {
-        return TransitionTo(
+        return TransitionToCancelled(
             expectedCurrentStatus: BookingStatus.PendingApproval,
-            targetStatus: BookingStatus.Cancelled,
             cancellationReason: BookingCancellationReason.RejectedByOwner);
     }
 
     public Result MarkAsPaid()
     {
-        return TransitionTo(
+        Result result = TransitionTo(
             expectedCurrentStatus: BookingStatus.PendingPayment,
             targetStatus: BookingStatus.Paid);
+
+        if (result.IsFailure)
+        {
+            return result;
+        }
+
+        RaiseDomainEvent(new BookingPaidDomainEvent(Id));
+
+        return Result.Success();
     }
 
     public Result ExpirePayment()
     {
-        return TransitionTo(
+        return TransitionToCancelled(
             expectedCurrentStatus: BookingStatus.PendingPayment,
-            targetStatus: BookingStatus.Cancelled,
             cancellationReason: BookingCancellationReason.PaymentExpired);
     }
 
@@ -117,17 +135,15 @@ public sealed class Booking : AggregateRoot
     {
         if (Status == BookingStatus.PendingApproval)
         {
-            return TransitionTo(
+            return TransitionToCancelled(
                 expectedCurrentStatus: BookingStatus.PendingApproval,
-                targetStatus: BookingStatus.Cancelled,
                 cancellationReason: BookingCancellationReason.CancelledByGuest);
         }
 
         if (Status == BookingStatus.PendingPayment)
         {
-            return TransitionTo(
+            return TransitionToCancelled(
                 expectedCurrentStatus: BookingStatus.PendingPayment,
-                targetStatus: BookingStatus.Cancelled,
                 cancellationReason: BookingCancellationReason.CancelledByGuest);
         }
 
@@ -168,7 +184,32 @@ public sealed class Booking : AggregateRoot
             priceSnapshot,
             BookingStatus.PendingApproval);
 
+        booking.RaiseDomainEvent(new BookingCreatedDomainEvent(booking.Id));
+
         return Result<Booking>.Success(booking);
+    }
+
+    private Result TransitionToCancelled(
+        BookingStatus expectedCurrentStatus,
+        BookingCancellationReason cancellationReason)
+    {
+        Result result =
+            TransitionTo(
+                expectedCurrentStatus,
+                BookingStatus.Cancelled,
+                cancellationReason);
+
+        if (result.IsFailure)
+        {
+            return result;
+        }
+
+        RaiseDomainEvent(
+            new BookingCancelledDomainEvent(
+                Id,
+                cancellationReason));
+
+        return Result.Success();
     }
 
     private Result TransitionTo(
