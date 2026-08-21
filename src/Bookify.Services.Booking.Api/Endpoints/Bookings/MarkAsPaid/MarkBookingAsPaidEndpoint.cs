@@ -14,6 +14,7 @@ internal static class MarkBookingAsPaidEndpoint
             .MapPost("/{bookingId:guid}/mark-as-paid",
             HandleAsync)
             .WithName(EndpointNames.Bookings.MarkAsPaid)
+            .WithSummary("Marks a booking as paid.")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
