@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.6.0...v0.7.0) (2026-08-21)
+
+
+### Features
+
+* **api:** implement cross-cutting idempotency key mechanism for api requests ([#27](https://github.com/merg8511/Bookify.Services.Booking/issues/27)) ([a957e03](https://github.com/merg8511/Bookify.Services.Booking/commit/a957e03e0781c3179dc8236e46fc57238edec7a4))
+* **booking:** implement booking lifecycle end to end ([#30](https://github.com/merg8511/Bookify.Services.Booking/issues/30)) ([15fb8ed](https://github.com/merg8511/Bookify.Services.Booking/commit/15fb8ed93636681f07b47029da5ac3e7f3fc0a46))
+* **infrastructure:** implement pessimistic locking to prevent double booking race conditions ([#25](https://github.com/merg8511/Bookify.Services.Booking/issues/25)) ([aee1c0f](https://github.com/merg8511/Bookify.Services.Booking/commit/aee1c0f58dd504150549fc3b4255143b0f83c3a0))
+* **pricing:** implement end-to-end booking pricing flow ([#29](https://github.com/merg8511/Bookify.Services.Booking/issues/29)) ([4cc4105](https://github.com/merg8511/Bookify.Services.Booking/commit/4cc41057fffa97a11fed9c00a6a922382a7bb2cf))
+
+
+### Bug Fixes
+
+* **code:** review idempotency flow ([#28](https://github.com/merg8511/Bookify.Services.Booking/issues/28)) ([28755ea](https://github.com/merg8511/Bookify.Services.Booking/commit/28755ea1e73e7a72ee4d650a5598c38396be0693))
+
 ## [0.6.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.5.0...v0.6.0) (2026-08-07)
 
 
