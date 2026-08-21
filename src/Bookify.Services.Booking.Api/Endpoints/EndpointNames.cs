@@ -33,5 +33,8 @@ internal static class EndpointNames
 
         internal const string ExpirePayment =
             "Bookings.ExpirePayment";
+
+        internal const string Complete =
+            "Bookings.Complete";
     }
 }
