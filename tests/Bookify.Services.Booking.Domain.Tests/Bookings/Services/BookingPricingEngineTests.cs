@@ -20,7 +20,7 @@ public sealed class BookingPricingEngineTests
         StayPeriod stayPeriod =
             StayPeriod.Create(
                 new DateOnly(2026, 9, 10),
-                new DateOnly(2026,9,11)).Value;
+                new DateOnly(2026, 9, 11)).Value;
 
         // ACT
         var result = BookingPricingEngine.CalculateBasePrice(

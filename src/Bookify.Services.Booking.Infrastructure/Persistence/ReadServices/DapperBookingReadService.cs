@@ -29,7 +29,7 @@ internal sealed class DapperBookingReadService : IBookingReadService
                 b.status IN
                 (
                     'PendingApproval',
-                    'PendingPaymend',
+                    'PendingPayment',
                     'Paid',
                     'Completed'
                 )

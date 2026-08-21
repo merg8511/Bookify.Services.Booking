@@ -21,5 +21,23 @@ internal static class EndpointNames
     {
         internal const string Create =
             "Bookings.Create";
+
+        internal const string Approve =
+            "Bookings.Approve";
+
+        internal const string Reject =
+            "Bookings.Reject";
+
+        internal const string MarkAsPaid =
+            "Bookings.MarkAsPaid";
+
+        internal const string ExpirePayment =
+            "Bookings.ExpirePayment";
+
+        internal const string Complete =
+            "Bookings.Complete";
+
+        internal const string Cancel =
+            "Bookings.Cancel";
     }
 }
