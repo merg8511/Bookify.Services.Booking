@@ -23,19 +23,26 @@ internal sealed class EfCoreTransactionManager : ITransactionManager
                     IsolationLevel.ReadCommitted,
                     cancellationToken);
 
-        return new EfCoreTransaction(transaction);
+        return new EfCoreTransaction(
+            transaction,
+            _dbContext);
     }
 
     private sealed class EfCoreTransaction : ITransaction
     {
-
         private readonly IDbContextTransaction _transaction;
+        private readonly BookingDbContext _dbContext;
         private bool _completed;
 
-        public EfCoreTransaction(IDbContextTransaction transaction)
+        public EfCoreTransaction(
+            IDbContextTransaction transaction,
+            BookingDbContext dbContext)
         {
             _transaction = transaction ??
                 throw new ArgumentNullException(nameof(transaction));
+
+            _dbContext = dbContext ??
+                throw new ArgumentNullException(nameof(dbContext));
         }
 
         public async Task CommitAsync(CancellationToken cancellationToken = default)
@@ -49,6 +56,8 @@ internal sealed class EfCoreTransactionManager : ITransactionManager
             await _transaction.CommitAsync(cancellationToken);
 
             _completed = true;
+
+            await _dbContext.DispatchDomainEventsAsync(CancellationToken.None);
         }
 
         public async Task RollbackAsync(CancellationToken cancellationToken = default)
@@ -61,6 +70,8 @@ internal sealed class EfCoreTransactionManager : ITransactionManager
             await _transaction.RollbackAsync(cancellationToken);
 
             _completed = true;
+
+            _dbContext.ClearDomainEvents();
         }
 
         public async ValueTask DisposeAsync()
@@ -72,7 +83,5 @@ internal sealed class EfCoreTransactionManager : ITransactionManager
 
             await _transaction.DisposeAsync();
         }
-
-
     }
 }
