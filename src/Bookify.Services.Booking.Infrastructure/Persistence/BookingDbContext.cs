@@ -54,9 +54,9 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
 
     internal async Task DispatchDomainEventsAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyCollection<IDomainEvent> domainEvents = DequeueDomainEvents();
+        IDomainEvent[] domainEvents = DequeueDomainEvents();
 
-        if (domainEvents.Count == 0)
+        if (domainEvents.Length == 0)
         {
             return;
         }
@@ -73,7 +73,7 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
         }
     }
 
-    private IReadOnlyCollection<IDomainEvent> DequeueDomainEvents()
+    private IDomainEvent[] DequeueDomainEvents()
     {
         AggregateRoot[] aggregateRoots = GetTrackedAggregateRoots();
 
