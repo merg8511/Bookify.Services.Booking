@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Application.Abstractions.DomainEvents;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
@@ -9,6 +10,7 @@ using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
 using Bookify.Services.Booking.Application.Bookings.MarkAsPaid;
 using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Application.Common.Pagination;
+using Bookify.Services.Booking.Application.DomainEvents;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
 using Bookify.Services.Booking.Application.Properties.Create;
@@ -38,6 +40,10 @@ public static class DependencyInjection
         services.AddScoped(
             typeof(IQueryExecutor<,>),
             typeof(QueryExecutor<,>));
+
+        services.AddScoped<
+            IDomainEventDispatcher,
+            DomainEventDispatcher>();
 
 
         // ==========================================
