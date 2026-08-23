@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Application.Abstractions.Idempotency;
+using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
@@ -7,6 +8,7 @@ using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
+using Bookify.Services.Booking.Infrastructure.Payments.Fake;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
@@ -130,5 +132,12 @@ public static class DependencyInjection
         services.AddScoped<
             IBookingAvailabilityReader,
             DapperBookingAvailabilityReader>();
+
+        // ==========================================
+        //  Payments
+        // ==========================================
+        services.AddSingleton<
+            IPaymentGateway,
+            FakePaymentGateway>();
     }
 }
