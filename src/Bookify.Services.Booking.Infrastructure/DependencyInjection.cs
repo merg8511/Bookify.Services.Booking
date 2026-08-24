@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Application.Abstractions.Idempotency;
+using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
@@ -7,6 +8,9 @@ using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
+using Bookify.Services.Booking.Infrastructure.Payments;
+using Bookify.Services.Booking.Infrastructure.Payments.Fake;
+using Bookify.Services.Booking.Infrastructure.Payments.Stripe;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
@@ -17,8 +21,10 @@ using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
 using Bookify.Services.Booking.Infrastructure.Persistence.Transactions;
 using Bookify.Services.Booking.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using Stripe;
 
 namespace Bookify.Services.Booking.Infrastructure;
 
@@ -26,10 +32,12 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        string connectionString)
+        string connectionString,
+        IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentNullException.ThrowIfNull(configuration);
 
         // ==========================================
         //  Time & System Utilities
@@ -59,12 +67,12 @@ public static class DependencyInjection
 
 
         // Llamada a la persistencia (sin parámetro extra)
-        AddPersistence(services);
+        AddPersistence(services, configuration);
 
         return services;
     }
 
-    private static void AddPersistence(IServiceCollection services)
+    private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
     {
         // ==========================================
         //  Transactions & Unit of Work
@@ -130,5 +138,10 @@ public static class DependencyInjection
         services.AddScoped<
             IBookingAvailabilityReader,
             DapperBookingAvailabilityReader>();
+
+        // ==========================================
+        //  Payments
+        // ==========================================
+        services.AddPayments(configuration);
     }
 }

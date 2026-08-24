@@ -21,7 +21,7 @@ string connectionString = configuredConnectionString;
 
 builder.Services
     .AddApplication()
-    .AddInfrastructure(connectionString);
+    .AddInfrastructure(connectionString, builder.Configuration);
 
 var app = builder.Build();
 

@@ -29,6 +29,7 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
     {
         builder.UseEnvironment("Testing");
         builder.UseContentRoot(GetApiContentRoot());
+        builder.UseSetting("Payments:Provider", "Fake");
     }
 
     public override async ValueTask DisposeAsync()
