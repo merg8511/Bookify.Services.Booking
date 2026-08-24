@@ -37,13 +37,13 @@ public sealed class PaymentAttempt
 
     internal static Result<PaymentAttempt> Create(
         Guid paymentId,
-        string extenalReference,
+        string externalReference,
         Money amount,
         DateTimeOffset createdAtUtc)
     {
         ArgumentNullException.ThrowIfNull(amount);
 
-        string normalizedExternalReference = extenalReference?.Trim()
+        string normalizedExternalReference = externalReference?.Trim()
             ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(normalizedExternalReference))

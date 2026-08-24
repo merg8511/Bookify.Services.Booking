@@ -63,6 +63,6 @@ public static class PaymentGatewayErrors
     public static Error UnsupportedProviderStatus(
         string status) =>
         Error.Failure(
-            "Payments.Gateway.UnsupportedProdiverStatus",
+            "Payments.Gateway.UnsupportedProviderStatus",
             $"The payment provider returned unsupported status '{status}'");
 }

@@ -28,7 +28,7 @@ public static class PaymentErrors
         string externalReference) =>
         Error.Conflict(
             "Payments.DuplicateExternalReference",
-            $"The extenal payment reference '{externalReference}' already exists.");
+            $"The external payment reference '{externalReference}' already exists.");
 
     public static Error AttemptNotFound(
         string externalReference) =>
