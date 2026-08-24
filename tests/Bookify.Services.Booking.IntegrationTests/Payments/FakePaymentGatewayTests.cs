@@ -262,6 +262,59 @@ public sealed class FakePaymentGatewayTests
             secondResult.Value.ExternalReference);
     }
 
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithSameIdempotencyKey_ShouldReturnSameExternalReference()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Success);
+
+        Result<Money> moneyResult =
+            Money.Create(
+                150m,
+                "USD");
+
+        Assert.True(
+            moneyResult.IsSuccess);
+
+        string idempotencyKey =
+            Guid.NewGuid()
+                .ToString("N");
+
+        var request =
+            new CreatePaymentAttemptRequest(
+                Guid.NewGuid(),
+                moneyResult.Value,
+                idempotencyKey);
+
+        // ACT
+        Result<PaymentGatewayResponse>
+            firstResult =
+                await gateway
+                    .CreatePaymentAttemptAsync(
+                        request, cancellationToken);
+
+        Result<PaymentGatewayResponse>
+            secondResult =
+                await gateway
+                    .CreatePaymentAttemptAsync(
+                        request, cancellationToken);
+
+        // ASSERT
+        Assert.True(
+            firstResult.IsSuccess);
+
+        Assert.True(
+            secondResult.IsSuccess);
+
+        Assert.Equal(
+            firstResult.Value.ExternalReference,
+            secondResult.Value.ExternalReference);
+    }
+
     private static CreatePaymentAttemptRequest
         CreateRequest()
     {
@@ -275,6 +328,7 @@ public sealed class FakePaymentGatewayTests
 
         return new CreatePaymentAttemptRequest(
             Guid.NewGuid(),
-            moneyResult.Value);
+            moneyResult.Value,
+            Guid.NewGuid().ToString("N"));
     }
 }

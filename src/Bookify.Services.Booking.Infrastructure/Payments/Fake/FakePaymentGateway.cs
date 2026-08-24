@@ -9,6 +9,8 @@ public sealed class FakePaymentGateway : IPaymentGateway
 {
     private readonly ConcurrentDictionary<string, PaymentGatewayStatus> _payments = new(StringComparer.Ordinal);
     private readonly FakePaymentGatewayScenario _scenario;
+    private readonly Dictionary<string, string> _externalReferencesByIdempotencyKey = new(StringComparer.Ordinal);
+    private readonly object _createLock = new();
 
     public FakePaymentGateway() : this(FakePaymentGatewayScenario.Success)
     {
@@ -28,9 +30,20 @@ public sealed class FakePaymentGateway : IPaymentGateway
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        string idempotencyKey = request.IdempotencyKey?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(
+            idempotencyKey))
+        {
+            return Task.FromResult(
+                Result<PaymentGatewayResponse>.Failure(
+                    PaymentGatewayErrors
+                        .IdempotencyKeyRequired));
+        }
+
         return _scenario switch
         {
-            FakePaymentGatewayScenario.Success => CreateSuccessfulAttemptAsync(),
+            FakePaymentGatewayScenario.Success => CreateSuccessfulAttemptAsync(idempotencyKey),
 
             FakePaymentGatewayScenario.Failure =>
                 Task.FromResult(
@@ -144,25 +157,52 @@ public sealed class FakePaymentGateway : IPaymentGateway
         }
     }
 
-    private Task<Result<PaymentGatewayResponse>> CreateSuccessfulAttemptAsync()
+    private Task<Result<PaymentGatewayResponse>> CreateSuccessfulAttemptAsync(string idempotencyKey)
     {
-        string externalReference = $"fake_{Guid.NewGuid():N}";
-
-        bool added = _payments.TryAdd(
-                        externalReference,
-                        PaymentGatewayStatus.Pending);
-
-        if (!added)
+        lock (_createLock)
         {
-            throw new InvalidOperationException(
-                "Could not generate a unique fake payment reference.");
-        }
+            if (_externalReferencesByIdempotencyKey
+                .TryGetValue(
+                    idempotencyKey,
+                    out string?
+                        existingExternalReference) &&
+                _payments.TryGetValue(
+                    existingExternalReference,
+                    out PaymentGatewayStatus
+                        existingStatus))
+            {
+                return Task.FromResult(
+                    Result<PaymentGatewayResponse>
+                        .Success(
+                            new PaymentGatewayResponse(
+                                existingExternalReference,
+                                existingStatus)));
+            }
 
-        return Task.FromResult(
-            Result<PaymentGatewayResponse>.Success(
-                new PaymentGatewayResponse(
+            string externalReference =
+                $"fake_{Guid.NewGuid():N}";
+
+            bool added =
+                _payments.TryAdd(
                     externalReference,
-                    PaymentGatewayStatus.Pending)));
+                    PaymentGatewayStatus.Pending);
+
+            if (!added)
+            {
+                throw new InvalidOperationException(
+                    "Could not generate a unique fake payment reference.");
+            }
+
+            _externalReferencesByIdempotencyKey[
+                idempotencyKey] =
+                    externalReference;
+
+            return Task.FromResult(
+                Result<PaymentGatewayResponse>.Success(
+                    new PaymentGatewayResponse(
+                        externalReference,
+                        PaymentGatewayStatus.Pending)));
+        }
     }
 
     private static string NormalizeExternalReference(string externalReference)
