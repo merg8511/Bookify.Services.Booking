@@ -6,7 +6,7 @@ namespace Bookify.Services.Booking.Domain.Payments;
 
 public sealed class PaymentAttempt
 {
-    public PaymentAttempt()
+    private PaymentAttempt()
     {
         ExternalReference = string.Empty;
         Amount = null!;
