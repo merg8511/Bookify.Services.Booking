@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Infrastructure;
+using Bookify.Services.Booking.Infrastructure.Payments;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -34,9 +35,18 @@ internal static class IntegrationTestServiceProvider
 
     public static ServiceProvider Create(string connectionString)
     {
-        var configuration = new ConfigurationManager();
+        IConfiguration configuration =
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    [$"{PaymentOptions.SectionName}:Provider"] = PaymentProvider.Fake.ToString()
+                })
+            .Build();
 
-        return Create(connectionString, configuration);
+        return Create(
+            connectionString,
+            configuration);
     }
 
     public static async Task ApplyMigrationsAsync(
