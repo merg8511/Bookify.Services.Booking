@@ -9,6 +9,7 @@ using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Infrastructure.Payments.Fake;
+using Bookify.Services.Booking.Infrastructure.Payments.Stripe;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
@@ -19,8 +20,10 @@ using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
 using Bookify.Services.Booking.Infrastructure.Persistence.Transactions;
 using Bookify.Services.Booking.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using Stripe;
 
 namespace Bookify.Services.Booking.Infrastructure;
 
@@ -28,10 +31,12 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        string connectionString)
+        string connectionString,
+        IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentNullException.ThrowIfNull(configuration);
 
         // ==========================================
         //  Time & System Utilities
@@ -61,12 +66,12 @@ public static class DependencyInjection
 
 
         // Llamada a la persistencia (sin parámetro extra)
-        AddPersistence(services);
+        AddPersistence(services, configuration);
 
         return services;
     }
 
-    private static void AddPersistence(IServiceCollection services)
+    private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
     {
         // ==========================================
         //  Transactions & Unit of Work
@@ -139,5 +144,23 @@ public static class DependencyInjection
         services.AddSingleton<
             IPaymentGateway,
             FakePaymentGateway>();
+
+        services.AddSingleton<IStripeClient>(
+            _ =>
+            {
+                string secretKey = configuration["Payments:Stripe:SecretKey"] ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(secretKey))
+                {
+                    throw new InvalidOperationException(
+                        "Stripe secret key is not configured. " +
+                        "Configure 'Payments:Stripe:Secretkey'.");
+                }
+
+                return new StripeClient(secretKey);
+            });
+
+        services.AddSingleton<PaymentIntentService>();
+        services.AddSingleton<StripePaymentGateway>();
     }
 }
