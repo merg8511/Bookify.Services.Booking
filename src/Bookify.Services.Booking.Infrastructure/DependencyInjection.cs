@@ -8,6 +8,7 @@ using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
+using Bookify.Services.Booking.Infrastructure.Payments;
 using Bookify.Services.Booking.Infrastructure.Payments.Fake;
 using Bookify.Services.Booking.Infrastructure.Payments.Stripe;
 using Bookify.Services.Booking.Infrastructure.Persistence;
@@ -141,26 +142,6 @@ public static class DependencyInjection
         // ==========================================
         //  Payments
         // ==========================================
-        services.AddSingleton<
-            IPaymentGateway,
-            FakePaymentGateway>();
-
-        services.AddSingleton<IStripeClient>(
-            _ =>
-            {
-                string secretKey = configuration["Payments:Stripe:SecretKey"] ?? string.Empty;
-
-                if (string.IsNullOrWhiteSpace(secretKey))
-                {
-                    throw new InvalidOperationException(
-                        "Stripe secret key is not configured. " +
-                        "Configure 'Payments:Stripe:Secretkey'.");
-                }
-
-                return new StripeClient(secretKey);
-            });
-
-        services.AddSingleton<PaymentIntentService>();
-        services.AddSingleton<StripePaymentGateway>();
+        services.AddPayments(configuration);
     }
 }
