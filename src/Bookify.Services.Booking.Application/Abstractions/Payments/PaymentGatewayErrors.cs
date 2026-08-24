@@ -9,6 +9,16 @@ public static class PaymentGatewayErrors
             "Payments.Gateway.ExternalReferenceRequired",
             "The external payment reference is required.");
 
+    public static readonly Error IdempotencyKeyRequired =
+        Error.Validation(
+            "Payments.Gateway.IdempotencyKeyRequired",
+            "The payment operation idempotency key is required.");
+
+    public static readonly Error AmountMustBePositive =
+        Error.Validation(
+            "Payments.Gateway.AmountMustBePositive",
+            "The payment amount must be greater than zero.");
+
     public static readonly Error ProviderRejected =
         Error.Failure(
             "Payments.Gateway.ProviderRejected",
@@ -18,6 +28,23 @@ public static class PaymentGatewayErrors
         Error.Failure(
             "Payments.Gateway.ProviderTimeout",
             "The payment provider did not respond within the expected time.");
+
+    public static readonly Error ProviderUnavailable =
+        Error.Failure(
+            "Payments.Gateway.ProviderUnavailable",
+            "The payment provider is temporarily unavailable.");
+
+    public static Error InvalidAmountPrecision(
+        string currency) =>
+        Error.Validation(
+            "Payments.Gateway.InvalidAmountPrecision",
+            $"The payment amount has an invalid precision for currency '{currency}'.");
+
+    public static Error AmountOutOfRange(
+        string currency) =>
+        Error.Validation(
+            "Payments.Gateway.AmountOutOfRange",
+            $"The payment amount is outside the supported range for currency '{currency}'.");
 
     public static Error ExternalReferenceNotFound(
         string externalReference) =>
@@ -32,4 +59,10 @@ public static class PaymentGatewayErrors
             "Payments.Gateway.CannotCancel",
             $"External payment reference '{externalReference}' cannot be cancelled while" +
             $"it is {status}");
+
+    public static Error UnsupportedProviderStatus(
+        string status) =>
+        Error.Failure(
+            "Payments.Gateway.UnsupportedProdiverStatus",
+            $"The payment provider returned unsupported status '{status}'");
 }

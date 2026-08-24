@@ -4,4 +4,5 @@ namespace Bookify.Services.Booking.Application.Abstractions.Payments;
 
 public sealed record CreatePaymentAttemptRequest(
     Guid BookingId,
-    Money Amount);
+    Money Amount,
+    string IdempotencyKey);
