@@ -1,5 +1,4 @@
 using Bookify.Services.Booking.Application.Abstractions.Idempotency;
-using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
@@ -9,8 +8,6 @@ using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Infrastructure.Payments;
-using Bookify.Services.Booking.Infrastructure.Payments.Fake;
-using Bookify.Services.Booking.Infrastructure.Payments.Stripe;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
@@ -24,7 +21,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Stripe;
 
 namespace Bookify.Services.Booking.Infrastructure;
 
@@ -143,5 +139,9 @@ public static class DependencyInjection
         //  Payments
         // ==========================================
         services.AddPayments(configuration);
+
+        services.AddScoped<
+            IPaymentRepository,
+            PaymentRepository>();
     }
 }
