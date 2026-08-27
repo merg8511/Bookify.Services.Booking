@@ -21,6 +21,8 @@ public sealed class IdempotencyProcessorTests
     public async Task BeginAsync_WithNewKey_ReturnsExecute()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var store = new FakeIdempotencyStore();
 
         var processor = CreateProcessor(store);
@@ -28,7 +30,7 @@ public sealed class IdempotencyProcessorTests
         IdempotencyRequestContext context = CreateContext();
 
         // ACT
-        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(context);
+        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(context, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -46,6 +48,8 @@ public sealed class IdempotencyProcessorTests
     public async Task BeginAsync_WithCompletedRequest_ReturnsReplay()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var store =
             new FakeIdempotencyStore
             {
@@ -64,7 +68,7 @@ public sealed class IdempotencyProcessorTests
         var processor = CreateProcessor(store);
 
         // ACT
-        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(CreateContext());
+        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(CreateContext(), cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -86,6 +90,8 @@ public sealed class IdempotencyProcessorTests
     public async Task BeginAsync_WithRequestInProgress_ReturnsConflict()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var store =
             new FakeIdempotencyStore
             {
@@ -103,7 +109,7 @@ public sealed class IdempotencyProcessorTests
         var processor = CreateProcessor(store);
 
         // ACT
-        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(CreateContext());
+        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(CreateContext(), cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -117,6 +123,8 @@ public sealed class IdempotencyProcessorTests
     public async Task BeginAsync_WithDifferentPayload_ReturnsConflict()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var store =
             new FakeIdempotencyStore
             {
@@ -136,7 +144,7 @@ public sealed class IdempotencyProcessorTests
         // ACT
         Result<IdempotencyProcessingResult> result =
             await processor.BeginAsync(
-                CreateContext());
+                CreateContext(), cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -149,6 +157,8 @@ public sealed class IdempotencyProcessorTests
     public async Task BeginAsync_WithExpiredCompletedRequest_RestartsAndReturnsExecute()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var store =
             new FakeIdempotencyStore
             {
@@ -168,7 +178,7 @@ public sealed class IdempotencyProcessorTests
         IdempotencyRequestContext context = CreateContext();
 
         // ACT
-        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(context);
+        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(context, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -194,6 +204,8 @@ public sealed class IdempotencyProcessorTests
     public async Task BeginAsync_WithExpiredRequestStillInProgress_RestartsAndReturnsExecute()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var store =
             new FakeIdempotencyStore
             {
@@ -215,7 +227,7 @@ public sealed class IdempotencyProcessorTests
 
         // ACT
         Result<IdempotencyProcessingResult> result =
-            await processor.BeginAsync(context);
+            await processor.BeginAsync(context, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -241,6 +253,8 @@ public sealed class IdempotencyProcessorTests
     public async Task CompleteAsync_StoresOriginalResponse()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var store =
             new FakeIdempotencyStore
             {
@@ -262,7 +276,8 @@ public sealed class IdempotencyProcessorTests
             CreateContext(),
             statusCode: 201,
             responseBody:
-                """{"id":"123"}""");
+                """{"id":"123"}""",
+            cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -286,6 +301,8 @@ public sealed class IdempotencyProcessorTests
     public async Task BeginAsync_WhenConcurrentRequestClaimsKeyFirst_ReturnsInProgressConflict()
     {
         // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var store = new ConcurrentWinnerStore();
 
         var processor =
@@ -297,7 +314,7 @@ public sealed class IdempotencyProcessorTests
         IdempotencyRequestContext context = CreateContext();
 
         // Act
-        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(context);
+        Result<IdempotencyProcessingResult> result = await processor.BeginAsync(context, cancellationToken);
 
         // Assert
         Assert.True(result.IsFailure);

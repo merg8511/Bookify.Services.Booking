@@ -32,20 +32,13 @@ public sealed class InitiatePaymentCommandHandlerTests
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange
-        Guid bookingId =
-            Guid.NewGuid();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid bookingId = Guid.NewGuid();
 
-        var bookingRepository =
-            new StubBookingRepository();
-
-        var paymentRepository =
-            new SpyPaymentRepository();
-
-        var paymentGateway =
-            new SpyPaymentGateway();
-
-        var unitOfWork =
-            new SpyUnitOfWork();
+        var bookingRepository = new StubBookingRepository();
+        var paymentRepository = new SpyPaymentRepository();
+        var paymentGateway = new SpyPaymentGateway();
+        var unitOfWork = new SpyUnitOfWork();
 
         var handler =
             CreateHandler(
@@ -54,18 +47,13 @@ public sealed class InitiatePaymentCommandHandlerTests
                 paymentGateway,
                 unitOfWork);
 
-        var command =
-            new InitiatePaymentCommand(
-                bookingId,
-                "operation-001");
+        var command = new InitiatePaymentCommand(bookingId, "operation-001");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(command);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsFailure);
+        Assert.True(result.IsFailure);
 
         Assert.Equal(
             InitiatePaymentErrors.BookingNotFound(
@@ -85,6 +73,8 @@ public sealed class InitiatePaymentCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsNotPendingPayment_ShouldReturnConflict()
     {
         // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking(
                 approve: false);
@@ -117,7 +107,8 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Act
         Result<InitiatePaymentResponse> result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // Assert
         Assert.True(
@@ -141,6 +132,8 @@ public sealed class InitiatePaymentCommandHandlerTests
     public async Task HandleAsync_WithEmptyIdempotencyKey_ShouldReturnValidationError()
     {
         // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking();
 
@@ -172,7 +165,8 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Act
         Result<InitiatePaymentResponse> result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // Assert
         Assert.True(
@@ -196,6 +190,8 @@ public sealed class InitiatePaymentCommandHandlerTests
     public async Task HandleAsync_WithValidBooking_ShouldCreatePaymentAndAttempt()
     {
         // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking();
 
@@ -230,7 +226,8 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Act
         Result<InitiatePaymentResponse> result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // Assert
         Assert.True(
@@ -295,9 +292,238 @@ public sealed class InitiatePaymentCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenGatewayReturnsSucceeded_ShouldPersistSucceededAttempt()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        DomainBooking booking =
+            CreateBooking();
+
+        var bookingRepository =
+            new StubBookingRepository(
+                booking);
+
+        var paymentRepository =
+            new SpyPaymentRepository();
+
+        var paymentGateway =
+            new SpyPaymentGateway(
+                new PaymentGatewayResponse(
+                    "fake_external_succeeded",
+                    PaymentGatewayStatus.Succeeded));
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        var handler =
+            CreateHandler(
+                bookingRepository,
+                paymentRepository,
+                paymentGateway,
+                unitOfWork);
+
+        var command =
+            new InitiatePaymentCommand(
+                booking.Id,
+                "operation-succeeded");
+
+        // Act
+        Result<InitiatePaymentResponse> result =
+            await handler.HandleAsync(
+                command,
+                cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Payment payment =
+            Assert.IsType<Payment>(
+                paymentRepository.AddedPayment);
+
+        PaymentAttempt attempt =
+            Assert.Single(
+                payment.Attempts);
+
+        Assert.Equal(
+            PaymentStatus.Succeeded,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Succeeded,
+            attempt.Status);
+
+        Assert.Equal(
+            UtcNow,
+            payment.CompletedAtUtc);
+
+        Assert.Equal(
+            UtcNow,
+            attempt.CompletedAtUtc);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Succeeded,
+            result.Value.Status);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenGatewayReturnsFailed_ShouldPersistFailedAttempt()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        DomainBooking booking =
+            CreateBooking();
+
+        var bookingRepository =
+            new StubBookingRepository(
+                booking);
+
+        var paymentRepository =
+            new SpyPaymentRepository();
+
+        var paymentGateway =
+            new SpyPaymentGateway(
+                new PaymentGatewayResponse(
+                    "fake_external_failed",
+                    PaymentGatewayStatus.Failed));
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        var handler =
+            CreateHandler(
+                bookingRepository,
+                paymentRepository,
+                paymentGateway,
+                unitOfWork);
+
+        var command =
+            new InitiatePaymentCommand(
+                booking.Id,
+                "operation-failed");
+
+        // Act
+        Result<InitiatePaymentResponse> result =
+            await handler.HandleAsync(
+                command,
+                cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Payment payment =
+            Assert.IsType<Payment>(
+                paymentRepository.AddedPayment);
+
+        PaymentAttempt attempt =
+            Assert.Single(
+                payment.Attempts);
+
+        Assert.Equal(
+            PaymentStatus.Failed,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Failed,
+            attempt.Status);
+
+        Assert.Null(
+            payment.CompletedAtUtc);
+
+        Assert.Equal(
+            UtcNow,
+            attempt.CompletedAtUtc);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Failed,
+            result.Value.Status);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenGatewayReturnsCancelled_ShouldPersistCancelledAttempt()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        DomainBooking booking =
+            CreateBooking();
+
+        var bookingRepository =
+            new StubBookingRepository(
+                booking);
+
+        var paymentRepository =
+            new SpyPaymentRepository();
+
+        var paymentGateway =
+            new SpyPaymentGateway(
+                new PaymentGatewayResponse(
+                    "fake_external_cancelled",
+                    PaymentGatewayStatus.Cancelled));
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        var handler =
+            CreateHandler(
+                bookingRepository,
+                paymentRepository,
+                paymentGateway,
+                unitOfWork);
+
+        var command =
+            new InitiatePaymentCommand(
+                booking.Id,
+                "operation-cancelled");
+
+        // Act
+        Result<InitiatePaymentResponse> result =
+            await handler.HandleAsync(
+                command,
+                cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Payment payment =
+            Assert.IsType<Payment>(
+                paymentRepository.AddedPayment);
+
+        PaymentAttempt attempt =
+            Assert.Single(
+                payment.Attempts);
+
+        Assert.Equal(
+            PaymentStatus.Cancelled,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Cancelled,
+            attempt.Status);
+
+        Assert.Equal(
+            UtcNow,
+            payment.CompletedAtUtc);
+
+        Assert.Equal(
+            UtcNow,
+            attempt.CompletedAtUtc);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Cancelled,
+            result.Value.Status);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenGatewayFails_ShouldPersistPaymentWithoutAttempt()
     {
         // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking();
 
@@ -330,7 +556,8 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Act
         Result<InitiatePaymentResponse> result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // Assert
         Assert.True(
@@ -361,6 +588,8 @@ public sealed class InitiatePaymentCommandHandlerTests
     public async Task HandleAsync_WithSameIdempotencyKey_ShouldReturnExistingAttemptWithoutCallingGateway()
     {
         // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking();
 
@@ -411,7 +640,8 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Act
         Result<InitiatePaymentResponse> result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // Assert
         Assert.True(
@@ -445,6 +675,8 @@ public sealed class InitiatePaymentCommandHandlerTests
     public async Task HandleAsync_WithDifferentKeyAndPendingAttempt_ShouldReturnConflict()
     {
         // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking();
 
@@ -490,7 +722,8 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Act
         Result<InitiatePaymentResponse> result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // Assert
         Assert.True(
@@ -521,8 +754,9 @@ public sealed class InitiatePaymentCommandHandlerTests
             paymentRepository,
             paymentGateway,
             unitOfWork,
-            new StubClock(
-                UtcNow));
+            new StubTransactionManager(),
+            new StubPaymentInitiationLock(),
+            new StubClock(UtcNow));
     }
 
     private static Payment CreatePayment(
@@ -627,7 +861,7 @@ public sealed class InitiatePaymentCommandHandlerTests
         return PriceSnapshot.Create(
             new PriceBreakdown(accommodationPrice,
             extraGuestPrice,
-            totalPrice)            );
+            totalPrice));
     }
 
     private static string
@@ -851,6 +1085,61 @@ public sealed class InitiatePaymentCommandHandlerTests
         public DateTimeOffset UtcNow
         {
             get;
+        }
+    }
+
+    private sealed class StubPaymentInitiationLock
+    : IPaymentInitiationLock
+    {
+        public Task<bool> TryAcquireAsync(
+            Guid bookingId,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken
+                .ThrowIfCancellationRequested();
+
+            return Task.FromResult(true);
+        }
+    }
+
+    private sealed class StubTransactionManager
+        : ITransactionManager
+    {
+        public Task<ITransaction> BeginAsync(
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken
+                .ThrowIfCancellationRequested();
+
+            return Task.FromResult<ITransaction>(
+                new StubTransaction());
+        }
+    }
+
+    private sealed class StubTransaction
+        : ITransaction
+    {
+        public Task CommitAsync(
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken
+                .ThrowIfCancellationRequested();
+
+            return Task.CompletedTask;
+        }
+
+        public Task RollbackAsync(
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken
+                .ThrowIfCancellationRequested();
+
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            return ValueTask.CompletedTask;
         }
     }
 }

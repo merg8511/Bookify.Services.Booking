@@ -16,6 +16,8 @@ public sealed class RequestExecutionPipelineTests
     public async Task ExecuteCommandAsync_WhenValidationSucceds_ShouldExecureHandler()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var handler = new TestCommandHandler();
 
         IRequestValidator<TestCommand>[] validators =
@@ -37,7 +39,7 @@ public sealed class RequestExecutionPipelineTests
         var command = new TestCommand(IsValid: true);
 
         // ACT
-        Result<Guid> result = await executor.ExecuteAsync(command);
+        Result<Guid> result = await executor.ExecuteAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -49,6 +51,8 @@ public sealed class RequestExecutionPipelineTests
     public async Task ExecuteCommandAsync_WhenValidationFails_ShouldNotExecuteHandler()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var handler =
             new TestCommandHandler();
 
@@ -75,7 +79,8 @@ public sealed class RequestExecutionPipelineTests
         // ACT
         Result<Guid> result =
             await executor.ExecuteAsync(
-                command);
+                command,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -92,6 +97,8 @@ public sealed class RequestExecutionPipelineTests
     public async Task ExecuteQueryAsync_WhenValidationSucceeds_ShouldExecuteHandler()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var handler =
             new TestQueryHandler();
 
@@ -118,7 +125,8 @@ public sealed class RequestExecutionPipelineTests
         // ACT
         Result<string> result =
             await executor.ExecuteAsync(
-                query);
+                query,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -130,6 +138,8 @@ public sealed class RequestExecutionPipelineTests
     public async Task ExecuteQueryAsync_WhenValidationFails_ShouldNotExecuteHandler()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var handler =
             new TestQueryHandler();
 
@@ -156,7 +166,8 @@ public sealed class RequestExecutionPipelineTests
         // ACT
         Result<string> result =
             await executor.ExecuteAsync(
-                query);
+                query,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);

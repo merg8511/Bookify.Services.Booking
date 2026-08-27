@@ -16,6 +16,8 @@ public sealed class RejectBookingCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsPendingApproval_ShouldRejectAndSave()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking = CreateBooking();
 
         var bookingRepository = new StubBookingRepository(booking);
@@ -30,7 +32,7 @@ public sealed class RejectBookingCommandHandlerTests
         var command = new RejectBookingCommand(booking.Id);
 
         // ACT
-        Result result = await handler.HandleAsync(command);
+        Result result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -54,6 +56,8 @@ public sealed class RejectBookingCommandHandlerTests
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFoundWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Guid bookingId = Guid.NewGuid();
 
         var unitOfWork = new SpyUnitOfWork();
@@ -67,7 +71,7 @@ public sealed class RejectBookingCommandHandlerTests
         var command = new RejectBookingCommand(bookingId);
 
         // ACT
-        Result result = await handler.HandleAsync(command);
+        Result result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -86,6 +90,8 @@ public sealed class RejectBookingCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsPendingPayment_ShouldReturnConflictWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking = CreateBooking();
 
         booking.Approve();
@@ -101,7 +107,7 @@ public sealed class RejectBookingCommandHandlerTests
         var command = new RejectBookingCommand(booking.Id);
 
         // ACT
-        Result result = await handler.HandleAsync(command);
+        Result result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);

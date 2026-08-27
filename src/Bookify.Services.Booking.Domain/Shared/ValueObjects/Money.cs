@@ -23,6 +23,12 @@ public sealed record Money
                 MoneyErrors.NegativeAmount);
         }
 
+        if (decimal.Round(amount, 3) != amount)
+        {
+            return Result<Money>.Failure(
+                MoneyErrors.InvalidPrecision);
+        }
+
         string normalizedCurrency =
             currency?
             .Trim()

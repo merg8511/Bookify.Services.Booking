@@ -5,6 +5,11 @@ namespace Bookify.Services.Booking.Application.Payments.Initiate;
 
 public static class InitiatePaymentErrors
 {
+    public static readonly Error InvalidBookingId =
+    Error.Validation(
+        "Payments.Initiate.InvalidBookingId",
+        "A valid booking identifier is required to initiate a payment.");
+
     public static readonly Error IdempotencyKeyRequired =
         Error.Validation(
             "Payments.Initiate.IdempotencyKeyRequired",

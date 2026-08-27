@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Payments.Initiate;
@@ -5,6 +6,7 @@ using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Payments;
+using Bookify.Services.Booking.Domain.Payments.Errors;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
@@ -12,7 +14,9 @@ using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
+
+using DomainBooking =
+    Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.IntegrationTests.Payments;
 
@@ -29,10 +33,12 @@ public sealed class InitiatePaymentPersistenceTests
     }
 
     [Fact]
-    public async Task HandleAsync_WithPendingPaymentBooking_ShouldPersistPaymentAndAttempt()
+    public async Task ExecuteAsync_WithPendingPaymentBooking_ShouldPersistPaymentAndAttempt()
     {
         // Arrange
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
         Guid bookingId =
             await CreatePendingPaymentBookingAsync();
 
@@ -49,10 +55,14 @@ public sealed class InitiatePaymentPersistenceTests
                 _factory.Services
                     .CreateScope())
         {
-            InitiatePaymentCommandHandler handler =
-                writeScope.ServiceProvider
-                    .GetRequiredService<
-                        InitiatePaymentCommandHandler>();
+            ICommandExecutor<
+                InitiatePaymentCommand,
+                InitiatePaymentResponse> executor =
+                    writeScope.ServiceProvider
+                        .GetRequiredService<
+                            ICommandExecutor<
+                                InitiatePaymentCommand,
+                                InitiatePaymentResponse>>();
 
             var command =
                 new InitiatePaymentCommand(
@@ -60,7 +70,7 @@ public sealed class InitiatePaymentPersistenceTests
                     idempotencyKey);
 
             Result<InitiatePaymentResponse> result =
-                await handler.HandleAsync(
+                await executor.ExecuteAsync(
                     command,
                     cancellationToken);
 
@@ -112,7 +122,8 @@ public sealed class InitiatePaymentPersistenceTests
                     .SingleOrDefaultAsync(
                         payment =>
                             payment.Id ==
-                            paymentId, cancellationToken);
+                            paymentId,
+                        cancellationToken);
 
             Assert.NotNull(
                 persistedPayment);
@@ -131,7 +142,8 @@ public sealed class InitiatePaymentPersistenceTests
                     .SingleOrDefaultAsync(
                         attempt =>
                             attempt.Id ==
-                            paymentAttemptId, cancellationToken);
+                            paymentAttemptId,
+                        cancellationToken);
 
             Assert.NotNull(
                 persistedAttempt);
@@ -154,10 +166,11 @@ public sealed class InitiatePaymentPersistenceTests
     }
 
     [Fact]
-    public async Task HandleAsync_WithSameIdempotencyKey_ShouldReturnExistingAttemptWithoutCreatingDuplicate()
+    public async Task ExecuteAsync_WithSameIdempotencyKey_ShouldReturnExistingAttemptWithoutCreatingDuplicate()
     {
         // Arrange
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
         Guid bookingId =
             await CreatePendingPaymentBookingAsync();
@@ -172,10 +185,14 @@ public sealed class InitiatePaymentPersistenceTests
                 _factory.Services
                     .CreateScope())
         {
-            InitiatePaymentCommandHandler handler =
-                firstScope.ServiceProvider
-                    .GetRequiredService<
-                        InitiatePaymentCommandHandler>();
+            ICommandExecutor<
+                InitiatePaymentCommand,
+                InitiatePaymentResponse> executor =
+                    firstScope.ServiceProvider
+                        .GetRequiredService<
+                            ICommandExecutor<
+                                InitiatePaymentCommand,
+                                InitiatePaymentResponse>>();
 
             var command =
                 new InitiatePaymentCommand(
@@ -183,7 +200,7 @@ public sealed class InitiatePaymentPersistenceTests
                     idempotencyKey);
 
             Result<InitiatePaymentResponse> firstResult =
-                await handler.HandleAsync(
+                await executor.ExecuteAsync(
                     command,
                     cancellationToken);
 
@@ -200,10 +217,14 @@ public sealed class InitiatePaymentPersistenceTests
                 _factory.Services
                     .CreateScope())
         {
-            InitiatePaymentCommandHandler handler =
-                retryScope.ServiceProvider
-                    .GetRequiredService<
-                        InitiatePaymentCommandHandler>();
+            ICommandExecutor<
+                InitiatePaymentCommand,
+                InitiatePaymentResponse> executor =
+                    retryScope.ServiceProvider
+                        .GetRequiredService<
+                            ICommandExecutor<
+                                InitiatePaymentCommand,
+                                InitiatePaymentResponse>>();
 
             var command =
                 new InitiatePaymentCommand(
@@ -211,7 +232,7 @@ public sealed class InitiatePaymentPersistenceTests
                     idempotencyKey);
 
             Result<InitiatePaymentResponse> retryResult =
-                await handler.HandleAsync(
+                await executor.ExecuteAsync(
                     command,
                     cancellationToken);
 
@@ -258,9 +279,9 @@ public sealed class InitiatePaymentPersistenceTests
                     .Where(
                         attempt =>
                             attempt.PaymentId ==
-                            firstResponse.PaymentId
-                        )
-                    .CountAsync(cancellationToken);
+                            firstResponse.PaymentId)
+                    .CountAsync(
+                        cancellationToken);
 
             Assert.Equal(
                 1,
@@ -273,10 +294,167 @@ public sealed class InitiatePaymentPersistenceTests
     }
 
     [Fact]
-    public async Task HandleAsync_ShouldUseBookingPriceSnapshotAsPaymentAmount()
+    public async Task ExecuteAsync_WithConcurrentDifferentIdempotencyKeys_ShouldCreateOnlyOnePendingAttempt()
     {
         // Arrange
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        Guid bookingId =
+            await CreatePendingPaymentBookingAsync();
+
+        using IServiceScope firstScope =
+            _factory.Services
+                .CreateScope();
+
+        using IServiceScope secondScope =
+            _factory.Services
+                .CreateScope();
+
+        ICommandExecutor<
+            InitiatePaymentCommand,
+            InitiatePaymentResponse> firstExecutor =
+                firstScope.ServiceProvider
+                    .GetRequiredService<
+                        ICommandExecutor<
+                            InitiatePaymentCommand,
+                            InitiatePaymentResponse>>();
+
+        ICommandExecutor<
+            InitiatePaymentCommand,
+            InitiatePaymentResponse> secondExecutor =
+                secondScope.ServiceProvider
+                    .GetRequiredService<
+                        ICommandExecutor<
+                            InitiatePaymentCommand,
+                            InitiatePaymentResponse>>();
+
+        var firstCommand =
+            new InitiatePaymentCommand(
+                bookingId,
+                "concurrent-payment-001");
+
+        var secondCommand =
+            new InitiatePaymentCommand(
+                bookingId,
+                "concurrent-payment-002");
+
+        var startGate =
+            new TaskCompletionSource(
+                TaskCreationOptions
+                    .RunContinuationsAsynchronously);
+
+        async Task<Result<InitiatePaymentResponse>>
+            ExecuteAsync(
+                ICommandExecutor<
+                    InitiatePaymentCommand,
+                    InitiatePaymentResponse> executor,
+                InitiatePaymentCommand command)
+        {
+            await startGate.Task;
+
+            return await executor.ExecuteAsync(
+                command,
+                cancellationToken);
+        }
+
+        Task<Result<InitiatePaymentResponse>>
+            firstTask =
+                ExecuteAsync(
+                    firstExecutor,
+                    firstCommand);
+
+        Task<Result<InitiatePaymentResponse>>
+            secondTask =
+                ExecuteAsync(
+                    secondExecutor,
+                    secondCommand);
+
+        // Act
+        startGate.SetResult();
+
+        Result<InitiatePaymentResponse>[] results =
+            await Task.WhenAll(
+                firstTask,
+                secondTask);
+
+        // Assert application results
+        Result<InitiatePaymentResponse> successResult =
+            Assert.Single(
+                results,
+                result =>
+                    result.IsSuccess);
+
+        Result<InitiatePaymentResponse> failureResult =
+            Assert.Single(
+                results,
+                result =>
+                    result.IsFailure);
+
+        Assert.Equal(
+            PaymentErrors.ActiveAttemptAlreadyExists,
+            failureResult.Error);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Pending,
+            successResult.Value.Status);
+
+        // Assert persisted state from a fresh scope
+        using IServiceScope verificationScope =
+            _factory.Services
+                .CreateScope();
+
+        BookingDbContext dbContext =
+            verificationScope.ServiceProvider
+                .GetRequiredService<
+                    BookingDbContext>();
+
+        Payment persistedPayment =
+            await dbContext.Payments
+                .AsNoTracking()
+                .SingleAsync(
+                    payment =>
+                        payment.BookingId ==
+                        bookingId,
+                    cancellationToken);
+
+        List<PaymentAttempt> persistedAttempts =
+            await dbContext.PaymentAttempts
+                .AsNoTracking()
+                .Where(
+                    attempt =>
+                        attempt.PaymentId ==
+                        persistedPayment.Id)
+                .ToListAsync(
+                    cancellationToken);
+
+        PaymentAttempt persistedAttempt =
+            Assert.Single(
+                persistedAttempts);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Pending,
+            persistedAttempt.Status);
+
+        Assert.Equal(
+            successResult.Value.PaymentId,
+            persistedPayment.Id);
+
+        Assert.Equal(
+            successResult.Value.PaymentAttemptId,
+            persistedAttempt.Id);
+
+        Assert.Equal(
+            successResult.Value.ExternalReference,
+            persistedAttempt.ExternalReference);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldUseBookingPriceSnapshotAsPaymentAmount()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
         Guid bookingId =
             await CreatePendingPaymentBookingAsync();
@@ -287,10 +465,14 @@ public sealed class InitiatePaymentPersistenceTests
                 _factory.Services
                     .CreateScope())
         {
-            InitiatePaymentCommandHandler handler =
-                scope.ServiceProvider
-                    .GetRequiredService<
-                        InitiatePaymentCommandHandler>();
+            ICommandExecutor<
+                InitiatePaymentCommand,
+                InitiatePaymentResponse> executor =
+                    scope.ServiceProvider
+                        .GetRequiredService<
+                            ICommandExecutor<
+                                InitiatePaymentCommand,
+                                InitiatePaymentResponse>>();
 
             var command =
                 new InitiatePaymentCommand(
@@ -298,8 +480,9 @@ public sealed class InitiatePaymentPersistenceTests
                     "payment-price-001");
 
             Result<InitiatePaymentResponse> result =
-                await handler.HandleAsync(
-                    command, cancellationToken);
+                await executor.ExecuteAsync(
+                    command,
+                    cancellationToken);
 
             // Assert
             Assert.True(
@@ -330,7 +513,8 @@ public sealed class InitiatePaymentPersistenceTests
                     .SingleAsync(
                         payment =>
                             payment.BookingId ==
-                            bookingId, cancellationToken);
+                            bookingId,
+                        cancellationToken);
 
             Assert.Equal(
                 200m,
@@ -343,7 +527,7 @@ public sealed class InitiatePaymentPersistenceTests
     }
 
     private async Task<Guid>
-    CreatePendingPaymentBookingAsync()
+        CreatePendingPaymentBookingAsync()
     {
         using IServiceScope scope =
             _factory.Services
@@ -456,8 +640,8 @@ public sealed class InitiatePaymentPersistenceTests
     }
 
     private static RentableUnit
-    CreateRentableUnit(
-        Guid propertyId)
+        CreateRentableUnit(
+            Guid propertyId)
     {
         Result<RentableUnit> result =
             RentableUnit.Create(

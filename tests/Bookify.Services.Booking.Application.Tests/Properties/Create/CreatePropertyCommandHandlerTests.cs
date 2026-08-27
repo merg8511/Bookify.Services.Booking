@@ -16,6 +16,8 @@ public sealed class CreatePropertyCommandHandlerTests
     public async Task HandleAsync_WithValidCommand_ShouldAddPropertyAndSaveChanges()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var propertyRepository = new SpyPropertyRepository();
         var unitOfWork = new SpyUnitOfWork();
 
@@ -30,7 +32,7 @@ public sealed class CreatePropertyCommandHandlerTests
             CheckOutTime);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<Guid> result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -60,6 +62,8 @@ public sealed class CreatePropertyCommandHandlerTests
     public async Task HandleAsync_WithInvalidName_ShouldReturnFailureWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var propertyRepository = new SpyPropertyRepository();
         var unitOfWork = new SpyUnitOfWork();
 
@@ -74,7 +78,7 @@ public sealed class CreatePropertyCommandHandlerTests
             CheckOutTime);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<Guid> result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -95,6 +99,8 @@ public sealed class CreatePropertyCommandHandlerTests
     public async Task HandleAsync_WithInvalidTimeZone_ShouldReturnFailureWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var propertyRepository = new SpyPropertyRepository();
         var unitOfWork = new SpyUnitOfWork();
 
@@ -107,7 +113,7 @@ public sealed class CreatePropertyCommandHandlerTests
             CheckOutTime);
 
         // ACT
-        Result<Guid> result = await handler.HandleAsync(command);
+        Result<Guid> result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);

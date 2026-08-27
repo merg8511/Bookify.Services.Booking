@@ -11,6 +11,8 @@ public sealed class DomainEventDispatcherTests
     public async Task DispatchAsync_WithSingleHandler_ShouldInvokeHandler()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var serviceProvider =
             new TestServiceProvider();
 
@@ -33,7 +35,7 @@ public sealed class DomainEventDispatcherTests
 
         // ACT
         await dispatcher.DispatchAsync(
-            [domainEvent]);
+            [domainEvent], cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -49,6 +51,8 @@ public sealed class DomainEventDispatcherTests
     public async Task DispatchAsync_WithMultipleHandlers_ShouldInvokeAllInOrder()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var invocations =
             new List<string>();
 
@@ -80,7 +84,7 @@ public sealed class DomainEventDispatcherTests
 
         // ACT
         await dispatcher.DispatchAsync(
-            [domainEvent]);
+            [domainEvent], cancellationToken);
 
         // ASSERT
         Assert.Equal(

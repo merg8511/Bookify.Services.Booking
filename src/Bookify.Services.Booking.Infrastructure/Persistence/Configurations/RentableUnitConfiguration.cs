@@ -123,7 +123,7 @@ internal sealed class RentableUnitConfiguration
                         moneyBuilder
                             .Property(money => money.Amount)
                             .HasColumnName("regular_nightly_rate_amount")
-                            .HasColumnType("numeric")
+                            .HasPrecision(18, 3)
                             .IsRequired();
 
                         moneyBuilder
@@ -145,7 +145,7 @@ internal sealed class RentableUnitConfiguration
                         moneyBuilder
                             .Property(money => money.Amount)
                             .HasColumnName("weekend_nightly_rate_amount")
-                            .HasColumnType("numeric")
+                            .HasPrecision(18, 3)
                             .IsRequired();
 
                         moneyBuilder
@@ -157,7 +157,7 @@ internal sealed class RentableUnitConfiguration
 
                 pricingBuilder.Navigation(
                         pricing => pricing.WeekendNightlyRate)
-                    .IsRequired(); ;
+                    .IsRequired();
 
                 pricingBuilder.OwnsOne(
                     pricing => pricing.ExtraGuestNightlyRate,
@@ -166,7 +166,7 @@ internal sealed class RentableUnitConfiguration
                         moneyBuilder
                             .Property(money => money.Amount)
                             .HasColumnName("extra_guest_nightly_rate_amount")
-                            .HasColumnType("numeric")
+                            .HasPrecision(18, 3)
                             .IsRequired();
 
                         moneyBuilder
@@ -246,7 +246,7 @@ internal sealed class RentableUnitConfiguration
                                 money => money.Amount)
                             .HasColumnName(
                                 "nightly_rate_amount")
-                            .HasColumnType("numeric")
+                            .HasPrecision(18, 3)
                             .IsRequired();
 
                         moneyBuilder.Property(

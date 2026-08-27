@@ -440,6 +440,143 @@ public sealed class StripePaymentGatewayTests
             service.CancelInvocationCount);
     }
 
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithThreeDecimalCurrency_ShouldUseThousandths()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        var service =
+            new StubPaymentIntentService
+            {
+                CreateResult =
+                    new PaymentIntent
+                    {
+                        Id = "pi_kwd",
+                        Status =
+                            "requires_payment_method"
+                    }
+            };
+
+        var gateway =
+            new StripePaymentGateway(
+                service);
+
+        CreatePaymentAttemptRequest request =
+            CreateRequest(
+                Guid.NewGuid(),
+                12.345m,
+                "KWD",
+                "payment-operation-kwd");
+
+        // Act
+        Result<PaymentGatewayResponse> result =
+            await gateway
+                .CreatePaymentAttemptAsync(
+                    request,
+                    cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            12345L,
+            service.LastCreateOptions!
+                .Amount.GetValueOrDefault());
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithUgx_ShouldUseTwoDecimalMinorUnitRepresentation()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        var service =
+            new StubPaymentIntentService
+            {
+                CreateResult =
+                    new PaymentIntent
+                    {
+                        Id = "pi_ugx",
+                        Status =
+                            "requires_payment_method"
+                    }
+            };
+
+        var gateway =
+            new StripePaymentGateway(
+                service);
+
+        CreatePaymentAttemptRequest request =
+            CreateRequest(
+                Guid.NewGuid(),
+                5m,
+                "UGX",
+                "payment-operation-ugx");
+
+        // Act
+        Result<PaymentGatewayResponse> result =
+            await gateway
+                .CreatePaymentAttemptAsync(
+                    request,
+                    cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            500L,
+            service.LastCreateOptions!
+                .Amount.GetValueOrDefault());
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithFractionalUgx_ShouldFailBeforeCallingStripe()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        var service =
+            new StubPaymentIntentService();
+
+        var gateway =
+            new StripePaymentGateway(
+                service);
+
+        CreatePaymentAttemptRequest request =
+            CreateRequest(
+                Guid.NewGuid(),
+                5.5m,
+                "UGX",
+                "payment-operation-ugx-invalid");
+
+        // Act
+        Result<PaymentGatewayResponse> result =
+            await gateway
+                .CreatePaymentAttemptAsync(
+                    request,
+                    cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            PaymentGatewayErrors
+                .InvalidAmountPrecision(
+                    "UGX"),
+            result.Error);
+
+        Assert.Equal(
+            0,
+            service.CreateInvocationCount);
+    }
+
     private static CreatePaymentAttemptRequest
         CreateRequest(
             Guid bookingId,

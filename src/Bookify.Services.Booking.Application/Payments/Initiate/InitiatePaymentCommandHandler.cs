@@ -24,6 +24,8 @@ public sealed class InitiatePaymentCommandHandler
     private readonly IPaymentRepository _paymentRepository;
     private readonly IPaymentGateway _paymentGateway;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ITransactionManager _transactionManager;
+    private readonly IPaymentInitiationLock _paymentInitiationLock;
     private readonly IClock _clock;
 
     public InitiatePaymentCommandHandler(
@@ -31,37 +33,17 @@ public sealed class InitiatePaymentCommandHandler
         IPaymentRepository paymentRepository,
         IPaymentGateway paymentGateway,
         IUnitOfWork unitOfWork,
+        ITransactionManager transactionManager,
+        IPaymentInitiationLock paymentInitiationLock,
         IClock clock)
     {
         _bookingRepository = bookingRepository;
         _paymentRepository = paymentRepository;
         _paymentGateway = paymentGateway;
         _unitOfWork = unitOfWork;
+        _transactionManager = transactionManager;
+        _paymentInitiationLock = paymentInitiationLock;
         _clock = clock;
-    }
-
-    private static string CreateOperationKey(
-        Guid bookingId,
-        string incomingIdempotencyKey)
-    {
-        string value = $"{bookingId:N}:{incomingIdempotencyKey}";
-        byte[] bytes = Encoding.UTF8.GetBytes(value);
-        byte[] hash = SHA256.HashData(bytes);
-
-        return $"bookify-payment-{Convert.ToHexString(hash).ToLowerInvariant()}";
-    }
-
-    private static InitiatePaymentResponse ToResponse(
-        Payment payment,
-            PaymentAttempt attempt)
-    {
-        return new InitiatePaymentResponse(
-            payment.Id,
-            attempt.Id,
-            attempt.ExternalReference,
-            attempt.Status,
-            attempt.Amount.Amount,
-            attempt.Amount.Currency);
     }
 
     public async Task<Result<InitiatePaymentResponse>> HandleAsync(
@@ -78,99 +60,147 @@ public sealed class InitiatePaymentCommandHandler
                 .Failure(InitiatePaymentErrors.IdempotencyKeyRequired);
         }
 
-        DomainBooking? booking = await _bookingRepository
-                .GetByIdAsync(
-                    command.BookingId,
+        await using ITransaction transaction = await _transactionManager.BeginAsync(cancellationToken);
+
+        try
+        {
+            bool bookingLocked = await _paymentInitiationLock
+                    .TryAcquireAsync(
+                        command.BookingId,
+                        cancellationToken);
+
+            if (!bookingLocked)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    InitiatePaymentErrors
+                        .BookingNotFound(
+                            command.BookingId),
                     cancellationToken);
+            }
 
-        if (booking is null)
-        {
-            return Result<InitiatePaymentResponse>
-                .Failure(InitiatePaymentErrors.BookingNotFound(command.BookingId));
-        }
+            DomainBooking? booking =
+                await _bookingRepository
+                    .GetByIdAsync(
+                        command.BookingId,
+                        cancellationToken);
 
-        if (booking.Status != BookingStatus.PendingPayment)
-        {
-            return Result<InitiatePaymentResponse>
-                .Failure(InitiatePaymentErrors.BookingNotPendingPayment(booking.Status));
-        }
+            if (booking is null)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    InitiatePaymentErrors
+                        .BookingNotFound(
+                            command.BookingId),
+                    cancellationToken);
+            }
 
-        string operationKey = CreateOperationKey(booking.Id, incomingIdempotencyKey);
+            if (booking.Status !=
+                BookingStatus.PendingPayment)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    InitiatePaymentErrors
+                        .BookingNotPendingPayment(
+                            booking.Status),
+                    cancellationToken);
+            }
 
-        Payment? payment = await _paymentRepository.GetByBookingIdAsync(booking.Id, cancellationToken);
+            string operationKey = CreateOperationKey(booking.Id, incomingIdempotencyKey);
 
-        if (payment is not null)
-        {
-            PaymentAttempt? existingAttempt =
-                payment.Attempts
-                    .FirstOrDefault(
+            Payment? payment = await _paymentRepository
+                    .GetByBookingIdAsync(
+                        booking.Id,
+                        cancellationToken);
+
+            if (payment is not null)
+            {
+                PaymentAttempt? existingAttempt =
+                    payment.Attempts
+                        .FirstOrDefault(
+                            attempt =>
+                                string.Equals(
+                                    attempt.IdempotencyKey,
+                                    operationKey,
+                                    StringComparison.Ordinal));
+
+                if (existingAttempt is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+
+                    return Result<InitiatePaymentResponse>
+                        .Success(ToResponse(payment, existingAttempt));
+                }
+
+                if (payment.Status == PaymentStatus.Succeeded)
+                {
+                    return await RollbackFailureAsync(
+                        transaction,
+                        InitiatePaymentErrors
+                            .PaymentAlreadySucceeded,
+                        cancellationToken);
+                }
+
+                if (payment.Status == PaymentStatus.Cancelled)
+                {
+                    return await RollbackFailureAsync(
+                        transaction,
+                        InitiatePaymentErrors
+                            .PaymentCancelled,
+                        cancellationToken);
+                }
+
+                bool hasPendingAttempt =
+                    payment.Attempts.Any(
                         attempt =>
-                            string.Equals(
-                                attempt.IdempotencyKey,
-                                operationKey,
-                                StringComparison.Ordinal));
+                            attempt.Status ==
+                            PaymentAttemptStatus.Pending);
 
-            if (existingAttempt is not null)
+                if (hasPendingAttempt)
+                {
+                    return await RollbackFailureAsync(
+                        transaction,
+                        PaymentErrors
+                            .ActiveAttemptAlreadyExists,
+                        cancellationToken);
+                }
+            }
+            else
             {
-                return Result<InitiatePaymentResponse>
-                    .Success(ToResponse(payment, existingAttempt));
+                PriceSnapshot? priceSnapshot = booking.PriceSnapshot;
+
+                if (priceSnapshot is null)
+                {
+                    return await RollbackFailureAsync(
+                        transaction,
+                        InitiatePaymentErrors
+                            .PriceSnapshotMissing(
+                                booking.Id),
+                        cancellationToken);
+                }
+
+                Result<Payment> paymentResult =
+                    Payment.Create(
+                        booking.Id,
+                        priceSnapshot.TotalPrice,
+                        _clock.UtcNow);
+
+                if (paymentResult.IsFailure)
+                {
+                    return await RollbackFailureAsync(
+                        transaction,
+                        paymentResult.Error,
+                        cancellationToken);
+                }
+
+                payment = paymentResult.Value;
+
+                _paymentRepository.Add(payment);
+
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
-            if (payment.Status == PaymentStatus.Succeeded)
-            {
-                return Result<InitiatePaymentResponse>
-                    .Failure(InitiatePaymentErrors.PaymentAlreadySucceeded);
-            }
-
-            if (payment.Status == PaymentStatus.Cancelled)
-            {
-                return Result<InitiatePaymentResponse>
-                    .Failure(InitiatePaymentErrors.PaymentCancelled);
-            }
-
-            bool hasPendingAttempt =
-                payment.Attempts.Any(
-                    attempt =>
-                        attempt.Status ==
-                        PaymentAttemptStatus.Pending);
-
-            if (hasPendingAttempt)
-            {
-                return Result<InitiatePaymentResponse>
-                    .Failure(PaymentErrors.ActiveAttemptAlreadyExists);
-            }
-        }
-        else
-        {
-            PriceSnapshot? priceSnapshot = booking.PriceSnapshot;
-
-            if (priceSnapshot is null)
-            {
-                return Result<InitiatePaymentResponse>
-                    .Failure(InitiatePaymentErrors.PriceSnapshotMissing(booking.Id));
-            }
-
-            Result<Payment> paymentResult =
-                Payment.Create(
-                    booking.Id,
-                    priceSnapshot.TotalPrice,
-                    _clock.UtcNow);
-
-            if (paymentResult.IsFailure)
-            {
-                return Result<InitiatePaymentResponse>
-                    .Failure(paymentResult.Error);
-            }
-
-            payment = paymentResult.Value;
-
-            _paymentRepository.Add(payment);
-
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-
-        Result<PaymentGatewayResponse>
-            gatewayResult =
+            Result<PaymentGatewayResponse> gatewayResult =
                 await _paymentGateway
                     .CreatePaymentAttemptAsync(
                         new CreatePaymentAttemptRequest(
@@ -179,30 +209,135 @@ public sealed class InitiatePaymentCommandHandler
                             operationKey),
                         cancellationToken);
 
-        if (gatewayResult.IsFailure)
-        {
+            if (gatewayResult.IsFailure)
+            {
+                await transaction.CommitAsync(cancellationToken);
+
+                return Result<InitiatePaymentResponse>
+                    .Failure(gatewayResult.Error);
+            }
+
+            PaymentGatewayResponse gatewayResponse = gatewayResult.Value;
+
+            DateTimeOffset gatewayObservedAtUtc = _clock.UtcNow;
+
+            Result<PaymentAttempt> attemptResult =
+                payment.AddAttempt(
+                    operationKey,
+                    gatewayResponse.ExternalReference,
+                    gatewayObservedAtUtc);
+
+            if (attemptResult.IsFailure)
+            {
+                await transaction.CommitAsync(cancellationToken);
+
+                return Result<InitiatePaymentResponse>
+                    .Failure(attemptResult.Error);
+            }
+
+            PaymentAttempt attempt = attemptResult.Value;
+
+            Result gatewayStatusResult =
+                ApplyGatewayStatus(
+                    payment,
+                    attempt,
+                    gatewayResponse.Status,
+                    gatewayObservedAtUtc);
+
+            if (gatewayStatusResult.IsFailure)
+            {
+                await transaction.CommitAsync(cancellationToken);
+
+                return Result<InitiatePaymentResponse>
+                    .Failure(gatewayStatusResult.Error);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
             return Result<InitiatePaymentResponse>
-                .Failure(gatewayResult.Error);
+                .Success(
+                    ToResponse(
+                        payment,
+                        attempt));
         }
-
-        PaymentGatewayResponse gatewayResponse = gatewayResult.Value;
-
-        Result<PaymentAttempt> attemptResult =
-            payment.AddAttempt(
-                operationKey,
-                gatewayResponse.ExternalReference,
-                _clock.UtcNow);
-
-        if (attemptResult.IsFailure)
+        catch
         {
-            return Result<InitiatePaymentResponse>
-                .Failure(attemptResult.Error);
-        }
+            await transaction.RollbackAsync(CancellationToken.None);
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private static Result ApplyGatewayStatus(
+        Payment payment,
+        PaymentAttempt attempt,
+        PaymentGatewayStatus gatewayStatus,
+        DateTimeOffset observedAtUtc)
+    {
+        return gatewayStatus switch
+        {
+            PaymentGatewayStatus.Pending =>
+                Result.Success(),
+
+            PaymentGatewayStatus.Succeeded =>
+                payment.MarkAttemptAsSucceeded(
+                    attempt.ExternalReference,
+                    observedAtUtc),
+
+            PaymentGatewayStatus.Failed =>
+                payment.MarkAttemptAsFailed(
+                    attempt.ExternalReference,
+                    observedAtUtc),
+
+            PaymentGatewayStatus.Cancelled =>
+                payment.CancelAttempt(
+                    attempt.ExternalReference,
+                    observedAtUtc),
+
+            _ =>
+                throw new InvalidOperationException(
+                    $"Unsupported payment gateway status '{gatewayStatus}'.")
+        };
+    }
+    private static string CreateOperationKey(
+        Guid bookingId,
+        string incomingIdempotencyKey)
+    {
+        string value = $"{bookingId:N}:{incomingIdempotencyKey}";
+
+        byte[] bytes = Encoding.UTF8.GetBytes(value);
+
+        byte[] hash = SHA256.HashData(bytes);
+
+        return $"bookify-payment-" + $"{Convert.ToHexString(hash).ToLowerInvariant()}";
+    }
+
+    private static InitiatePaymentResponse ToResponse(
+        Payment payment,
+        PaymentAttempt attempt)
+    {
+        return new InitiatePaymentResponse(
+            payment.Id,
+            attempt.Id,
+            attempt.ExternalReference,
+            attempt.Status,
+            attempt.Amount.Amount,
+            attempt.Amount.Currency);
+    }
+
+    private static async Task<
+        Result<InitiatePaymentResponse>>
+        RollbackFailureAsync(
+            ITransaction transaction,
+            Error error,
+            CancellationToken cancellationToken)
+    {
+        await transaction
+            .RollbackAsync(cancellationToken);
 
         return Result<InitiatePaymentResponse>
-            .Success(ToResponse(payment,
-                    attemptResult.Value));
+            .Failure(error);
     }
 }

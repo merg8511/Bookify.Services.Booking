@@ -37,7 +37,9 @@ internal sealed class PaymentAttemptConfiguration : IEntityTypeConfiguration<Pay
 
         builder
             .Property(attempt => attempt.Id)
-            .HasColumnName("id");
+            .HasColumnName("id")
+            .HasColumnType("uuid")
+            .ValueGeneratedNever();
 
         builder
             .Property(attempt => attempt.PaymentId)
@@ -78,7 +80,7 @@ internal sealed class PaymentAttemptConfiguration : IEntityTypeConfiguration<Pay
                     moneyBuilder
                         .Property(money => money.Amount)
                         .HasColumnName("amount")
-                        .HasPrecision(18, 2)
+                        .HasPrecision(18, 3)
                         .IsRequired();
 
                     moneyBuilder
@@ -89,6 +91,15 @@ internal sealed class PaymentAttemptConfiguration : IEntityTypeConfiguration<Pay
                         .IsRequired();
                 });
 
+        builder
+            .HasIndex(attempt => attempt.PaymentId,
+            "IX_payment_attempts_payment_id");
+
+        builder
+            .HasIndex(attempt => attempt.PaymentId)
+            .HasDatabaseName("ux_payment_attempts_payment_id_pending")
+            .IsUnique()
+            .HasFilter("status = 'Pending'");
         builder
             .HasIndex(attempt => attempt.IdempotencyKey)
             .IsUnique();

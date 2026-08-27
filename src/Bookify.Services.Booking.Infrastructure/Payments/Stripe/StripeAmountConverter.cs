@@ -26,6 +26,16 @@ internal static class StripeAmountConverter
             "XPF"
         };
 
+    private static readonly HashSet<string> ThreeDecimalCurrencies =
+        new(StringComparer.Ordinal)
+        {
+            "BHD",
+            "JOD",
+            "KWD",
+            "OMR",
+            "TND"
+        };
+
     private static readonly HashSet<string> WholeAmountCurrenciesWithTwoDecimalMinorUnit =
         new(StringComparer.Ordinal)
         {
@@ -54,10 +64,14 @@ internal static class StripeAmountConverter
                     .InvalidAmountPrecision(amount.Currency));
         }
 
-        decimal multiplier = ZeroDecimalCurrencies
-            .Contains(amount.Currency)
+        decimal multiplier =
+            WholeAmountCurrenciesWithTwoDecimalMinorUnit.Contains(amount.Currency)
+                ? 100m
+            : ThreeDecimalCurrencies.Contains(amount.Currency)
+                ? 1000m
+            : ZeroDecimalCurrencies.Contains(amount.Currency)
                 ? 1m
-                : 100m;
+            : 100m;
 
         decimal minorUnits = amount.Amount * multiplier;
 

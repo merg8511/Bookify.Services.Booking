@@ -14,6 +14,8 @@ public sealed class GetPropertyByIdQueryHandlerTests
     public async Task HandleAsync_WhenPropertyExists_ShouldReturnResponse()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Guid propertyId = Guid.NewGuid();
 
         var expectedResponse = new PropertyDetailsReadModel
@@ -32,7 +34,7 @@ public sealed class GetPropertyByIdQueryHandlerTests
         var query = new GetPropertyByIdQuery(propertyId);
 
         // ACT
-        Result<PropertyDetailsReadModel> result = await handler.HandleAsync(query);
+        Result<PropertyDetailsReadModel> result = await handler.HandleAsync(query, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -53,6 +55,8 @@ public sealed class GetPropertyByIdQueryHandlerTests
     public async Task HandleAsync_WhenPropertyDoesNotExist_ShouldReturnNotFound()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Guid propertyId = Guid.NewGuid();
 
         var propertyReadService = new StubPropertyReadService(response: null);
@@ -60,7 +64,7 @@ public sealed class GetPropertyByIdQueryHandlerTests
         var query = new GetPropertyByIdQuery(propertyId);
 
         // ACT
-        Result<PropertyDetailsReadModel> result = await handler.HandleAsync(query);
+        Result<PropertyDetailsReadModel> result = await handler.HandleAsync(query, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);

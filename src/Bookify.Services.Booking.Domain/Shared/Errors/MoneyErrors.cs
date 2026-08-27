@@ -6,6 +6,11 @@ public static class MoneyErrors
         "Money.NegativeAmount",
         "The currency amount cannot be negative.");
 
+    public static readonly Error InvalidPrecision =
+        Error.Validation(
+            "Money.InvalidPrecision",
+            "The currency amount cannot contain more than three decimal places.");
+
     public static readonly Error InvalidCurrency = Error.Validation(
         "Money.InvalidCurrency",
         "The currency must contain a valid three-letter code.");

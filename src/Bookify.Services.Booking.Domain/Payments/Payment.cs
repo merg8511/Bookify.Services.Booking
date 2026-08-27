@@ -13,7 +13,7 @@ public sealed class Payment
         Amount = null!;
     }
 
-    public Payment(
+    private Payment(
         Guid id,
         Guid bookingId,
         Money amount,
