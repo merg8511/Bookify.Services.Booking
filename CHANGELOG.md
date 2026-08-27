@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.7.0...v0.8.0) (2026-08-27)
+
+
+### Features
+
+* **booking:** implements initial domain events ([#31](https://github.com/merg8511/Bookify.Services.Booking/issues/31)) ([b3d2618](https://github.com/merg8511/Bookify.Services.Booking/commit/b3d2618e8c2f1f4b77a42db5299f020edf06fff7))
+* **payments:** harden payment flow and project quality gates ([#35](https://github.com/merg8511/Bookify.Services.Booking/issues/35)) ([fe7da2c](https://github.com/merg8511/Bookify.Services.Booking/commit/fe7da2c0a3124c19e99157f52d7ad9a305a2c961))
+* **payments:** implements payments abstraction and stripe configuration ([#33](https://github.com/merg8511/Bookify.Services.Booking/issues/33)) ([b161329](https://github.com/merg8511/Bookify.Services.Booking/commit/b161329a7e9e8ee7d9ea621aa46f96832c458b33))
+* **payments:** initial payments configuration handlers ([#34](https://github.com/merg8511/Bookify.Services.Booking/issues/34)) ([4d6be77](https://github.com/merg8511/Bookify.Services.Booking/commit/4d6be777250b57b67ef437675c295f6e791b5636))
+
 ## [0.7.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.6.0...v0.7.0) (2026-08-21)
 
 
