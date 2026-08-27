@@ -51,7 +51,13 @@ internal sealed class DapperBookingReadService : IBookingReadService
             b.guest_count AS "GuestCount",
             b.status AS "Status",
             (
-                b.status <> 'Cancelled'
+                b.status IN
+                (
+                    'PendingApproval',
+                    'PendingPayment',
+                    'Paid',
+                    'Completed'
+                )
             ) AS "BlocksInventory"
         FROM bookings AS b
         INNER JOIN rentable_units AS ru

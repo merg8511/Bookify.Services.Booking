@@ -38,8 +38,8 @@ internal sealed class DapperBookingAvailabilityReader :
                 'Paid',
                 'Completed'
             )
-            And b.check_in_date < @RequestedCheckOutDate
-            And b.check_out_date > @RequestedCheckInDate
+            AND b.check_in_date < @RequestedCheckOutDate
+            AND b.check_out_date > @RequestedCheckInDate
             AND
             (
                 existing_unit.id = requested_unit.id

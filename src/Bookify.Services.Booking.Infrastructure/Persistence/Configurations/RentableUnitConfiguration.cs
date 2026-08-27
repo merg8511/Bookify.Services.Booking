@@ -157,7 +157,7 @@ internal sealed class RentableUnitConfiguration
 
                 pricingBuilder.Navigation(
                         pricing => pricing.WeekendNightlyRate)
-                    .IsRequired(); ;
+                    .IsRequired();
 
                 pricingBuilder.OwnsOne(
                     pricing => pricing.ExtraGuestNightlyRate,
