@@ -25,4 +25,9 @@ public static class PaymentAttemptErrors
         Error.Conflict(
             "Payments.Attempts.InvalidStatusTransition",
             $"Payment attempt cannot transition from {currentStatus} to {targetStatus}.");
+
+    public static readonly Error IdempotencyKeyRequired =
+           Error.Validation(
+               "Payments.Attempts.IdempotencyKeyRequired",
+               "The payment attempt idempotency key is required.");
 }

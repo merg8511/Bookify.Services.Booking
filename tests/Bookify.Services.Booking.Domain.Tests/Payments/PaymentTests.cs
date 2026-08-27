@@ -133,6 +133,7 @@ public sealed class PaymentTests
         // ACT
         Result<PaymentAttempt> result =
             payment.AddAttempt(
+                "payment-operation-001",
                 " external-001 ",
                 attemptCreatedAtUtc);
 
@@ -182,6 +183,7 @@ public sealed class PaymentTests
 
         Result<PaymentAttempt> firstAttemptResult =
             payment.AddAttempt(
+                "payment-operation-001",
                 "external-001",
                 CreatedAtUtc.AddMinutes(1));
 
@@ -191,6 +193,7 @@ public sealed class PaymentTests
         // ACT
         Result<PaymentAttempt> secondAttemptResult =
             payment.AddAttempt(
+                "payment-operation-002",
                 "external-002",
                 CreatedAtUtc.AddMinutes(2));
 
@@ -215,6 +218,7 @@ public sealed class PaymentTests
 
         Result<PaymentAttempt> firstAttemptResult =
             payment.AddAttempt(
+                "payment-operation-001",
                 "external-001",
                 CreatedAtUtc.AddMinutes(1));
 
@@ -232,6 +236,7 @@ public sealed class PaymentTests
         // ACT
         Result<PaymentAttempt> duplicateResult =
             payment.AddAttempt(
+                "payment-operation-002",
                 "external-001",
                 CreatedAtUtc.AddMinutes(3));
 
@@ -254,6 +259,7 @@ public sealed class PaymentTests
 
         Result<PaymentAttempt> firstAttemptResult =
             payment.AddAttempt(
+                "payment-operation-001",
                 "external-001",
                 CreatedAtUtc.AddMinutes(1));
 
@@ -268,6 +274,7 @@ public sealed class PaymentTests
 
         Result<PaymentAttempt> retryResult =
             payment.AddAttempt(
+                "payment-operation-002",
                 "external-002",
                 CreatedAtUtc.AddMinutes(3));
 
@@ -307,6 +314,7 @@ public sealed class PaymentTests
 
         Result<PaymentAttempt> attemptResult =
             payment.AddAttempt(
+                "payment-operation-001",
                 "external-001",
                 CreatedAtUtc.AddMinutes(1));
 
@@ -351,6 +359,7 @@ public sealed class PaymentTests
 
         Result<PaymentAttempt> attemptResult =
             payment.AddAttempt(
+                "payment-operation-001",
                 "external-001",
                 CreatedAtUtc.AddMinutes(1));
 
@@ -368,6 +377,7 @@ public sealed class PaymentTests
         // ACT
         Result<PaymentAttempt> result =
             payment.AddAttempt(
+                "payment-operation-002",
                 "external-002",
                 CreatedAtUtc.AddMinutes(3));
 
@@ -389,6 +399,7 @@ public sealed class PaymentTests
 
         Result<PaymentAttempt> attemptResult =
             payment.AddAttempt(
+                "payment-operation-001",
                 "external-001",
                 CreatedAtUtc.AddMinutes(1));
 
@@ -454,6 +465,7 @@ public sealed class PaymentTests
 
         Result<PaymentAttempt> attemptResult =
             payment.AddAttempt(
+                "payment-operation-001",
                 "external-001",
                 attemptCreatedAtUtc);
 
@@ -480,6 +492,43 @@ public sealed class PaymentTests
         Assert.Equal(
             PaymentAttemptStatus.Pending,
             attemptResult.Value.Status);
+    }
+
+    [Fact]
+    public void AddAttempt_WithDuplicateIdempotencyKey_ShouldFail()
+    {
+        // ARRANGE
+        Payment payment = CreatePayment();
+
+        Result<PaymentAttempt> firstAttempt =
+            payment.AddAttempt(
+                "operation-001",
+                "external-001",
+                CreatedAtUtc.AddMinutes(1));
+
+        Assert.True(firstAttempt.IsSuccess);
+
+        Result failedResult =
+            payment.MarkAttemptAsFailed(
+                "external-001",
+                CreatedAtUtc.AddMinutes(2));
+
+        Assert.True(failedResult.IsSuccess);
+
+        // ACT
+        Result<PaymentAttempt> result =
+            payment.AddAttempt(
+                "operation-001",
+                "external-002",
+                CreatedAtUtc.AddMinutes(3));
+
+        // ASSERT
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            PaymentErrors.DuplicateIdempotencyKey(
+                "operation-001"),
+            result.Error);
     }
 
     private static Payment CreatePayment()

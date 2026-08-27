@@ -64,6 +64,7 @@ public sealed class Payment
     }
 
     public Result<PaymentAttempt> AddAttempt(
+        string idempotencyKey,
         string externalReference,
         DateTimeOffset createdAtUtc)
     {
@@ -71,6 +72,21 @@ public sealed class Payment
         {
             return Result<PaymentAttempt>.Failure(
                 PaymentErrors.CannotAddAttempt(Status));
+        }
+
+        string normalizedIdempotencyKey = idempotencyKey?.Trim() ?? string.Empty;
+
+        bool idempotencyKeyExists = _attempts.Any(
+            attempt =>
+                string.Equals(
+                    attempt.IdempotencyKey,
+                    normalizedIdempotencyKey,
+                    StringComparison.Ordinal));
+
+        if (idempotencyKeyExists)
+        {
+            return Result<PaymentAttempt>.Failure(
+                PaymentErrors.DuplicateIdempotencyKey(normalizedIdempotencyKey));
         }
 
         if (_attempts.Any(
@@ -107,6 +123,7 @@ public sealed class Payment
         Result<PaymentAttempt> attemptResult =
             PaymentAttempt.Create(
                 Id,
+                normalizedIdempotencyKey,
                 normalizedExternalReference,
                 Amount,
                 createdAtUtc);
