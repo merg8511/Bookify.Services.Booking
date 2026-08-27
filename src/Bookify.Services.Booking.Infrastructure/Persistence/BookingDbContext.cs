@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.DomainEvents;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
+using Bookify.Services.Booking.Domain.Payments;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared.DomainEvents;
 using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
@@ -31,6 +32,12 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
 
     internal DbSet<IdempotencyRequest> IdempotencyRequests =>
         Set<IdempotencyRequest>();
+
+    public DbSet<Payment> Payments =>
+        Set<Payment>();
+
+    public DbSet<PaymentAttempt> PaymentAttempts =>
+        Set<PaymentAttempt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

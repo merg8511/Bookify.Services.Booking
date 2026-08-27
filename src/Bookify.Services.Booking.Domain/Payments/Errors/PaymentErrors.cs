@@ -41,4 +41,10 @@ public static class PaymentErrors
         Error.Conflict(
             "Payments.CannotAddAttempt",
             $"A new payment attempt cannot be added while the payment is {status}");
+
+    public static Error DuplicateIdempotencyKey(
+        string idempotencyKey) =>
+        Error.Conflict(
+            "Payments.DuplicateIdempotencyKey",
+            $"The payment attempt idempotency key '{idempotencyKey}' already exists.");
 }

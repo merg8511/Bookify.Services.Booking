@@ -8,6 +8,7 @@ public sealed class PaymentAttempt
 {
     private PaymentAttempt()
     {
+        IdempotencyKey = string.Empty;
         ExternalReference = string.Empty;
         Amount = null!;
     }
@@ -15,12 +16,14 @@ public sealed class PaymentAttempt
     private PaymentAttempt(
         Guid id,
         Guid paymentId,
+        string idempotencyKey,
         string externalReference,
         Money amount,
         DateTimeOffset createdAtUtc)
     {
         Id = id;
         PaymentId = paymentId;
+        IdempotencyKey = idempotencyKey;
         ExternalReference = externalReference;
         Amount = amount;
         Status = PaymentAttemptStatus.Pending;
@@ -34,14 +37,24 @@ public sealed class PaymentAttempt
     public PaymentAttemptStatus Status { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? CompletedAtUtc { get; private set; }
+    public string IdempotencyKey { get; private set; }
 
     internal static Result<PaymentAttempt> Create(
         Guid paymentId,
+        string idempotencyKey,
         string externalReference,
         Money amount,
         DateTimeOffset createdAtUtc)
     {
         ArgumentNullException.ThrowIfNull(amount);
+
+        string normalizedIdempotencyKey = idempotencyKey?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(normalizedIdempotencyKey))
+        {
+            return Result<PaymentAttempt>.Failure(
+                PaymentAttemptErrors.IdempotencyKeyRequired);
+        }
 
         string normalizedExternalReference = externalReference?.Trim()
             ?? string.Empty;
@@ -62,6 +75,7 @@ public sealed class PaymentAttempt
             new PaymentAttempt(
                 Guid.NewGuid(),
                 paymentId,
+                normalizedIdempotencyKey,
                 normalizedExternalReference,
                 amount,
                 createdAtUtc));

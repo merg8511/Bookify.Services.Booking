@@ -13,6 +13,7 @@ using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.DomainEvents;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
+using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Application.Properties.GetPaged;
@@ -148,6 +149,11 @@ public static class DependencyInjection
         services.AddScoped<
             IIdempotencyProcessor,
             IdempotencyProcessor>();
+
+        // ==========================================
+        //  Module: Payments
+        // ==========================================
+        services.AddScoped<InitiatePaymentCommandHandler>();
 
         return services;
     }
