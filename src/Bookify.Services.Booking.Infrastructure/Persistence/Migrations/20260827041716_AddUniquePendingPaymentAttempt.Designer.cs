@@ -3,6 +3,7 @@ using System;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(BookingDbContext))]
-    partial class BookingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260827041716_AddUniquePendingPaymentAttempt")]
+    partial class AddUniquePendingPaymentAttempt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -376,8 +379,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                         .HasColumnType("uuid");
 
                                     b2.Property<decimal>("Amount")
-                                        .HasPrecision(18, 3)
-                                        .HasColumnType("numeric(18,3)")
+                                        .HasColumnType("numeric")
                                         .HasColumnName("accommodation_price_amount");
 
                                     b2.Property<string>("Currency")
@@ -400,8 +402,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                         .HasColumnType("uuid");
 
                                     b2.Property<decimal>("Amount")
-                                        .HasPrecision(18, 3)
-                                        .HasColumnType("numeric(18,3)")
+                                        .HasColumnType("numeric")
                                         .HasColumnName("extra_guest_price_amount");
 
                                     b2.Property<string>("Currency")
@@ -424,8 +425,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                         .HasColumnType("uuid");
 
                                     b2.Property<decimal>("Amount")
-                                        .HasPrecision(18, 3)
-                                        .HasColumnType("numeric(18,3)")
+                                        .HasColumnType("numeric")
                                         .HasColumnName("total_price_amount");
 
                                     b2.Property<string>("Currency")
@@ -516,8 +516,8 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<decimal>("Amount")
-                                .HasPrecision(18, 3)
-                                .HasColumnType("numeric(18,3)")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("numeric(18,2)")
                                 .HasColumnName("amount");
 
                             b1.Property<string>("Currency")
@@ -553,8 +553,8 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<decimal>("Amount")
-                                .HasPrecision(18, 3)
-                                .HasColumnType("numeric(18,3)")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("numeric(18,2)")
                                 .HasColumnName("amount");
 
                             b1.Property<string>("Currency")
@@ -634,8 +634,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                         .HasColumnType("integer");
 
                                     b2.Property<decimal>("Amount")
-                                        .HasPrecision(18, 3)
-                                        .HasColumnType("numeric(18,3)")
+                                        .HasColumnType("numeric")
                                         .HasColumnName("nightly_rate_amount");
 
                                     b2.Property<string>("Currency")
@@ -683,8 +682,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                         .HasColumnType("uuid");
 
                                     b2.Property<decimal>("Amount")
-                                        .HasPrecision(18, 3)
-                                        .HasColumnType("numeric(18,3)")
+                                        .HasColumnType("numeric")
                                         .HasColumnName("extra_guest_nightly_rate_amount");
 
                                     b2.Property<string>("Currency")
@@ -707,8 +705,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                         .HasColumnType("uuid");
 
                                     b2.Property<decimal>("Amount")
-                                        .HasPrecision(18, 3)
-                                        .HasColumnType("numeric(18,3)")
+                                        .HasColumnType("numeric")
                                         .HasColumnName("regular_nightly_rate_amount");
 
                                     b2.Property<string>("Currency")
@@ -731,8 +728,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                         .HasColumnType("uuid");
 
                                     b2.Property<decimal>("Amount")
-                                        .HasPrecision(18, 3)
-                                        .HasColumnType("numeric(18,3)")
+                                        .HasColumnType("numeric")
                                         .HasColumnName("weekend_nightly_rate_amount");
 
                                     b2.Property<string>("Currency")

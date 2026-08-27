@@ -153,7 +153,15 @@ public static class DependencyInjection
         // ==========================================
         //  Module: Payments
         // ==========================================
-        services.AddScoped<InitiatePaymentCommandHandler>();
+        services.AddScoped<
+            IRequestValidator<InitiatePaymentCommand>,
+            InitiatePaymentCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<
+                InitiatePaymentCommand,
+                InitiatePaymentResponse>,
+            InitiatePaymentCommandHandler>();
 
         return services;
     }

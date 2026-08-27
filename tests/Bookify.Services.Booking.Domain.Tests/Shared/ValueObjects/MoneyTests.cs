@@ -184,4 +184,40 @@ public sealed class MoneyTests
             MoneyErrors.InvalidMultiplier,
             result.Error);
     }
+
+    [Fact]
+    public void Create_WithThreeDecimalPlaces_ShouldReturnMoney()
+    {
+        // Act
+        var result =
+            Money.Create(
+                10.123m,
+                "KWD");
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            10.123m,
+            result.Value.Amount);
+    }
+
+    [Fact]
+    public void Create_WithMoreThanThreeDecimalPlaces_ShouldReturnFailure()
+    {
+        // Act
+        var result =
+            Money.Create(
+                10.1234m,
+                "USD");
+
+        // Assert
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            MoneyErrors.InvalidPrecision,
+            result.Error);
+    }
 }

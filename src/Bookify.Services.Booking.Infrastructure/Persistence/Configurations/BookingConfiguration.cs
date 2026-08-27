@@ -189,7 +189,7 @@ internal sealed class BookingConfiguration
                         moneyBuilder.Property(
                                 money => money.Amount)
                             .HasColumnName("accommodation_price_amount")
-                            .HasColumnType("numeric")
+                            .HasPrecision(18, 3)
                             .IsRequired();
 
                         moneyBuilder.Property(
@@ -212,7 +212,7 @@ internal sealed class BookingConfiguration
                         moneyBuilder.Property(
                                 money => money.Amount)
                             .HasColumnName("extra_guest_price_amount")
-                            .HasColumnType("numeric")
+                            .HasPrecision(18, 3)
                             .IsRequired();
 
                         moneyBuilder.Property(
@@ -235,7 +235,7 @@ internal sealed class BookingConfiguration
                         moneyBuilder.Property(
                                 money => money.Amount)
                             .HasColumnName("total_price_amount")
-                            .HasColumnType("numeric")
+                            .HasPrecision(18, 3)
                             .IsRequired();
 
                         moneyBuilder.Property(

@@ -34,7 +34,9 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 
         builder
             .Property(payment => payment.Id)
-            .HasColumnName("id");
+            .HasColumnName("id")
+            .HasColumnType("uuid")
+            .ValueGeneratedNever();
 
         builder
             .Property(payment => payment.BookingId)
@@ -68,7 +70,7 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
                     moneyBuilder
                         .Property(money => money.Amount)
                         .HasColumnName("amount")
-                        .HasPrecision(18, 2)
+                        .HasPrecision(18, 3)
                         .IsRequired();
 
                     moneyBuilder
