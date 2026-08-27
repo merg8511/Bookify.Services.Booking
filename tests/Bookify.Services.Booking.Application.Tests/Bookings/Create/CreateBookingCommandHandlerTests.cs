@@ -18,6 +18,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WithValidCommand_PersistsBooking()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property property = CreateProperty();
 
         RentableUnit rentableUnit = CreateRentableUnit(
@@ -48,7 +50,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<CreateBookingResult> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -173,6 +175,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenPropertyDoesNotExist_ReturnsFailure()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Guid propertyId = Guid.NewGuid();
 
         RentableUnit rentableUnit = CreateRentableUnit(
@@ -202,7 +206,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<CreateBookingResult> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -228,6 +232,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenPropertyIsInactive_ReturnsFailure()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property property = CreateProperty();
         property.Deactivate();
 
@@ -259,7 +265,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<CreateBookingResult> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -283,6 +289,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenRentableUnitDoesNotExist_ReturnsFailure()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property property = CreateProperty();
         Guid rentableUnitId = Guid.NewGuid();
         var bookingRepository = new SpyBookingRepository();
@@ -308,7 +316,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<CreateBookingResult> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -332,6 +340,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenRentableUnitBelongsToAnotherProperty_ReturnsFailure()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property requestedProperty = CreateProperty();
         Property ownerProperty = CreateProperty();
 
@@ -363,7 +373,7 @@ public sealed class CreateBookingCommandHandlerTests
                 guestCount: 2);
 
         // ACT
-        Result<CreateBookingResult> result = await handler.HandleAsync(command);
+        Result<CreateBookingResult> result = await handler.HandleAsync(command, cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -388,6 +398,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenRentableUnitIsInactive_ReturnsDomainFailure()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property property = CreateProperty();
 
         RentableUnit rentableUnit = CreateRentableUnit(
@@ -417,7 +429,8 @@ public sealed class CreateBookingCommandHandlerTests
                 CreateValidCommand(
                     property.Id,
                     rentableUnit.Id,
-                    guestCount: 2));
+                    guestCount: 2),
+                cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -439,6 +452,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenGuestCapacityIsExceeded_ReturnsDomainFailure()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property property = CreateProperty();
 
         RentableUnit rentableUnit =
@@ -468,7 +483,8 @@ public sealed class CreateBookingCommandHandlerTests
                 CreateValidCommand(
                     property.Id,
                     rentableUnit.Id,
-                    guestCount: 3));
+                    guestCount: 3),
+                cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -490,6 +506,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenInventoryHasConflict_ReturnsFailureWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property property = CreateProperty();
 
         RentableUnit rentableUnit =
@@ -519,7 +537,8 @@ public sealed class CreateBookingCommandHandlerTests
                 CreateValidCommand(
                     property.Id,
                     rentableUnit.Id,
-                    guestCount: 2));
+                    guestCount: 2),
+                cancellationToken);
 
         // ASSERT
         Assert.Equal(
@@ -578,6 +597,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenPricingIsNotConfigured_ReturnsFailureWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property property =
             CreateProperty();
 
@@ -618,7 +639,8 @@ public sealed class CreateBookingCommandHandlerTests
                 CreateValidCommand(
                     property.Id,
                     rentableUnit.Id,
-                    guestCount: 2));
+                    guestCount: 2),
+                cancellationToken);
 
         // ASSERT
         Assert.True(
@@ -658,6 +680,8 @@ public sealed class CreateBookingCommandHandlerTests
     public async Task HandleAsync_WhenPricingCalculationFails_ReturnsDomainFailureWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Property property =
             CreateProperty();
 
@@ -731,7 +755,8 @@ public sealed class CreateBookingCommandHandlerTests
         // ACT
         Result<CreateBookingResult> result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // ASSERT
         Assert.True(

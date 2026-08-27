@@ -15,6 +15,8 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenBookingIsPendingPayment_ShouldExpireAndSave()
     {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         // ARRANGE
         DomainBooking booking =
             CreatePendingPaymentBooking();
@@ -35,7 +37,7 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -60,6 +62,8 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFoundWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Guid bookingId =
             Guid.NewGuid();
 
@@ -79,7 +83,7 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -98,6 +102,8 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsPaid_ShouldReturnConflictWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreatePendingPaymentBooking();
 
@@ -123,7 +129,7 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command, cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);

@@ -16,6 +16,8 @@ public sealed class MarkBookingAsPaidCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsPendingPayment_ShouldMarkAsPaidAndSave()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreatePendingPaymentBooking();
 
@@ -35,7 +37,8 @@ public sealed class MarkBookingAsPaidCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -59,6 +62,8 @@ public sealed class MarkBookingAsPaidCommandHandlerTests
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFoundWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Guid bookingId =
             Guid.NewGuid();
 
@@ -78,7 +83,8 @@ public sealed class MarkBookingAsPaidCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -97,6 +103,8 @@ public sealed class MarkBookingAsPaidCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsPendingApproval_ShouldReturnConflictWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking();
 
@@ -116,7 +124,8 @@ public sealed class MarkBookingAsPaidCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);

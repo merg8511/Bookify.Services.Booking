@@ -16,6 +16,8 @@ public sealed class ApproveBookingCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsPendingApproval_ShouldApproveAndSave()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking();
 
@@ -38,7 +40,8 @@ public sealed class ApproveBookingCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -59,6 +62,8 @@ public sealed class ApproveBookingCommandHandlerTests
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFoundWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         Guid bookingId =
             Guid.NewGuid();
 
@@ -81,7 +86,8 @@ public sealed class ApproveBookingCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -100,6 +106,8 @@ public sealed class ApproveBookingCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsNotPendingApproval_ShouldReturnConflictWithoutSaving()
     {
         // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         DomainBooking booking =
             CreateBooking();
 
@@ -124,7 +132,8 @@ public sealed class ApproveBookingCommandHandlerTests
         // ACT
         Result result =
             await handler.HandleAsync(
-                command);
+                command,
+                cancellationToken);
 
         // ASSERT
         Assert.True(result.IsFailure);

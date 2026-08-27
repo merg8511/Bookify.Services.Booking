@@ -11,6 +11,8 @@ public sealed class GetPropertiesQueryHandlerTests
     [Fact]
     public async Task HandleAsync_NormalizesNameFilter()
     {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var readService = new PropertyReadServiceSpy();
 
         var handler = new GetPropertiesQueryHandler(readService);
@@ -24,7 +26,7 @@ public sealed class GetPropertiesQueryHandlerTests
                 null,
                 null);
 
-        var result = await handler.HandleAsync(query);
+        var result = await handler.HandleAsync(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
 
@@ -38,6 +40,8 @@ public sealed class GetPropertiesQueryHandlerTests
     [Fact]
     public async Task HandleAsync_WithWhitespaceName_RemovesNameFilter()
     {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var readService = new PropertyReadServiceSpy();
         var handler = new GetPropertiesQueryHandler(readService);
 
@@ -49,7 +53,7 @@ public sealed class GetPropertiesQueryHandlerTests
             null,
             null);
 
-        var result = await handler.HandleAsync(query);
+        var result = await handler.HandleAsync(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Null(readService.ReceivedName);
@@ -59,6 +63,8 @@ public sealed class GetPropertiesQueryHandlerTests
     [Fact]
     public async Task HandleAsync_WithMissingSorting_UsesDefaults()
     {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var readService =
             new PropertyReadServiceSpy();
 
@@ -77,7 +83,8 @@ public sealed class GetPropertiesQueryHandlerTests
 
         var result =
             await handler.HandleAsync(
-                query);
+                query,
+                cancellationToken);
 
         Assert.True(
             result.IsSuccess);
@@ -94,6 +101,8 @@ public sealed class GetPropertiesQueryHandlerTests
     [Fact]
     public async Task HandleAsync_NormalizesSortingValues()
     {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
         var readService =
             new PropertyReadServiceSpy();
 
@@ -112,7 +121,8 @@ public sealed class GetPropertiesQueryHandlerTests
 
         var result =
             await handler.HandleAsync(
-                query);
+                query,
+                cancellationToken);
 
         Assert.True(
             result.IsSuccess);
