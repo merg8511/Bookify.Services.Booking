@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Endpoints.Bookings;
+using Bookify.Services.Booking.Api.Endpoints.Payments;
 using Bookify.Services.Booking.Api.Endpoints.Properties;
 
 namespace Bookify.Services.Booking.Api.Endpoints;
@@ -15,6 +16,8 @@ internal static class EndpointRouteBuilderExtensions
         PropertiesEndpoints.Map(apiGroup);
 
         BookingsEndpoints.Map(apiGroup);
+
+        PaymentsEndpoints.Map(apiGroup);
 
         return endpoints;
     }

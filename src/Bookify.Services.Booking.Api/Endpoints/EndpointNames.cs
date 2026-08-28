@@ -40,4 +40,10 @@ internal static class EndpointNames
         internal const string Cancel =
             "Bookings.Cancel";
     }
+
+    internal static class Payments
+    {
+        internal const string Initiate =
+            "Payments.Initiate";
+    }
 }
