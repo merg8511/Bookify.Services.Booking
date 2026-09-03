@@ -449,80 +449,56 @@ public sealed class InitiatePaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenGatewayReturnsCancelled_ShouldPersistCancelledAttempt()
+    public async Task HandleAsync_WhenPreviousAttemptCancelled_ShouldCreateNewPendingAttempt()
     {
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = CreateBooking(approve: true); // Booking = PendingPayment
+        Payment payment = CreatePayment(booking);
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
+        string oldOperationKey = CreateExpectedOperationKey(booking.Id, "operation-cancelled");
+        Result<PaymentAttempt> oldAttemptResult = payment.AddAttempt(oldOperationKey, "fake_external_cancelled", UtcNow);
+        Assert.True(oldAttemptResult.IsSuccess);
 
-        var paymentRepository =
-            new SpyPaymentRepository();
+        Result cancelResult = payment.CancelAttempt("fake_external_cancelled", UtcNow);
+        Assert.True(cancelResult.IsSuccess);
 
-        var paymentGateway =
-            new SpyPaymentGateway(
-                new CreatePaymentAttemptResponse(
-                    "fake_external_cancelled",
-                    PaymentGatewayStatus.Cancelled,
-                    "fake_external_001_client_secret"));
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository(payment);
+        var paymentGateway = new SpyPaymentGateway(
+            new CreatePaymentAttemptResponse(
+                "fake_external_new",
+                PaymentGatewayStatus.Pending,
+                "fake_external_new_client_secret"));
 
-        var unitOfWork =
-            new SpyUnitOfWork();
+        var unitOfWork = new SpyUnitOfWork();
 
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "operation-cancelled");
+        var command = new InitiatePaymentCommand(booking.Id, "retry-new-key");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsSuccess);
+        Assert.True(result.IsSuccess);
 
-        Payment payment =
-            Assert.IsType<Payment>(
-                paymentRepository.AddedPayment);
+        Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.Equal(2, payment.Attempts.Count);
 
-        PaymentAttempt attempt =
-            Assert.Single(
-                payment.Attempts);
+        var attemptsList = payment.Attempts.ToList();
+        Assert.Equal(PaymentAttemptStatus.Cancelled, attemptsList[0].Status);
+        Assert.Equal(PaymentAttemptStatus.Pending, attemptsList[1].Status);
 
-        Assert.Equal(
-            PaymentStatus.Cancelled,
-            payment.Status);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Cancelled,
-            attempt.Status);
-
-        Assert.Equal(
-            UtcNow,
-            payment.CompletedAtUtc);
-
-        Assert.Equal(
-            UtcNow,
-            attempt.CompletedAtUtc);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Cancelled,
-            result.Value.Status);
+        Assert.Equal(payment.Id, result.Value.PaymentId);
+        Assert.Equal(attemptsList[1].Id, result.Value.PaymentAttemptId);
+        Assert.Equal("fake_external_new", result.Value.ExternalReference);
+        Assert.Equal("fake_external_new_client_secret", result.Value.ClientSecret);
     }
 
     [Fact]
