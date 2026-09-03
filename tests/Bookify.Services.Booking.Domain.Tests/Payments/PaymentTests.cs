@@ -244,6 +244,8 @@ public sealed class PaymentTests
         Assert.True(
             duplicateResult.IsFailure);
 
+        Assert.Null(payment.CompletedAtUtc);
+
         Assert.Equal(
             PaymentErrors.DuplicateExternalReference(
                 "external-001"),
@@ -303,6 +305,9 @@ public sealed class PaymentTests
         Assert.Equal(
             PaymentAttemptStatus.Pending,
             retryResult.Value.Status);
+
+        Assert.Null(
+            payment.CompletedAtUtc);
     }
 
     [Fact]
@@ -422,8 +427,7 @@ public sealed class PaymentTests
             PaymentStatus.Cancelled,
             payment.Status);
 
-        Assert.Equal(
-            cancelledAtUtc,
+        Assert.Null(
             payment.CompletedAtUtc);
 
         Assert.Equal(
@@ -529,6 +533,156 @@ public sealed class PaymentTests
             PaymentErrors.DuplicateIdempotencyKey(
                 "operation-001"),
             result.Error);
+    }
+
+    [Fact]
+    public void AddAttempt_WhenPaymentFailed_ShouldCreateNewPendingAttempt()
+    {
+        // Arrange
+        Money amount = CreateMoney(100m, "USD");
+
+        DateTimeOffset createdAtUtc =
+            new(
+                2026,
+                9,
+                3,
+                12,
+                0,
+                0,
+                TimeSpan.Zero);
+
+        Payment payment = CreatePayment();
+
+        PaymentAttempt firstAttempt =
+            payment.AddAttempt(
+                "operation-1",
+                "external-1",
+                createdAtUtc).Value;
+
+        DateTimeOffset failedAtUtc =
+            createdAtUtc.AddMinutes(
+                1);
+
+        Result failedResult =
+            payment.MarkAttemptAsFailed(
+                firstAttempt.ExternalReference,
+                failedAtUtc);
+
+        Assert.True(
+            failedResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Failed,
+            payment.Status);
+
+        // Act
+        DateTimeOffset retryAtUtc =
+            failedAtUtc.AddMinutes(
+                1);
+
+        Result<PaymentAttempt> result =
+            payment.AddAttempt(
+                "operation-2",
+                "external-2",
+                retryAtUtc);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Pending,
+            payment.Status);
+
+        Assert.Equal(
+            2,
+            payment.Attempts.Count);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Failed,
+            firstAttempt.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Pending,
+            result.Value.Status);
+
+        Assert.Null(
+            payment.CompletedAtUtc);
+    }
+
+    [Fact]
+    public void AddAttempt_WhenPaymentCancelled_ShouldCreateNewPendingAttempt()
+    {
+        // Arrange
+        Money amount = CreateMoney(100m, "USD");
+
+        DateTimeOffset createdAtUtc =
+            new(
+                2026,
+                9,
+                3,
+                12,
+                0,
+                0,
+                TimeSpan.Zero);
+
+        Payment payment = CreatePayment();
+
+        PaymentAttempt firstAttempt =
+            payment.AddAttempt(
+                "operation-1",
+                "external-1",
+                createdAtUtc).Value;
+
+        DateTimeOffset cancelledAtUtc =
+            createdAtUtc.AddMinutes(
+                1);
+
+        Result cancelledResult =
+            payment.CancelAttempt(
+                firstAttempt.ExternalReference,
+                cancelledAtUtc);
+
+        Assert.True(
+            cancelledResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Cancelled,
+            payment.Status);
+
+        // Act
+        DateTimeOffset retryAtUtc =
+            cancelledAtUtc.AddMinutes(
+                1);
+
+        Result<PaymentAttempt> result =
+            payment.AddAttempt(
+                "operation-2",
+                "external-2",
+                retryAtUtc);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Pending,
+            payment.Status);
+
+        Assert.Equal(
+            2,
+            payment.Attempts.Count);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Cancelled,
+            firstAttempt.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Pending,
+            result.Value.Status);
+
+        Assert.Null(
+            payment.CompletedAtUtc);
     }
 
     private static Payment CreatePayment()
