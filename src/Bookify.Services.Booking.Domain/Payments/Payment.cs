@@ -68,7 +68,7 @@ public sealed class Payment
         string externalReference,
         DateTimeOffset createdAtUtc)
     {
-        if (Status is PaymentStatus.Succeeded or PaymentStatus.Cancelled)
+        if (Status is PaymentStatus.Succeeded)
         {
             return Result<PaymentAttempt>.Failure(
                 PaymentErrors.CannotAddAttempt(Status));
@@ -217,7 +217,7 @@ public sealed class Payment
 
         Status = PaymentStatus.Cancelled;
         UpdatedAtUtc = completedAtUtc;
-        CompletedAtUtc = completedAtUtc;
+        CompletedAtUtc = null;
 
         return Result.Success();
     }
