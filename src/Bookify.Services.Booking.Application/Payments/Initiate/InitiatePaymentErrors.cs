@@ -32,11 +32,6 @@ public static class InitiatePaymentErrors
             "Payments.Initiate.PaymentAlreadySucceeded",
             "The booking payment has already succeeded.");
 
-    public static readonly Error PaymentCancelled =
-        Error.Conflict(
-            "Payments.Initiate.PaymentCancelled",
-            "The booking payment has been cancelled.");
-
     public static Error PriceSnapshotMissing(
         Guid bookingId) =>
         Error.Conflict(

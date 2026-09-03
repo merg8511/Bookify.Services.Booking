@@ -79,37 +79,26 @@ public sealed class InitiatePaymentCommandHandler
                     cancellationToken);
             }
 
-            DomainBooking? booking =
-                await _bookingRepository
+            DomainBooking? booking = await _bookingRepository
                     .GetByIdAsync(
                         command.BookingId,
                         cancellationToken);
 
             if (booking is null)
             {
-                return await RollbackFailureAsync(
-                    transaction,
-                    InitiatePaymentErrors
-                        .BookingNotFound(
-                            command.BookingId),
-                    cancellationToken);
+                return await RollbackFailureAsync(transaction, InitiatePaymentErrors
+                        .BookingNotFound(command.BookingId), cancellationToken);
             }
 
-            if (booking.Status !=
-                BookingStatus.PendingPayment)
+            if (booking.Status != BookingStatus.PendingPayment)
             {
-                return await RollbackFailureAsync(
-                    transaction,
-                    InitiatePaymentErrors
-                        .BookingNotPendingPayment(
-                            booking.Status),
-                    cancellationToken);
+                return await RollbackFailureAsync(transaction, InitiatePaymentErrors
+                        .BookingNotPendingPayment(booking.Status), cancellationToken);
             }
 
             string operationKey = CreateOperationKey(booking.Id, incomingIdempotencyKey);
 
-            Payment? payment = await _paymentRepository
-                    .GetByBookingIdAsync(
+            Payment? payment = await _paymentRepository.GetByBookingIdAsync(
                         booking.Id,
                         cancellationToken);
 
@@ -168,15 +157,6 @@ public sealed class InitiatePaymentCommandHandler
                         transaction,
                         InitiatePaymentErrors
                             .PaymentAlreadySucceeded,
-                        cancellationToken);
-                }
-
-                if (payment.Status == PaymentStatus.Cancelled)
-                {
-                    return await RollbackFailureAsync(
-                        transaction,
-                        InitiatePaymentErrors
-                            .PaymentCancelled,
                         cancellationToken);
                 }
 
@@ -315,6 +295,7 @@ public sealed class InitiatePaymentCommandHandler
             _ => throw new InvalidOperationException($"Unsupported payment gateway status '{gatewayStatus}'.")
         };
     }
+
     private static string CreateOperationKey(Guid bookingId, string incomingIdempotencyKey)
     {
         string value = $"{bookingId:N}:{incomingIdempotencyKey}";
