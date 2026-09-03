@@ -21,7 +21,7 @@ public sealed class FakePaymentGateway : IPaymentGateway
         _scenario = scenario;
     }
 
-    public Task<Result<PaymentGatewayResponse>> CreatePaymentAttemptAsync(
+    public Task<Result<CreatePaymentAttemptResponse>> CreatePaymentAttemptAsync(
         CreatePaymentAttemptRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -36,7 +36,7 @@ public sealed class FakePaymentGateway : IPaymentGateway
             idempotencyKey))
         {
             return Task.FromResult(
-                Result<PaymentGatewayResponse>.Failure(
+                Result<CreatePaymentAttemptResponse>.Failure(
                     PaymentGatewayErrors
                         .IdempotencyKeyRequired));
         }
@@ -47,12 +47,12 @@ public sealed class FakePaymentGateway : IPaymentGateway
 
             FakePaymentGatewayScenario.Failure =>
                 Task.FromResult(
-                    Result<PaymentGatewayResponse>.Failure(
+                    Result<CreatePaymentAttemptResponse>.Failure(
                         PaymentGatewayErrors.ProviderRejected)),
 
             FakePaymentGatewayScenario.Timeout =>
                 Task.FromResult(
-                    Result<PaymentGatewayResponse>.Failure(
+                    Result<CreatePaymentAttemptResponse>.Failure(
                             PaymentGatewayErrors.ProviderTimeout)),
 
             _ =>
@@ -157,7 +157,7 @@ public sealed class FakePaymentGateway : IPaymentGateway
         }
     }
 
-    private Task<Result<PaymentGatewayResponse>> CreateSuccessfulAttemptAsync(string idempotencyKey)
+    private Task<Result<CreatePaymentAttemptResponse>> CreateSuccessfulAttemptAsync(string idempotencyKey)
     {
         lock (_createLock)
         {
@@ -172,11 +172,12 @@ public sealed class FakePaymentGateway : IPaymentGateway
                         existingStatus))
             {
                 return Task.FromResult(
-                    Result<PaymentGatewayResponse>
+                    Result<CreatePaymentAttemptResponse>
                         .Success(
-                            new PaymentGatewayResponse(
+                            new CreatePaymentAttemptResponse(
                                 existingExternalReference,
-                                existingStatus)));
+                                existingStatus,
+                                CreateClientSecret(existingExternalReference))));
             }
 
             string externalReference =
@@ -193,16 +194,20 @@ public sealed class FakePaymentGateway : IPaymentGateway
                     "Could not generate a unique fake payment reference.");
             }
 
-            _externalReferencesByIdempotencyKey[
-                idempotencyKey] =
-                    externalReference;
+            _externalReferencesByIdempotencyKey[idempotencyKey] = externalReference;
 
             return Task.FromResult(
-                Result<PaymentGatewayResponse>.Success(
-                    new PaymentGatewayResponse(
+                Result<CreatePaymentAttemptResponse>.Success(
+                    new CreatePaymentAttemptResponse(
                         externalReference,
-                        PaymentGatewayStatus.Pending)));
+                        PaymentGatewayStatus.Pending,
+                        CreateClientSecret(externalReference))));
         }
+    }
+
+    private static string CreateClientSecret(string externalReference)
+    {
+        return $"{externalReference}_client_secret";
     }
 
     private static string NormalizeExternalReference(string externalReference)

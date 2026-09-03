@@ -95,6 +95,10 @@ public sealed class InitiatePaymentPersistenceTests
                 PaymentAttemptStatus.Pending,
                 result.Value.Status);
 
+            Assert.False(
+                string.IsNullOrWhiteSpace(
+                    result.Value.ClientSecret));
+
             paymentId =
                 result.Value.PaymentId;
 
@@ -251,6 +255,10 @@ public sealed class InitiatePaymentPersistenceTests
             Assert.Equal(
                 firstResponse.ExternalReference,
                 retryResult.Value.ExternalReference);
+
+            Assert.Equal(
+                firstResponse.ClientSecret,
+                retryResult.Value.ClientSecret);
         }
 
         // Assert physical rows
