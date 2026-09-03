@@ -10,12 +10,14 @@ using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
+using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Data.Common;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-
 using DomainBooking =
     Bookify.Services.Booking.Domain.Bookings.Booking;
 
@@ -83,11 +85,6 @@ public sealed class InitiatePaymentEndpointTests
             json,
             StringComparison.OrdinalIgnoreCase);
 
-        Assert.DoesNotContain(
-            "clientSecret",
-            json,
-            StringComparison.OrdinalIgnoreCase);
-
         InitiatePaymentResponse? body =
             JsonSerializer.Deserialize<
                 InitiatePaymentResponse>(
@@ -95,6 +92,15 @@ public sealed class InitiatePaymentEndpointTests
                     _jsonSerializerOptions);
 
         Assert.NotNull(body);
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(
+                body.ClientSecret));
+
+        Assert.StartsWith(
+            "fake_",
+            body.ClientSecret,
+            StringComparison.Ordinal);
 
         Assert.NotEqual(
             Guid.Empty,
@@ -312,7 +318,7 @@ public sealed class InitiatePaymentEndpointTests
     }
 
     [Fact]
-    public async Task Post_WithSameIdempotencyKey_ShouldReplaySamePayment()
+    public async Task Post_WithSameIdempotencyKey_ShouldReturnSamePaymentSession()
     {
         // Arrange
         CancellationToken cancellationToken =
@@ -373,6 +379,10 @@ public sealed class InitiatePaymentEndpointTests
         Assert.Equal(
             firstBody,
             secondBody);
+
+        Assert.Equal(
+            firstBody.ClientSecret,
+            secondBody.ClientSecret);
 
         // Assert - only one physical operation
         using IServiceScope scope =
@@ -521,6 +531,93 @@ public sealed class InitiatePaymentEndpointTests
         Assert.Equal(
             "USD",
             body.Currency);
+    }
+
+    [Fact]
+    public async Task Post_ShouldNotPersistClientSecretInIdempotencyResponse()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        Guid bookingId =
+            await CreateBookingAsync(
+                approve: true,
+                cancellationToken);
+
+        string idempotencyKey =
+            $"payment-sensitive-{Guid.NewGuid():N}";
+
+        var request =
+            new InitiatePaymentRequest(
+                bookingId);
+
+        // Act
+        HttpResponseMessage response =
+            await PostPaymentAsync(
+                request,
+                idempotencyKey,
+                cancellationToken);
+
+        // Assert HTTP
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
+
+        InitiatePaymentResponse? body =
+            await response.Content
+                .ReadFromJsonAsync<
+                    InitiatePaymentResponse>(
+                        cancellationToken);
+
+        Assert.NotNull(
+            body);
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(
+                body.ClientSecret));
+
+        // Assert idempotency persistence
+        using IServiceScope scope =
+            _factory.Services
+                .CreateScope();
+
+        IDbConnectionFactory connectionFactory =
+            scope.ServiceProvider
+                .GetRequiredService<
+                    IDbConnectionFactory>();
+
+        await using DbConnection connection =
+            await connectionFactory
+                .OpenConnectionAsync(
+                    cancellationToken);
+
+        IdempotencyStoredResponse stored =
+            await connection
+                .QuerySingleAsync<
+                    IdempotencyStoredResponse>(
+                    new CommandDefinition(
+                        """
+                        SELECT
+                            status_code AS "StatusCode",
+                            response_body AS "ResponseBody"
+                        FROM idempotency_requests
+                        WHERE key = @Key;
+                        """,
+                        new
+                        {
+                            Key =
+                                idempotencyKey
+                        },
+                        cancellationToken:
+                            cancellationToken));
+
+        Assert.Equal(
+            StatusCodes.Status200OK,
+            stored.StatusCode);
+
+        Assert.Null(
+            stored.ResponseBody);
     }
 
     private async Task<HttpResponseMessage>
@@ -695,5 +792,12 @@ public sealed class InitiatePaymentEndpointTests
                 accommodationPrice,
                 extraGuestPrice,
                 totalPrice));
+    }
+
+    private sealed class IdempotencyStoredResponse
+    {
+        public int StatusCode { get; init; }
+
+        public string? ResponseBody { get; init; }
     }
 }

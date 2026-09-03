@@ -5,4 +5,5 @@ public sealed record InitiatePaymentResponse(
     Guid PaymentAttemptId,
     string Status,
     decimal Amount,
-    string Currency);
+    string Currency,
+    string ClientSecret);

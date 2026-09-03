@@ -22,6 +22,7 @@ internal static class InitiatePaymentEndpoint
             .WithName(EndpointNames.Payments.Initiate)
             .WithSummary("Initiates a payment for a booking.")
             .WithMetadata(IdempotencyRequiredMetadata.Instance)
+            .WithMetadata(IdempotencySensitiveResponseMetadata.Instance)
             .Accepts<InitiatePaymentRequest>("application/json")
             .Produces<InitiatePaymentResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -64,7 +65,8 @@ internal static class InitiatePaymentEndpoint
                     payment.PaymentAttemptId,
                     payment.Status.ToString(),
                     payment.Amount,
-                    payment.Currency);
+                    payment.Currency,
+                    payment.ClientSecret);
 
                 return TypedResults.Ok(response);
             });
