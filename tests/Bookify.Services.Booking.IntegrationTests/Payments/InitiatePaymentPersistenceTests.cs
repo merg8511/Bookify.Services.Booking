@@ -534,6 +534,57 @@ public sealed class InitiatePaymentPersistenceTests
         }
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithCancelledAttempt_ShouldCreateNewAttemptAndSetPaymentToPending()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid bookingId = await CreatePendingPaymentBookingAsync();
+        Guid paymentId;
+
+        // Manual DB Setup to simulate a cancelled attempt
+        using (var setupScope = _factory.Services.CreateScope())
+        {
+            var dbContext = setupScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var payment = Payment.Create(bookingId, CreatePriceSnapshot().TotalPrice, DateTimeOffset.UtcNow).Value;
+            var attempt = payment.AddAttempt("bookify-payment-testhash", "fake_ext_old", DateTimeOffset.UtcNow).Value;
+            payment.CancelAttempt(attempt.ExternalReference, DateTimeOffset.UtcNow);
+
+            dbContext.Payments.Add(payment);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            paymentId = payment.Id;
+        }
+
+        // Act
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var executor = scope.ServiceProvider.GetRequiredService<ICommandExecutor<InitiatePaymentCommand, InitiatePaymentResponse>>();
+            var command = new InitiatePaymentCommand(bookingId, "retry-new-key-001");
+
+            Result<InitiatePaymentResponse> result = await executor.ExecuteAsync(command, cancellationToken);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(PaymentAttemptStatus.Pending, result.Value.Status);
+        }
+
+        // Assert
+        using (var verificationScope = _factory.Services.CreateScope())
+        {
+            var dbContext = verificationScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var payment = await dbContext.Payments
+                .Include(p => p.Attempts)
+                .AsNoTracking()
+                .SingleAsync(p => p.Id == paymentId, cancellationToken);
+
+            Assert.Equal(PaymentStatus.Pending, payment.Status);
+            Assert.Equal(2, payment.Attempts.Count);
+
+            var attempts = payment.Attempts.OrderBy(a => a.CreatedAtUtc).ToList();
+            Assert.Equal(PaymentAttemptStatus.Cancelled, attempts[0].Status);
+            Assert.Equal(PaymentAttemptStatus.Pending, attempts[1].Status);
+        }
+    }
+
     private async Task<Guid>
         CreatePendingPaymentBookingAsync()
     {

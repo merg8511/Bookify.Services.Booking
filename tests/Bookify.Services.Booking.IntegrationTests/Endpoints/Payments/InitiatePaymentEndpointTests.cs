@@ -620,6 +620,53 @@ public sealed class InitiatePaymentEndpointTests
             stored.ResponseBody);
     }
 
+    [Fact]
+    public async Task Post_WhenPreviousAttemptWasCancelledAndNewKeyIsUsed_ShouldCreateNewAttempt()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid bookingId = await CreateBookingAsync(approve: true, cancellationToken);
+
+        // DB Setup: Payment with Cancelled Attempt
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var payment = Payment.Create(bookingId, CreatePriceSnapshot().TotalPrice, DateTimeOffset.UtcNow).Value;
+            var attempt = payment.AddAttempt("bookify-payment-testhash", "fake_ext_old", DateTimeOffset.UtcNow).Value;
+            payment.CancelAttempt(attempt.ExternalReference, DateTimeOffset.UtcNow);
+
+            dbContext.Payments.Add(payment);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        var request = new InitiatePaymentRequest(bookingId);
+        string idempotencyKey = $"retry-new-key-{Guid.NewGuid():N}";
+
+        // Act
+        HttpResponseMessage response = await PostPaymentAsync(request, idempotencyKey, cancellationToken);
+
+        // Assert HTTP
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        InitiatePaymentResponse? body = await response.Content.ReadFromJsonAsync<InitiatePaymentResponse>(cancellationToken);
+        Assert.NotNull(body);
+        Assert.Equal(PaymentAttemptStatus.Pending.ToString(), body.Status);
+        Assert.False(string.IsNullOrWhiteSpace(body.ClientSecret));
+
+        // DB Assert
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var payment = await dbContext.Payments
+                .Include(p => p.Attempts)
+                .AsNoTracking()
+                .SingleAsync(p => p.BookingId == bookingId, cancellationToken);
+
+            Assert.Equal(PaymentStatus.Pending, payment.Status);
+            Assert.Equal(2, payment.Attempts.Count);
+        }
+    }
+
     private async Task<HttpResponseMessage>
         PostPaymentAsync<TRequest>(
         TRequest request,
