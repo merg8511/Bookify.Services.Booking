@@ -126,10 +126,40 @@ public sealed class InitiatePaymentCommandHandler
 
                 if (existingAttempt is not null)
                 {
+                    Result<CreatePaymentAttemptResponse> existingSessionResult = await _paymentGateway
+                        .CreatePaymentAttemptAsync(
+                            new CreatePaymentAttemptRequest(
+                                booking.Id,
+                                payment.Amount,
+                                operationKey),
+                            cancellationToken);
+
+                    if (existingSessionResult.IsFailure)
+                    {
+                        return await RollbackFailureAsync(
+                            transaction,
+                            existingSessionResult.Error,
+                            cancellationToken);
+                    }
+
+                    CreatePaymentAttemptResponse existingSession = existingSessionResult.Value;
+
+                    if (!string.Equals(
+                        existingAttempt.ExternalReference,
+                        existingSession.ExternalReference,
+                        StringComparison.Ordinal))
+                    {
+                        return await RollbackFailureAsync(
+                            transaction,
+                            PaymentGatewayErrors
+                                .IdempotencyResultMismatch,
+                            cancellationToken);
+                    }
+
                     await transaction.CommitAsync(cancellationToken);
 
                     return Result<InitiatePaymentResponse>
-                        .Success(ToResponse(payment, existingAttempt));
+                        .Success(ToResponse(payment, existingAttempt, existingSession.ClientSecret));
                 }
 
                 if (payment.Status == PaymentStatus.Succeeded)
@@ -200,7 +230,7 @@ public sealed class InitiatePaymentCommandHandler
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
-            Result<PaymentGatewayResponse> gatewayResult =
+            Result<CreatePaymentAttemptResponse> gatewayResult =
                 await _paymentGateway
                     .CreatePaymentAttemptAsync(
                         new CreatePaymentAttemptRequest(
@@ -217,8 +247,7 @@ public sealed class InitiatePaymentCommandHandler
                     .Failure(gatewayResult.Error);
             }
 
-            PaymentGatewayResponse gatewayResponse = gatewayResult.Value;
-
+            CreatePaymentAttemptResponse gatewayResponse = gatewayResult.Value;
             DateTimeOffset gatewayObservedAtUtc = _clock.UtcNow;
 
             Result<PaymentAttempt> attemptResult =
@@ -260,7 +289,8 @@ public sealed class InitiatePaymentCommandHandler
                 .Success(
                     ToResponse(
                         payment,
-                        attempt));
+                        attempt,
+                        gatewayResponse.ClientSecret));
         }
         catch
         {
@@ -278,37 +308,17 @@ public sealed class InitiatePaymentCommandHandler
     {
         return gatewayStatus switch
         {
-            PaymentGatewayStatus.Pending =>
-                Result.Success(),
-
-            PaymentGatewayStatus.Succeeded =>
-                payment.MarkAttemptAsSucceeded(
-                    attempt.ExternalReference,
-                    observedAtUtc),
-
-            PaymentGatewayStatus.Failed =>
-                payment.MarkAttemptAsFailed(
-                    attempt.ExternalReference,
-                    observedAtUtc),
-
-            PaymentGatewayStatus.Cancelled =>
-                payment.CancelAttempt(
-                    attempt.ExternalReference,
-                    observedAtUtc),
-
-            _ =>
-                throw new InvalidOperationException(
-                    $"Unsupported payment gateway status '{gatewayStatus}'.")
+            PaymentGatewayStatus.Pending => Result.Success(),
+            PaymentGatewayStatus.Succeeded => payment.MarkAttemptAsSucceeded(attempt.ExternalReference, observedAtUtc),
+            PaymentGatewayStatus.Failed => payment.MarkAttemptAsFailed(attempt.ExternalReference, observedAtUtc),
+            PaymentGatewayStatus.Cancelled => payment.CancelAttempt(attempt.ExternalReference, observedAtUtc),
+            _ => throw new InvalidOperationException($"Unsupported payment gateway status '{gatewayStatus}'.")
         };
     }
-    private static string CreateOperationKey(
-        Guid bookingId,
-        string incomingIdempotencyKey)
+    private static string CreateOperationKey(Guid bookingId, string incomingIdempotencyKey)
     {
         string value = $"{bookingId:N}:{incomingIdempotencyKey}";
-
         byte[] bytes = Encoding.UTF8.GetBytes(value);
-
         byte[] hash = SHA256.HashData(bytes);
 
         return $"bookify-payment-" + $"{Convert.ToHexString(hash).ToLowerInvariant()}";
@@ -316,7 +326,8 @@ public sealed class InitiatePaymentCommandHandler
 
     private static InitiatePaymentResponse ToResponse(
         Payment payment,
-        PaymentAttempt attempt)
+        PaymentAttempt attempt,
+        string clientSecret)
     {
         return new InitiatePaymentResponse(
             payment.Id,
@@ -324,20 +335,17 @@ public sealed class InitiatePaymentCommandHandler
             attempt.ExternalReference,
             attempt.Status,
             attempt.Amount.Amount,
-            attempt.Amount.Currency);
+            attempt.Amount.Currency,
+            clientSecret);
     }
 
-    private static async Task<
-        Result<InitiatePaymentResponse>>
-        RollbackFailureAsync(
+    private static async Task<Result<InitiatePaymentResponse>> RollbackFailureAsync(
             ITransaction transaction,
             Error error,
             CancellationToken cancellationToken)
     {
-        await transaction
-            .RollbackAsync(cancellationToken);
+        await transaction.RollbackAsync(cancellationToken);
 
-        return Result<InitiatePaymentResponse>
-            .Failure(error);
+        return Result<InitiatePaymentResponse>.Failure(error);
     }
 }

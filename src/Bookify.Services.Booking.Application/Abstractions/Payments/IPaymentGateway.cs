@@ -4,7 +4,7 @@ namespace Bookify.Services.Booking.Application.Abstractions.Payments;
 
 public interface IPaymentGateway
 {
-    Task<Result<PaymentGatewayResponse>>
+    Task<Result<CreatePaymentAttemptResponse>>
         CreatePaymentAttemptAsync(
         CreatePaymentAttemptRequest request,
         CancellationToken cancellationToken = default);
