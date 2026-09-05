@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Payments.Initiate;
+using Bookify.Services.Booking.Application.Payments.Reconciliation;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
@@ -370,6 +371,18 @@ public sealed class InitiatePaymentCommandHandlerTests
         Assert.Equal(
             PaymentAttemptStatus.Succeeded,
             result.Value.Status);
+
+        Assert.Equal(
+            PaymentStatus.Succeeded,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Succeeded,
+            payment.Attempts.Single().Status);
+
+        Assert.Equal(
+            BookingStatus.Paid,
+            booking.Status);
     }
 
     [Fact]
@@ -805,6 +818,126 @@ public sealed class InitiatePaymentCommandHandlerTests
             PaymentGatewayErrors
                 .IdempotencyResultMismatch,
             result.Error);
+
+        Assert.Single(
+            payment.Attempts);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithSameIdempotencyKeyAfterSuccessfulReconciliation_ShouldReturnExistingPaymentSession()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        DomainBooking booking = CreateBooking();
+
+        Payment payment =
+            CreatePayment(
+                booking);
+
+        const string incomingIdempotencyKey =
+            "successful-payment-operation";
+
+        string operationKey =
+            CreateExpectedOperationKey(
+                booking.Id,
+                incomingIdempotencyKey);
+
+        Result<PaymentAttempt> attemptResult =
+            payment.AddAttempt(
+                operationKey,
+                "fake-successful-reference",
+                UtcNow);
+
+        Assert.True(
+            attemptResult.IsSuccess);
+
+        PaymentAttempt attempt =
+            attemptResult.Value;
+
+        Result reconciliationResult =
+            PaymentReconciler.Reconcile(
+                payment,
+                attempt,
+                booking,
+                PaymentGatewayStatus.Succeeded,
+                UtcNow.AddMinutes(1));
+
+        Assert.True(
+            reconciliationResult.IsSuccess);
+
+        Assert.Equal(
+            BookingStatus.Paid,
+            booking.Status);
+
+        Assert.Equal(
+            PaymentStatus.Succeeded,
+            payment.Status);
+
+        var bookingRepository =
+            new StubBookingRepository(
+                booking);
+
+        var paymentRepository =
+            new SpyPaymentRepository(
+                payment);
+
+        var paymentGateway =
+            new SpyPaymentGateway(
+                new CreatePaymentAttemptResponse(
+                    "fake-successful-reference",
+                    PaymentGatewayStatus.Succeeded,
+                    "fake-successful-reference_client_secret"));
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        InitiatePaymentCommandHandler handler =
+            CreateHandler(
+                bookingRepository,
+                paymentRepository,
+                paymentGateway,
+                unitOfWork);
+
+        var command =
+            new InitiatePaymentCommand(
+                booking.Id,
+                incomingIdempotencyKey);
+
+        // Act
+        Result<InitiatePaymentResponse> result =
+            await handler.HandleAsync(
+                command,
+                cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            payment.Id,
+            result.Value.PaymentId);
+
+        Assert.Equal(
+            attempt.Id,
+            result.Value.PaymentAttemptId);
+
+        Assert.Equal(
+            attempt.ExternalReference,
+            result.Value.ExternalReference);
+
+        Assert.Equal(
+            "fake-successful-reference_client_secret",
+            result.Value.ClientSecret);
+
+        Assert.Equal(
+            BookingStatus.Paid,
+            booking.Status);
+
+        Assert.Equal(
+            PaymentStatus.Succeeded,
+            payment.Status);
 
         Assert.Single(
             payment.Attempts);
