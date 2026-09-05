@@ -632,8 +632,11 @@ public sealed class InitiatePaymentEndpointTests
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
             var payment = Payment.Create(bookingId, CreatePriceSnapshot().TotalPrice, DateTimeOffset.UtcNow).Value;
-            var attempt = payment.AddAttempt("bookify-payment-testhash", "fake_ext_old", DateTimeOffset.UtcNow).Value;
-            payment.CancelAttempt(attempt.ExternalReference, DateTimeOffset.UtcNow);
+
+            string previousIdempotencyKey = $"cancelled-payment-{Guid.NewGuid():N}";
+            string previousExternalReference = $"cancelled-external-{Guid.NewGuid():N}";
+            var attempt = payment.AddAttempt(previousIdempotencyKey, previousExternalReference, DateTimeOffset.UtcNow).Value;
+            payment.CancelAttempt(previousExternalReference, DateTimeOffset.UtcNow);
 
             dbContext.Payments.Add(payment);
             await dbContext.SaveChangesAsync(cancellationToken);
