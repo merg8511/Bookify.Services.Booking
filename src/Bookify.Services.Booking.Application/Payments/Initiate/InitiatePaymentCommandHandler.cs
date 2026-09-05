@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Payments.Reconciliation;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Payments;
@@ -90,12 +91,6 @@ public sealed class InitiatePaymentCommandHandler
                         .BookingNotFound(command.BookingId), cancellationToken);
             }
 
-            if (booking.Status != BookingStatus.PendingPayment)
-            {
-                return await RollbackFailureAsync(transaction, InitiatePaymentErrors
-                        .BookingNotPendingPayment(booking.Status), cancellationToken);
-            }
-
             string operationKey = CreateOperationKey(booking.Id, incomingIdempotencyKey);
 
             Payment? payment = await _paymentRepository.GetByBookingIdAsync(
@@ -145,12 +140,55 @@ public sealed class InitiatePaymentCommandHandler
                             cancellationToken);
                     }
 
+                    DateTimeOffset observedAtUtc = _clock.UtcNow;
+                    PaymentStatus paymentStatusBefore = payment.Status;
+                    PaymentAttemptStatus attemptStatusBefore = existingAttempt.Status;
+                    BookingStatus bookingStatusBefore = booking.Status;
+
+                    Result existingAttemptReconciliationResult = PaymentReconciler
+                        .Reconcile(
+                            payment,
+                            existingAttempt,
+                            booking,
+                            existingSession.Status,
+                            observedAtUtc);
+
+                    if (existingAttemptReconciliationResult.IsFailure)
+                    {
+                        return await RollbackFailureAsync(
+                            transaction,
+                            existingAttemptReconciliationResult.Error,
+                            cancellationToken);
+                    }
+
+                    bool reconciliationChangedState =
+                        payment.Status != paymentStatusBefore ||
+                        existingAttempt.Status != attemptStatusBefore ||
+                        booking.Status != bookingStatusBefore;
+
+                    if (reconciliationChangedState)
+                    {
+                        await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    }
+
                     await transaction.CommitAsync(cancellationToken);
 
                     return Result<InitiatePaymentResponse>
                         .Success(ToResponse(payment, existingAttempt, existingSession.ClientSecret));
                 }
+            }
 
+            if (booking.Status != BookingStatus.PendingPayment)
+            {
+                return await RollbackFailureAsync(
+                    transaction,
+                    InitiatePaymentErrors
+                        .BookingNotPendingPayment(booking.Status),
+                    cancellationToken);
+            }
+
+            if (payment is not null)
+            {
                 if (payment.Status == PaymentStatus.Succeeded)
                 {
                     return await RollbackFailureAsync(
@@ -161,10 +199,10 @@ public sealed class InitiatePaymentCommandHandler
                 }
 
                 bool hasPendingAttempt =
-                    payment.Attempts.Any(
-                        attempt =>
-                            attempt.Status ==
-                            PaymentAttemptStatus.Pending);
+                payment.Attempts.Any(
+                    attempt =>
+                        attempt.Status ==
+                        PaymentAttemptStatus.Pending);
 
                 if (hasPendingAttempt)
                 {
@@ -246,19 +284,20 @@ public sealed class InitiatePaymentCommandHandler
 
             PaymentAttempt attempt = attemptResult.Value;
 
-            Result gatewayStatusResult =
-                ApplyGatewayStatus(
+            Result newAttemptReconciliationResult = PaymentReconciler
+                .Reconcile(
                     payment,
                     attempt,
+                    booking,
                     gatewayResponse.Status,
                     gatewayObservedAtUtc);
 
-            if (gatewayStatusResult.IsFailure)
+            if (newAttemptReconciliationResult.IsFailure)
             {
-                await transaction.CommitAsync(cancellationToken);
-
-                return Result<InitiatePaymentResponse>
-                    .Failure(gatewayStatusResult.Error);
+                return await RollbackFailureAsync(
+                    transaction,
+                    newAttemptReconciliationResult.Error,
+                    cancellationToken);
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -280,29 +319,13 @@ public sealed class InitiatePaymentCommandHandler
         }
     }
 
-    private static Result ApplyGatewayStatus(
-        Payment payment,
-        PaymentAttempt attempt,
-        PaymentGatewayStatus gatewayStatus,
-        DateTimeOffset observedAtUtc)
-    {
-        return gatewayStatus switch
-        {
-            PaymentGatewayStatus.Pending => Result.Success(),
-            PaymentGatewayStatus.Succeeded => payment.MarkAttemptAsSucceeded(attempt.ExternalReference, observedAtUtc),
-            PaymentGatewayStatus.Failed => payment.MarkAttemptAsFailed(attempt.ExternalReference, observedAtUtc),
-            PaymentGatewayStatus.Cancelled => payment.CancelAttempt(attempt.ExternalReference, observedAtUtc),
-            _ => throw new InvalidOperationException($"Unsupported payment gateway status '{gatewayStatus}'.")
-        };
-    }
-
     private static string CreateOperationKey(Guid bookingId, string incomingIdempotencyKey)
     {
         string value = $"{bookingId:N}:{incomingIdempotencyKey}";
         byte[] bytes = Encoding.UTF8.GetBytes(value);
         byte[] hash = SHA256.HashData(bytes);
 
-        return $"bookify-payment-" + $"{Convert.ToHexString(hash).ToLowerInvariant()}";
+        return $"bookify-payment-{Convert.ToHexString(hash).ToLowerInvariant()}";
     }
 
     private static InitiatePaymentResponse ToResponse(
