@@ -217,7 +217,7 @@ public sealed class Payment
 
         Status = PaymentStatus.Cancelled;
         UpdatedAtUtc = completedAtUtc;
-        CompletedAtUtc = null;
+        CompletedAtUtc = completedAtUtc;
 
         return Result.Success();
     }

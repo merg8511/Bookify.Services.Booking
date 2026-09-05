@@ -427,7 +427,8 @@ public sealed class PaymentTests
             PaymentStatus.Cancelled,
             payment.Status);
 
-        Assert.Null(
+        Assert.Equal(
+            cancelledAtUtc,
             payment.CompletedAtUtc);
 
         Assert.Equal(
