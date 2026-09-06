@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Endpoints.Payments.Initiate;
+using Bookify.Services.Booking.Api.Endpoints.Payments.Webhooks;
 
 namespace Bookify.Services.Booking.Api.Endpoints.Payments;
 
@@ -14,5 +15,6 @@ internal static class PaymentsEndpoints
                 .WithTags("Payments");
 
         InitiatePaymentEndpoint.Map(paymentsGroup);
+        StripePaymentWebhookEndpoint.Map(paymentsGroup);
     }
 }

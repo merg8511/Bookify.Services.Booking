@@ -45,5 +45,8 @@ internal static class EndpointNames
     {
         internal const string Initiate =
             "Payments.Initiate";
+
+        internal const string StripeWebhook =
+            "Payments.StripeWebhook";
     }
 }
