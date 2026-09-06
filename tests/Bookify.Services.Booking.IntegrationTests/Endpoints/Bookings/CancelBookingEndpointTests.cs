@@ -1,10 +1,12 @@
 using Bookify.Services.Booking.Application;
+using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.ReadModels;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
+using Bookify.Services.Booking.Domain.Payments;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
@@ -13,7 +15,9 @@ using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
-using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
+
+using DomainBooking =
+    Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.IntegrationTests.Endpoints.Bookings;
 
@@ -26,7 +30,8 @@ public sealed class CancelBookingEndpointTests
     public CancelBookingEndpointTests(
         BookingApiFactory factory)
     {
-        _factory = factory;
+        _factory =
+            factory;
     }
 
     [Fact]
@@ -106,7 +111,7 @@ public sealed class CancelBookingEndpointTests
     }
 
     [Fact]
-    public async Task Post_WhenBookingIsPendingPayment_ReturnsNoContentAndPersistsCancellation()
+    public async Task Post_WhenBookingIsPendingPaymentWithoutPayment_ReturnsNoContentAndPersistsCancellation()
     {
         CancellationToken cancellationToken =
             TestContext.Current
@@ -158,6 +163,193 @@ public sealed class CancelBookingEndpointTests
 
         Assert.False(
             persistedBooking.BlocksInventory);
+    }
+
+    [Fact]
+    public async Task Post_WhenBookingHasPendingProviderPayment_CancelsProviderPaymentAndPersistsBothCancellations()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current
+                .CancellationToken;
+
+        DomainBooking booking =
+            await SeedBookingAsync(
+                BookingStatus.PendingPayment,
+                cancellationToken);
+
+        string externalReference;
+
+        using (
+            IServiceScope setupScope =
+                _factory.Services
+                    .CreateScope())
+        {
+            IPaymentGateway paymentGateway =
+                setupScope.ServiceProvider
+                    .GetRequiredService<
+                        IPaymentGateway>();
+
+            IPaymentRepository paymentRepository =
+                setupScope.ServiceProvider
+                    .GetRequiredService<
+                        IPaymentRepository>();
+
+            IUnitOfWork unitOfWork =
+                setupScope.ServiceProvider
+                    .GetRequiredService<
+                        IUnitOfWork>();
+
+            Money amount =
+                Money.Create(
+                    200m,
+                    "USD")
+                .Value;
+
+            string operationKey =
+                $"cancel-booking-{Guid.NewGuid():N}";
+
+            Result<CreatePaymentAttemptResponse>
+                providerResult =
+                    await paymentGateway
+                        .CreatePaymentAttemptAsync(
+                            new CreatePaymentAttemptRequest(
+                                booking.Id,
+                                amount,
+                                operationKey),
+                            cancellationToken);
+
+            Assert.True(
+                providerResult.IsSuccess);
+
+            Assert.Equal(
+                PaymentGatewayStatus.Pending,
+                providerResult.Value.Status);
+
+            externalReference =
+                providerResult.Value.ExternalReference;
+
+            DateTimeOffset createdAtUtc =
+                DateTimeOffset.UtcNow;
+
+            Result<Payment> paymentResult =
+                Payment.Create(
+                    booking.Id,
+                    amount,
+                    createdAtUtc);
+
+            Assert.True(
+                paymentResult.IsSuccess);
+
+            Payment payment =
+                paymentResult.Value;
+
+            Result<PaymentAttempt> attemptResult =
+                payment.AddAttempt(
+                    operationKey,
+                    externalReference,
+                    createdAtUtc);
+
+            Assert.True(
+                attemptResult.IsSuccess);
+
+            paymentRepository.Add(
+                payment);
+
+            await unitOfWork
+                .SaveChangesAsync(
+                    cancellationToken);
+        }
+
+        HttpClient client =
+            _factory.CreateClient();
+
+        // Act
+        HttpResponseMessage response =
+            await client.PostAsync(
+                $"/api/v1/bookings/{booking.Id}/cancel",
+                content: null,
+                cancellationToken);
+
+        // Assert HTTP
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            response.StatusCode);
+
+        // Assert DB + provider
+        using IServiceScope verificationScope =
+            _factory.Services
+            .CreateScope();
+
+        IBookingRepository bookingRepository =
+            verificationScope.ServiceProvider
+                .GetRequiredService<
+                    IBookingRepository>();
+
+        IPaymentRepository verificationPaymentRepository =
+            verificationScope.ServiceProvider
+                .GetRequiredService<
+                    IPaymentRepository>();
+
+        IPaymentGateway verificationPaymentGateway =
+            verificationScope.ServiceProvider
+                .GetRequiredService<
+                    IPaymentGateway>();
+
+        DomainBooking? persistedBooking =
+            await bookingRepository
+                .GetByIdAsync(
+                    booking.Id,
+                    cancellationToken);
+
+        Assert.NotNull(
+            persistedBooking);
+
+        Assert.Equal(
+            BookingStatus.Cancelled,
+            persistedBooking.Status);
+
+        Assert.Equal(
+            BookingCancellationReason.CancelledByGuest,
+            persistedBooking.CancellationReason);
+
+        Payment? persistedPayment =
+    await verificationPaymentRepository
+        .GetByBookingIdAsync(
+            booking.Id,
+            cancellationToken);
+
+        Assert.NotNull(
+            persistedPayment);
+
+        Assert.Equal(
+            PaymentStatus.Cancelled,
+            persistedPayment.Status);
+
+        PaymentAttempt persistedAttempt =
+            Assert.Single(
+                persistedPayment.Attempts);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Cancelled,
+            persistedAttempt.Status);
+
+        Assert.NotNull(
+            persistedAttempt.CompletedAtUtc);
+
+        Result<PaymentGatewayResponse>
+    providerStatusResult =
+        await verificationPaymentGateway
+            .GetPaymentStatusAsync(
+                externalReference,
+                cancellationToken);
+
+        Assert.True(
+            providerStatusResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentGatewayStatus.Cancelled,
+            providerStatusResult.Value.Status);
     }
 
     [Fact]
@@ -270,39 +462,52 @@ public sealed class CancelBookingEndpointTests
             problem.Code);
     }
 
-    private async Task<DomainBooking> SeedBookingAsync(
-        BookingStatus targetStatus,
-        CancellationToken cancellationToken)
+    private async Task<DomainBooking>
+        SeedBookingAsync(
+            BookingStatus targetStatus,
+            CancellationToken cancellationToken)
     {
         Property property =
             Property.Create(
-                    $"Cancel Booking Test {Guid.NewGuid():N}",
-                    "America/El_Salvador",
-                    new TimeOnly(15, 0),
-                    new TimeOnly(11, 0))
-                .Value;
+                $"Cancel Booking Test {Guid.NewGuid():N}",
+                "America/El_Salvador",
+                new TimeOnly(
+                    15,
+                    0),
+                new TimeOnly(
+                    11,
+                    0))
+            .Value;
 
         RentableUnit rentableUnit =
             RentableUnit.Create(
-                    property.Id,
-                    "Room A",
-                    RentableUnitType.Room,
-                    maximumCapacity: 4,
-                    maxBaseGuests: 2)
-                .Value;
+                property.Id,
+                "Room A",
+                RentableUnitType.Room,
+                maximumCapacity: 4,
+                maxBaseGuests: 2)
+            .Value;
 
         StayPeriod stayPeriod =
             StayPeriod.Create(
-                    new DateOnly(2026, 9, 10),
-                    new DateOnly(2026, 9, 12))
-                .Value;
+                new DateOnly(
+                    2026,
+                    9,
+                    10),
+                new DateOnly(
+                    2026,
+                    9,
+                    12))
+            .Value;
 
         DomainBooking booking =
             DomainBooking.Create(
-                    rentableUnit,
-                    stayPeriod,
-                    GuestCount.Create(2).Value)
-                .Value;
+                rentableUnit,
+                stayPeriod,
+                GuestCount.Create(
+                    2)
+                .Value)
+            .Value;
 
         if (targetStatus is
             BookingStatus.PendingPayment or
@@ -312,7 +517,8 @@ public sealed class CancelBookingEndpointTests
                 booking.Approve().IsSuccess);
         }
 
-        if (targetStatus == BookingStatus.Paid)
+        if (targetStatus ==
+            BookingStatus.Paid)
         {
             Assert.True(
                 booking.MarkAsPaid().IsSuccess);
