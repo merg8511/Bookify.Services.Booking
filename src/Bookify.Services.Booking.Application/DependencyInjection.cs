@@ -13,6 +13,7 @@ using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.DomainEvents;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
+using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
@@ -153,14 +154,14 @@ public static class DependencyInjection
         // ==========================================
         //  Module: Payments
         // ==========================================
+        services.AddScoped<PaymentCancellationCoordinator>();
+
         services.AddScoped<
             IRequestValidator<InitiatePaymentCommand>,
             InitiatePaymentCommandValidator>();
 
         services.AddScoped<
-            ICommandHandler<
-                InitiatePaymentCommand,
-                InitiatePaymentResponse>,
+            ICommandHandler<InitiatePaymentCommand, InitiatePaymentResponse>,
             InitiatePaymentCommandHandler>();
 
         return services;
