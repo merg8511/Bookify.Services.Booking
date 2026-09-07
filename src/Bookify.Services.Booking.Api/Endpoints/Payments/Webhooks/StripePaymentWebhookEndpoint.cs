@@ -9,6 +9,7 @@ namespace Bookify.Services.Booking.Api.Endpoints.Payments.Webhooks;
 
 internal static class StripePaymentWebhookEndpoint
 {
+    private const string StripeSignatureHeaderName = "Stripe-Signature";
     public static void Map(RouteGroupBuilder paymentsGroup)
     {
         paymentsGroup
@@ -33,7 +34,9 @@ internal static class StripePaymentWebhookEndpoint
             leaveOpen: true);
 
         string rawBody = await reader.ReadToEndAsync(cancellationToken);
-        var command = new ProcessStripeWebhookCommand(rawBody);
+        string signatureHeader = httpContext.Request.Headers[StripeSignatureHeaderName].ToString();
+
+        var command = new ProcessStripeWebhookCommand(rawBody, signatureHeader);
         Result result = await commandExecutor.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
