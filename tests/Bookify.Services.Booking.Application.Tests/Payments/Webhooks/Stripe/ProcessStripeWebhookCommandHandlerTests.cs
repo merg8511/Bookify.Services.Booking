@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
@@ -17,15 +18,199 @@ namespace Bookify.Services.Booking.Application.Tests.Payments.Webhooks.Stripe;
 
 public sealed class ProcessStripeWebhookCommandHandlerTests
 {
+    private const string ValidSignatureHeader =
+        "t=1,v1=test";
+
     private static readonly DateTimeOffset UtcNow =
         new(
             2026,
             9,
-            5,
-            22,
+            6,
+            11,
             0,
             0,
             TimeSpan.Zero);
+
+    [Fact]
+    public async Task HandleAsync_WhenSignatureIsInvalid_ShouldReturnFailureBeforeOpeningTransaction()
+    {
+        // Arrange
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
+
+        (
+            Payment payment,
+            PaymentAttempt attempt) =
+                CreatePendingPayment(
+                    booking);
+
+        var signatureVerifier =
+            new StubStripeWebhookSignatureVerifier(
+                StripeWebhookSignatureErrors
+                    .InvalidSignature);
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        var transactionManager =
+            new SpyTransactionManager();
+
+        ProcessStripeWebhookCommandHandler handler =
+            CreateHandler(
+                booking,
+                payment,
+                unitOfWork,
+                transactionManager,
+                signatureVerifier);
+
+        string payload =
+            CreatePayload(
+                StripeWebhookEventTypes
+                    .PaymentIntentSucceeded,
+                booking.Id,
+                attempt.ExternalReference);
+
+        // Act
+        Result result =
+            await handler.HandleAsync(
+                new ProcessStripeWebhookCommand(
+                    payload,
+                    ValidSignatureHeader),
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            StripeWebhookSignatureErrors
+                .InvalidSignature,
+            result.Error);
+
+        Assert.Equal(
+            BookingStatus.PendingPayment,
+            booking.Status);
+
+        Assert.Equal(
+            PaymentStatus.Pending,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Pending,
+            attempt.Status);
+
+        Assert.Equal(
+            1,
+            signatureVerifier.VerifyCallCount);
+
+        Assert.Equal(
+            0,
+            transactionManager.BeginCallCount);
+
+        Assert.Equal(
+            0,
+            unitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenWebhookSecretIsNotConfigured_ShouldReturnFailureBeforeOpeningTransaction()
+    {
+        // Arrange
+        var signatureVerifier =
+            new StubStripeWebhookSignatureVerifier(
+                StripeWebhookSignatureErrors
+                    .WebhookSecretNotConfigured);
+
+        var transactionManager =
+            new SpyTransactionManager();
+
+        ProcessStripeWebhookCommandHandler handler =
+            CreateHandler(
+                booking: null,
+                payment: null,
+                unitOfWork:
+                    new SpyUnitOfWork(),
+                transactionManager,
+                signatureVerifier);
+
+        string payload =
+            CreatePayload(
+                "payment_intent.processing",
+                Guid.NewGuid(),
+                "pi_test");
+
+        // Act
+        Result result =
+            await handler.HandleAsync(
+                new ProcessStripeWebhookCommand(
+                    payload,
+                    ValidSignatureHeader),
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            StripeWebhookSignatureErrors
+                .WebhookSecretNotConfigured,
+            result.Error);
+
+        Assert.Equal(
+            0,
+            transactionManager.BeginCallCount);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSignatureHeaderIsMissing_ShouldReturnFailureBeforeVerification()
+    {
+        // Arrange
+        var signatureVerifier =
+            new StubStripeWebhookSignatureVerifier();
+
+        var transactionManager =
+            new SpyTransactionManager();
+
+        ProcessStripeWebhookCommandHandler handler =
+            CreateHandler(
+                booking: null,
+                payment: null,
+                unitOfWork:
+                    new SpyUnitOfWork(),
+                transactionManager,
+                signatureVerifier);
+
+        string payload =
+            CreatePayload(
+                "payment_intent.processing",
+                Guid.NewGuid(),
+                "pi_test");
+
+        // Act
+        Result result =
+            await handler.HandleAsync(
+                new ProcessStripeWebhookCommand(
+                    payload,
+                    string.Empty),
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            StripeWebhookSignatureErrors
+                .SignatureRequired,
+            result.Error);
+
+        Assert.Equal(
+            0,
+            signatureVerifier.VerifyCallCount);
+
+        Assert.Equal(
+            0,
+            transactionManager.BeginCallCount);
+    }
 
     [Fact]
     public async Task HandleAsync_WhenEventIsUnsupported_ShouldReturnSuccessWithoutChangingState()
@@ -40,6 +225,9 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
                 CreatePendingPayment(
                     booking);
 
+        var signatureVerifier =
+            new StubStripeWebhookSignatureVerifier();
+
         var unitOfWork =
             new SpyUnitOfWork();
 
@@ -51,7 +239,8 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
                 booking,
                 payment,
                 unitOfWork,
-                transactionManager);
+                transactionManager,
+                signatureVerifier);
 
         string payload =
             CreatePayload(
@@ -63,7 +252,8 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
         Result result =
             await handler.HandleAsync(
                 new ProcessStripeWebhookCommand(
-                    payload),
+                    payload,
+                    ValidSignatureHeader),
                 TestContext.Current.CancellationToken);
 
         // Assert
@@ -81,6 +271,10 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
         Assert.Equal(
             PaymentAttemptStatus.Pending,
             attempt.Status);
+
+        Assert.Equal(
+            1,
+            signatureVerifier.VerifyCallCount);
 
         Assert.Equal(
             0,
@@ -122,13 +316,15 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
                 StripeWebhookEventTypes
                     .PaymentIntentSucceeded,
                 bookingId: null,
-                attempt.ExternalReference);
+                externalReference:
+                    attempt.ExternalReference);
 
         // Act
         Result result =
             await handler.HandleAsync(
                 new ProcessStripeWebhookCommand(
-                    payload),
+                    payload,
+                    ValidSignatureHeader),
                 TestContext.Current.CancellationToken);
 
         // Assert
@@ -189,7 +385,8 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
         Result result =
             await handler.HandleAsync(
                 new ProcessStripeWebhookCommand(
-                    payload),
+                    payload,
+                    ValidSignatureHeader),
                 TestContext.Current.CancellationToken);
 
         // Assert
@@ -280,7 +477,8 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
         Result result =
             await handler.HandleAsync(
                 new ProcessStripeWebhookCommand(
-                    payload),
+                    payload,
+                    ValidSignatureHeader),
                 TestContext.Current.CancellationToken);
 
         // Assert
@@ -329,7 +527,8 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
         Result result =
             await handler.HandleAsync(
                 new ProcessStripeWebhookCommand(
-                    "{ invalid-json"),
+                    "{ invalid-json",
+                    ValidSignatureHeader),
                 TestContext.Current.CancellationToken);
 
         // Assert
@@ -389,7 +588,8 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
         Result result =
             await handler.HandleAsync(
                 new ProcessStripeWebhookCommand(
-                    payload),
+                    payload,
+                    ValidSignatureHeader),
                 TestContext.Current.CancellationToken);
 
         // Assert
@@ -429,13 +629,16 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
             DomainBooking? booking,
             Payment? payment,
             IUnitOfWork unitOfWork,
-            ITransactionManager transactionManager)
+            ITransactionManager transactionManager,
+            IStripeWebhookSignatureVerifier? signatureVerifier = null)
     {
         return new ProcessStripeWebhookCommandHandler(
             new StubBookingRepository(
                 booking),
             new StubPaymentRepository(
                 payment),
+            signatureVerifier ??
+                new StubStripeWebhookSignatureVerifier(),
             unitOfWork,
             transactionManager,
             new StubClock(
@@ -447,8 +650,8 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
         Guid? bookingId,
         string externalReference)
     {
-        Dictionary<string, string> metadata =
-            [];
+        var metadata =
+            new Dictionary<string, string>();
 
         if (bookingId.HasValue)
         {
@@ -463,8 +666,10 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
             {
                 id =
                     $"evt_{Guid.NewGuid():N}",
+
                 type =
                     eventType,
+
                 data =
                     new
                     {
@@ -473,6 +678,7 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
                             {
                                 id =
                                     externalReference,
+
                                 metadata
                             }
                     }
@@ -548,6 +754,43 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
             attemptResult.Value);
     }
 
+    private sealed class
+        StubStripeWebhookSignatureVerifier
+        : IStripeWebhookSignatureVerifier
+    {
+        private readonly Result _result;
+
+        public StubStripeWebhookSignatureVerifier()
+        {
+            _result =
+                Result.Success();
+        }
+
+        public StubStripeWebhookSignatureVerifier(
+            Error error)
+        {
+            _result =
+                Result.Failure(
+                    error);
+        }
+
+        public int VerifyCallCount
+        {
+            get;
+            private set;
+        }
+
+        public Result Verify(
+            string rawBody,
+            string signatureHeader,
+            DateTimeOffset utcNow)
+        {
+            VerifyCallCount++;
+
+            return _result;
+        }
+    }
+
     private sealed class StubBookingRepository
         : IBookingRepository
     {
@@ -568,7 +811,8 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
                 .ThrowIfCancellationRequested();
 
             return Task.FromResult(
-                _booking?.Id == bookingId
+                _booking?.Id ==
+                bookingId
                     ? _booking
                     : null);
         }
@@ -592,15 +836,17 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
                 payment;
         }
 
-        public Task<Payment?> GetByBookingIdAsync(
-            Guid bookingId,
-            CancellationToken cancellationToken = default)
+        public Task<Payment?>
+            GetByBookingIdAsync(
+                Guid bookingId,
+                CancellationToken cancellationToken = default)
         {
             cancellationToken
                 .ThrowIfCancellationRequested();
 
             return Task.FromResult(
-                _payment?.BookingId == bookingId
+                _payment?.BookingId ==
+                bookingId
                     ? _payment
                     : null);
         }
