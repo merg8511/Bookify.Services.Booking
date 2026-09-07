@@ -18,6 +18,7 @@ public sealed class ProcessStripeWebhookCommandHandler
     private const string BookingMetadataKey = "bookify_booking_id";
     private readonly IBookingRepository _bookingRepository;
     private readonly IPaymentRepository _paymentRepository;
+    private readonly IStripeWebhookSignatureVerifier _signatureVerifier;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITransactionManager _transactionManager;
     private readonly IClock _clock;
@@ -25,12 +26,14 @@ public sealed class ProcessStripeWebhookCommandHandler
     public ProcessStripeWebhookCommandHandler(
         IBookingRepository bookingRepository,
         IPaymentRepository paymentRepository,
+        IStripeWebhookSignatureVerifier signatureVerifier,
         IUnitOfWork unitOfWork,
         ITransactionManager transactionManager,
         IClock clock)
     {
         _bookingRepository = bookingRepository;
         _paymentRepository = paymentRepository;
+        _signatureVerifier = signatureVerifier;
         _unitOfWork = unitOfWork;
         _transactionManager = transactionManager;
         _clock = clock;
@@ -45,6 +48,18 @@ public sealed class ProcessStripeWebhookCommandHandler
         if (string.IsNullOrWhiteSpace(command.RawBody))
         {
             return Result.Failure(StripeWebhookErrors.InvalidPayload);
+        }
+
+        if (string.IsNullOrWhiteSpace(command.SignatureHeader))
+        {
+            return Result.Failure(StripeWebhookSignatureErrors.SignatureRequired);
+        }
+
+        Result signatureResult = _signatureVerifier.Verify(command.RawBody, command.SignatureHeader, _clock.UtcNow);
+
+        if (signatureResult.IsFailure)
+        {
+            return signatureResult;
         }
 
         try
