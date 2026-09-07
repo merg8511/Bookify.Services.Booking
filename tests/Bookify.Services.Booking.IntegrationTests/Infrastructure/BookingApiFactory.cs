@@ -6,30 +6,56 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Bookify.Services.Booking.IntegrationTests.Infrastructure;
 
-public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class BookingApiFactory
+    : WebApplicationFactory<Program>,
+      IAsyncLifetime
 {
-    private const string ConnectionStringVariable = "ConnectionStrings__Database";
+    private const string ConnectionStringVariable =
+        "ConnectionStrings__Database";
 
-    private readonly PostgreSqlTestDatabase _database = new();
+    internal const string StripeWebhookSecret =
+        "whsec_bookify_integration_tests";
+
+    private readonly PostgreSqlTestDatabase _database =
+        new();
 
     private HttpClient? _client;
+
     public HttpClient Client =>
-        _client ?? throw new InvalidOperationException("The API factory has not been initialized");
+        _client ??
+        throw new InvalidOperationException(
+            "The API factory has not been initialized");
 
     public async ValueTask InitializeAsync()
     {
         await _database.StartAsync();
 
-        _client = CreateApiClient();
+        _client =
+            CreateApiClient();
 
         await ApplyMigrationsAsync();
     }
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    protected override void ConfigureWebHost(
+        IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
-        builder.UseContentRoot(GetApiContentRoot());
-        builder.UseSetting("Payments:Provider", "Fake");
+        builder.UseEnvironment(
+            "Testing");
+
+        builder.UseContentRoot(
+            GetApiContentRoot());
+
+        builder.UseSetting(
+            "Payments:Provider",
+            "Fake");
+
+        builder.UseSetting(
+            "Payments:Stripe:WebhookSecret",
+            StripeWebhookSecret);
+
+        builder.UseSetting(
+            "Payments:Stripe:WebhookToleranceSeconds",
+            "300");
     }
 
     public override async ValueTask DisposeAsync()
@@ -37,6 +63,7 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
         try
         {
             _client?.Dispose();
+
             await base.DisposeAsync();
         }
         finally
@@ -47,57 +74,87 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     private HttpClient CreateApiClient()
     {
-        string? previousConnectionString = Environment.GetEnvironmentVariable(ConnectionStringVariable);
+        string? previousConnectionString =
+            Environment.GetEnvironmentVariable(
+                ConnectionStringVariable);
 
-        Environment.SetEnvironmentVariable(ConnectionStringVariable, _database.ConnectionString);
+        Environment.SetEnvironmentVariable(
+            ConnectionStringVariable,
+            _database.ConnectionString);
 
         try
         {
-            return CreateClient(new WebApplicationFactoryClientOptions
-            {
-                AllowAutoRedirect = false,
-                BaseAddress = new Uri("http://localhost")
-            });
+            return CreateClient(
+                new WebApplicationFactoryClientOptions
+                {
+                    AllowAutoRedirect =
+                        false,
+
+                    BaseAddress =
+                        new Uri(
+                            "http://localhost")
+                });
         }
         finally
         {
-            Environment.SetEnvironmentVariable(ConnectionStringVariable, previousConnectionString);
+            Environment.SetEnvironmentVariable(
+                ConnectionStringVariable,
+                previousConnectionString);
         }
     }
 
     private async Task ApplyMigrationsAsync()
     {
-        await using AsyncServiceScope scope = Services.CreateAsyncScope();
+        await using AsyncServiceScope scope =
+            Services.CreateAsyncScope();
 
-        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        BookingDbContext dbContext =
+            scope.ServiceProvider
+                .GetRequiredService<
+                    BookingDbContext>();
 
-        await dbContext.Database.MigrateAsync();
+        await dbContext.Database
+            .MigrateAsync();
     }
 
-    private static string GetApiContentRoot()
+    private static string
+        GetApiContentRoot()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        var directory =
+            new DirectoryInfo(
+                AppContext.BaseDirectory);
 
-        while (directory != null && Directory.GetFiles(directory.FullName, "*.slnx").Length == 0)
+        while (
+            directory != null &&
+            Directory.GetFiles(
+                directory.FullName,
+                "*.slnx")
+            .Length == 0)
         {
-            directory = directory.Parent;
+            directory =
+                directory.Parent;
         }
 
         if (directory == null)
         {
-            throw new DirectoryNotFoundException("The solution root directory could not be found.");
+            throw new DirectoryNotFoundException(
+                "The solution root directory could not be found.");
         }
 
-        var projectFiles = Directory.GetFiles(
-            directory.FullName,
-            "Bookify.Services.Booking.Api.csproj",
-            SearchOption.AllDirectories);
+        string[] projectFiles =
+            Directory.GetFiles(
+                directory.FullName,
+                "Bookify.Services.Booking.Api.csproj",
+                SearchOption.AllDirectories);
 
         if (projectFiles.Length == 0)
         {
-            throw new DirectoryNotFoundException("The 'Bookify.Services.Booking.Api.csproj' file could not be found in the solution.");
+            throw new DirectoryNotFoundException(
+                "The 'Bookify.Services.Booking.Api.csproj' " +
+                "file could not be found in the solution.");
         }
 
-        return Path.GetDirectoryName(projectFiles[0])!;
+        return Path.GetDirectoryName(
+            projectFiles[0])!;
     }
 }

@@ -11,6 +11,7 @@ using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -36,7 +37,7 @@ public sealed class StripePaymentWebhookEndpointTests
     }
 
     [Fact]
-    public async Task Post_WhenPaymentIntentSucceeded_ShouldReturnOkAndPersistReconciliation()
+    public async Task Post_WhenSignedPaymentIntentSucceeded_ShouldReturnOkAndPersistReconciliation()
     {
         // Arrange
         CancellationToken cancellationToken =
@@ -56,28 +57,29 @@ public sealed class StripePaymentWebhookEndpointTests
                 bookingId,
                 externalReference);
 
+        string signature =
+            CreateSignatureHeader(
+                payload,
+                BookingApiFactory
+                    .StripeWebhookSecret,
+                DateTimeOffset.UtcNow);
+
         HttpClient client =
             _factory.CreateClient();
 
-        using var content =
-            new StringContent(
-                payload,
-                Encoding.UTF8,
-                "application/json");
-
         // Act
         HttpResponseMessage response =
-            await client.PostAsync(
-                Endpoint,
-                content,
+            await PostWebhookAsync(
+                client,
+                payload,
+                signature,
                 cancellationToken);
 
-        // Assert HTTP
+        // Assert
         Assert.Equal(
             HttpStatusCode.OK,
             response.StatusCode);
 
-        // Assert persisted state
         using IServiceScope verificationScope =
             _factory.Services
                 .CreateScope();
@@ -136,7 +138,7 @@ public sealed class StripePaymentWebhookEndpointTests
     }
 
     [Fact]
-    public async Task Post_WhenEventIsIrrelevant_ShouldReturnOkWithoutChangingPayment()
+    public async Task Post_WhenSignedEventIsIrrelevant_ShouldReturnOkWithoutChangingPayment()
     {
         // Arrange
         CancellationToken cancellationToken =
@@ -156,20 +158,22 @@ public sealed class StripePaymentWebhookEndpointTests
                 bookingId,
                 externalReference);
 
+        string signature =
+            CreateSignatureHeader(
+                payload,
+                BookingApiFactory
+                    .StripeWebhookSecret,
+                DateTimeOffset.UtcNow);
+
         HttpClient client =
             _factory.CreateClient();
 
-        using var content =
-            new StringContent(
-                payload,
-                Encoding.UTF8,
-                "application/json");
-
         // Act
         HttpResponseMessage response =
-            await client.PostAsync(
-                Endpoint,
-                content,
+            await PostWebhookAsync(
+                client,
+                payload,
+                signature,
                 cancellationToken);
 
         // Assert
@@ -177,6 +181,267 @@ public sealed class StripePaymentWebhookEndpointTests
             HttpStatusCode.OK,
             response.StatusCode);
 
+        await AssertPaymentRemainsPendingAsync(
+            bookingId,
+            paymentId,
+            attemptId,
+            cancellationToken);
+    }
+
+    [Fact]
+    public async Task Post_WhenSignatureHeaderIsMissing_ShouldReturnBadRequest()
+    {
+        // Arrange
+        string payload =
+            CreatePayload(
+                "payment_intent.processing",
+                Guid.NewGuid(),
+                "pi_missing_signature");
+
+        HttpClient client =
+            _factory.CreateClient();
+
+        // Act
+        HttpResponseMessage response =
+            await PostWebhookAsync(
+                client,
+                payload,
+                signatureHeader: null,
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse? problem =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ProblemDetailsResponse>(
+                        TestContext.Current.CancellationToken);
+
+        Assert.NotNull(
+            problem);
+
+        Assert.Equal(
+            "Payments.Webhook.SignatureRequired",
+            problem.Code);
+    }
+
+    [Fact]
+    public async Task Post_WhenSignatureUsesWrongSecret_ShouldReturnBadRequest()
+    {
+        // Arrange
+        string payload =
+            CreatePayload(
+                "payment_intent.processing",
+                Guid.NewGuid(),
+                "pi_wrong_secret");
+
+        string signature =
+            CreateSignatureHeader(
+                payload,
+                "whsec_wrong_secret",
+                DateTimeOffset.UtcNow);
+
+        HttpClient client =
+            _factory.CreateClient();
+
+        // Act
+        HttpResponseMessage response =
+            await PostWebhookAsync(
+                client,
+                payload,
+                signature,
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse? problem =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ProblemDetailsResponse>(
+                        TestContext.Current.CancellationToken);
+
+        Assert.NotNull(
+            problem);
+
+        Assert.Equal(
+            "Payments.Webhook.InvalidSignature",
+            problem.Code);
+    }
+
+    [Fact]
+    public async Task Post_WhenPayloadIsAlteredAfterSigning_ShouldReturnBadRequestWithoutChangingState()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        (
+            Guid bookingId,
+            Guid paymentId,
+            Guid attemptId,
+            string externalReference) =
+                await SeedPendingPaymentAsync(
+                    cancellationToken);
+
+        string originalPayload =
+            CreatePayload(
+                "payment_intent.succeeded",
+                bookingId,
+                externalReference);
+
+        string signature =
+            CreateSignatureHeader(
+                originalPayload,
+                BookingApiFactory
+                    .StripeWebhookSecret,
+                DateTimeOffset.UtcNow);
+
+        string alteredPayload =
+            originalPayload.Replace(
+                "payment_intent.succeeded",
+                "payment_intent.canceled",
+                StringComparison.Ordinal);
+
+        HttpClient client =
+            _factory.CreateClient();
+
+        // Act
+        HttpResponseMessage response =
+            await PostWebhookAsync(
+                client,
+                alteredPayload,
+                signature,
+                cancellationToken);
+
+        // Assert
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse? problem =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ProblemDetailsResponse>(
+                        cancellationToken);
+
+        Assert.NotNull(
+            problem);
+
+        Assert.Equal(
+            "Payments.Webhook.InvalidSignature",
+            problem.Code);
+
+        await AssertPaymentRemainsPendingAsync(
+            bookingId,
+            paymentId,
+            attemptId,
+            cancellationToken);
+    }
+
+    [Fact]
+    public async Task Post_WhenSignatureTimestampIsOutsideTolerance_ShouldReturnBadRequest()
+    {
+        // Arrange
+        string payload =
+            CreatePayload(
+                "payment_intent.processing",
+                Guid.NewGuid(),
+                "pi_expired_signature");
+
+        string signature =
+            CreateSignatureHeader(
+                payload,
+                BookingApiFactory
+                    .StripeWebhookSecret,
+                DateTimeOffset.UtcNow
+                    .AddMinutes(-10));
+
+        HttpClient client =
+            _factory.CreateClient();
+
+        // Act
+        HttpResponseMessage response =
+            await PostWebhookAsync(
+                client,
+                payload,
+                signature,
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse? problem =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ProblemDetailsResponse>(
+                        TestContext.Current.CancellationToken);
+
+        Assert.NotNull(
+            problem);
+
+        Assert.Equal(
+            "Payments.Webhook.InvalidSignature",
+            problem.Code);
+    }
+
+    [Fact]
+    public async Task Post_WhenSignedPayloadIsMalformed_ShouldReturnBadRequest()
+    {
+        // Arrange
+        const string payload =
+            "{ invalid-json";
+
+        string signature =
+            CreateSignatureHeader(
+                payload,
+                BookingApiFactory
+                    .StripeWebhookSecret,
+                DateTimeOffset.UtcNow);
+
+        HttpClient client =
+            _factory.CreateClient();
+
+        // Act
+        HttpResponseMessage response =
+            await PostWebhookAsync(
+                client,
+                payload,
+                signature,
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        ProblemDetailsResponse? problem =
+            await response.Content
+                .ReadFromJsonAsync<
+                    ProblemDetailsResponse>(
+                        TestContext.Current.CancellationToken);
+
+        Assert.NotNull(
+            problem);
+
+        Assert.Equal(
+            "Payments.Webhook.InvalidPayload",
+            problem.Code);
+    }
+
+    private async Task AssertPaymentRemainsPendingAsync(
+        Guid bookingId,
+        Guid paymentId,
+        Guid attemptId,
+        CancellationToken cancellationToken)
+    {
         using IServiceScope verificationScope =
             _factory.Services
                 .CreateScope();
@@ -234,43 +499,36 @@ public sealed class StripePaymentWebhookEndpointTests
             attempt.Status);
     }
 
-    [Fact]
-    public async Task Post_WhenPayloadIsMalformed_ShouldReturnBadRequest()
+    private static async Task<HttpResponseMessage>
+        PostWebhookAsync(
+            HttpClient client,
+            string payload,
+            string? signatureHeader,
+            CancellationToken cancellationToken)
     {
-        // Arrange
-        HttpClient client =
-            _factory.CreateClient();
+        using var request =
+            new HttpRequestMessage(
+                HttpMethod.Post,
+                Endpoint);
 
-        using var content =
+        request.Content =
             new StringContent(
-                "{ invalid-json",
+                payload,
                 Encoding.UTF8,
                 "application/json");
 
-        // Act
-        HttpResponseMessage response =
-            await client.PostAsync(
-                Endpoint,
-                content,
-                TestContext.Current.CancellationToken);
+        if (!string.IsNullOrWhiteSpace(
+            signatureHeader))
+        {
+            request.Headers
+                .TryAddWithoutValidation(
+                    "Stripe-Signature",
+                    signatureHeader);
+        }
 
-        // Assert
-        Assert.Equal(
-            HttpStatusCode.BadRequest,
-            response.StatusCode);
-
-        ProblemDetailsResponse? problem =
-            await response.Content
-                .ReadFromJsonAsync<
-                    ProblemDetailsResponse>(
-                        TestContext.Current.CancellationToken);
-
-        Assert.NotNull(
-            problem);
-
-        Assert.Equal(
-            "Payments.Webhook.InvalidPayload",
-            problem.Code);
+        return await client.SendAsync(
+            request,
+            cancellationToken);
     }
 
     private async Task<(
@@ -419,8 +677,12 @@ public sealed class StripePaymentWebhookEndpointTests
         return JsonSerializer.Serialize(
             new
             {
-                id = $"evt_{Guid.NewGuid():N}",
-                type = eventType,
+                id =
+                    $"evt_{Guid.NewGuid():N}",
+
+                type =
+                    eventType,
+
                 data =
                     new
                     {
@@ -429,16 +691,56 @@ public sealed class StripePaymentWebhookEndpointTests
                             {
                                 id =
                                     externalReference,
+
                                 metadata =
-                                    new Dictionary<string, string>
+                                    new Dictionary<
+                                        string,
+                                        string>
                                     {
                                         [
                                             "bookify_booking_id"
                                         ] =
-                                            bookingId.ToString("D")
+                                            bookingId
+                                                .ToString("D")
                                     }
                             }
                     }
             });
+    }
+
+    private static string CreateSignatureHeader(
+        string payload,
+        string secret,
+        DateTimeOffset timestamp)
+    {
+        long unixTimestamp =
+            timestamp.ToUnixTimeSeconds();
+
+        string signedPayload =
+            $"{unixTimestamp}.{payload}";
+
+        byte[] secretBytes =
+            Encoding.UTF8.GetBytes(
+                secret);
+
+        byte[] payloadBytes =
+            Encoding.UTF8.GetBytes(
+                signedPayload);
+
+        using var hmac =
+            new HMACSHA256(
+                secretBytes);
+
+        byte[] hash =
+            hmac.ComputeHash(
+                payloadBytes);
+
+        string signature =
+            Convert.ToHexString(
+                    hash)
+                .ToLowerInvariant();
+
+        return
+            $"t={unixTimestamp},v1={signature}";
     }
 }
