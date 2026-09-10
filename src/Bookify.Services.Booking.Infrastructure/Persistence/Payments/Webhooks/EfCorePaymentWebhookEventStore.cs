@@ -26,29 +26,58 @@ internal sealed class EfCorePaymentWebhookEventStore : IPaymentWebhookEventStore
         ArgumentException.ThrowIfNullOrWhiteSpace(eventId);
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
 
-        PaymentWebhookEvent? existingEvent = await _dbContext
-            .PaymentWebhookEvents
-            .SingleOrDefaultAsync(webhookEvent => webhookEvent.EventId == eventId, cancellationToken);
+        Guid candidateId = Guid.NewGuid();
 
-        if (existingEvent is null)
-        {
-            PaymentWebhookEvent webhookEvent = PaymentWebhookEvent.Create(
+        int affectedRows = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            INSERT INTO payment_webhook_events
+            (
+                id,
                 provider,
-                eventId,
-                eventType,
-                receivedAtUtc);
+                event_id,
+                event_type,
+                received_at_utc,
+                processed_at_utc,
+                processing_status,
+                error_code,
+                error_message
+            )
+            VALUES
+            (
+                {candidateId},
+                {provider},
+                {eventId},
+                {eventType},
+                {receivedAtUtc},
+                NULL,
+                'Processing',
+                NULL,
+                NULL
+            )
+            ON CONFLICT
+            (
+                event_id
+            )
+            DO NOTHING;
+            """,
+            cancellationToken);
 
-            _dbContext.PaymentWebhookEvents.Add(webhookEvent);
+        PaymentWebhookEvent webhookEvent;
 
-            return Result<PaymentWebhookEventPreparation>
-                .Success(new PaymentWebhookEventPreparation(
-                    webhookEvent.Id,
-                    PaymentWebhookPreparationStatus.ReadyToProcess));
+        if (affectedRows == 1)
+        {
+            webhookEvent = await _dbContext.PaymentWebhookEvents
+                .SingleAsync(currentEvent => currentEvent.Id == candidateId, cancellationToken);
+        }
+        else
+        {
+            webhookEvent = await _dbContext.PaymentWebhookEvents
+                .SingleAsync(currentEvent => currentEvent.EventId == eventId, cancellationToken);
         }
 
         bool sameIdentity =
-            string.Equals(existingEvent.Provider, provider, StringComparison.Ordinal) &&
-            string.Equals(existingEvent.EventType, eventType, StringComparison.Ordinal);
+            string.Equals(webhookEvent.Provider, provider, StringComparison.Ordinal) &&
+            string.Equals(webhookEvent.EventType, eventType, StringComparison.Ordinal);
 
         if (!sameIdentity)
         {
@@ -56,33 +85,40 @@ internal sealed class EfCorePaymentWebhookEventStore : IPaymentWebhookEventStore
                 .Failure(PaymentWebhookPersistenceErrors.EventIdentityMismatch(eventId));
         }
 
-        if (existingEvent.ProcessingStatus == PaymentWebhookProcessingStatus.Processed)
+        if (affectedRows == 1)
         {
             return Result<PaymentWebhookEventPreparation>
                 .Success(new PaymentWebhookEventPreparation(
-                    existingEvent.Id,
-                    PaymentWebhookPreparationStatus.AlreadyProcessed));
-        }
-
-        if (existingEvent.ProcessingStatus == PaymentWebhookProcessingStatus.Failed)
-        {
-            existingEvent.BeginRetry();
-
-            return Result<PaymentWebhookEventPreparation>
-                .Success(new PaymentWebhookEventPreparation(
-                    existingEvent.Id,
+                    webhookEvent.Id,
                     PaymentWebhookPreparationStatus.ReadyToProcess));
         }
 
-        if (existingEvent.ProcessingStatus == PaymentWebhookProcessingStatus.Processing)
+        if (webhookEvent.ProcessingStatus == PaymentWebhookProcessingStatus.Processed)
+        {
+            return Result<PaymentWebhookEventPreparation>
+                .Success(new PaymentWebhookEventPreparation(
+                    webhookEvent.Id,
+                    PaymentWebhookPreparationStatus.AlreadyProcessed));
+        }
+
+        if (webhookEvent.ProcessingStatus == PaymentWebhookProcessingStatus.Failed)
+        {
+            webhookEvent.BeginRetry();
+
+            return Result<PaymentWebhookEventPreparation>
+                .Success(new PaymentWebhookEventPreparation(
+                    webhookEvent.Id,
+                    PaymentWebhookPreparationStatus.ReadyToProcess));
+        }
+
+        if (webhookEvent.ProcessingStatus == PaymentWebhookProcessingStatus.Processing)
         {
             return Result<PaymentWebhookEventPreparation>
                 .Failure(PaymentWebhookPersistenceErrors.EventAlreadyProcessing(eventId));
         }
 
         throw new InvalidOperationException(
-            $"Unsupported webhook processing status " +
-            $"'{existingEvent.ProcessingStatus}'.");
+            $"Unsupported webhook processing status '{webhookEvent.ProcessingStatus}'.");
     }
 
     public async Task MarkProcessedAsync(

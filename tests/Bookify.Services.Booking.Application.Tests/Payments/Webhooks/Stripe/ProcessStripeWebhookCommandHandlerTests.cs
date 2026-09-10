@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Payments.Webhooks.Stripe;
 using Bookify.Services.Booking.Domain.Bookings;
@@ -710,6 +711,7 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
             signatureVerifier ??
                 new StubStripeWebhookSignatureVerifier(),
             eventStore,
+            new StubPaymentInitiationLock(),
             unitOfWork,
             transactionManager,
             new StubClock(
@@ -1164,6 +1166,21 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
         public ValueTask DisposeAsync()
         {
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class StubPaymentInitiationLock
+    : IPaymentInitiationLock
+    {
+        public Task<bool> TryAcquireAsync(
+            Guid bookingId,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken
+                .ThrowIfCancellationRequested();
+
+            return Task.FromResult(
+                true);
         }
     }
 }

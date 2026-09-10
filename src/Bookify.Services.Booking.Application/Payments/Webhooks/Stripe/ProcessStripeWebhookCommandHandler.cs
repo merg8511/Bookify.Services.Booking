@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Payments.Reconciliation;
 using Bookify.Services.Booking.Domain.Payments;
 using Bookify.Services.Booking.Domain.Shared;
@@ -21,6 +22,7 @@ public sealed class ProcessStripeWebhookCommandHandler
     private readonly IPaymentRepository _paymentRepository;
     private readonly IStripeWebhookSignatureVerifier _signatureVerifier;
     private readonly IPaymentWebhookEventStore _webhookEventStore;
+    private readonly IPaymentInitiationLock _paymentInitiationLock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITransactionManager _transactionManager;
     private readonly IClock _clock;
@@ -30,6 +32,7 @@ public sealed class ProcessStripeWebhookCommandHandler
         IPaymentRepository paymentRepository,
         IStripeWebhookSignatureVerifier signatureVerifier,
         IPaymentWebhookEventStore webhookEventStore,
+        IPaymentInitiationLock paymentInitiationLock,
         IUnitOfWork unitOfWork,
         ITransactionManager transactionManager,
         IClock clock)
@@ -38,6 +41,7 @@ public sealed class ProcessStripeWebhookCommandHandler
         _paymentRepository = paymentRepository;
         _signatureVerifier = signatureVerifier;
         _webhookEventStore = webhookEventStore;
+        _paymentInitiationLock = paymentInitiationLock;
         _unitOfWork = unitOfWork;
         _transactionManager = transactionManager;
         _clock = clock;
@@ -196,6 +200,17 @@ public sealed class ProcessStripeWebhookCommandHandler
                     transaction,
                     eventRecordId,
                     StripeWebhookErrors.InvalidPayload,
+                    cancellationToken);
+            }
+
+            bool bookingLocked = await _paymentInitiationLock.TryAcquireAsync(bookingId, cancellationToken);
+
+            if (!bookingLocked)
+            {
+                return await CompleteFailureAsync(
+                    transaction,
+                    eventRecordId,
+                    StripeWebhookErrors.BookingNotFound(bookingId),
                     cancellationToken);
             }
 
