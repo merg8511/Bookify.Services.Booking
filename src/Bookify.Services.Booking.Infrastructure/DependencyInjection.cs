@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Application.Abstractions.Idempotency;
+using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
@@ -14,6 +15,7 @@ using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
 using Bookify.Services.Booking.Infrastructure.Persistence.Dapper;
 using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
+using Bookify.Services.Booking.Infrastructure.Persistence.Payments.Webhooks;
 using Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
 using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
 using Bookify.Services.Booking.Infrastructure.Persistence.Transactions;
@@ -100,6 +102,13 @@ public static class DependencyInjection
         services.AddScoped<
             IIdempotencyStore,
             EfCoreIdempotencyStore>();
+
+        // ==========================================
+        //  Module: Payment Webhooks
+        // ==========================================
+        services.AddScoped<
+            IPaymentWebhookEventStore,
+            EfCorePaymentWebhookEventStore>();
 
         // ==========================================
         //  Repositories (Write Side / Domain)

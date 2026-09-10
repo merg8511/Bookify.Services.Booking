@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Domain.Payments;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared.DomainEvents;
 using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
+using Bookify.Services.Booking.Infrastructure.Persistence.Payments.Webhooks;
 using Microsoft.EntityFrameworkCore;
 
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
@@ -21,23 +22,13 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
             throw new ArgumentNullException(nameof(domainEventDispatcher));
     }
 
-    public DbSet<Property> Properties =>
-        Set<Property>();
-
-    public DbSet<RentableUnit> RentableUnits =>
-        Set<RentableUnit>();
-
-    public DbSet<DomainBooking> Bookings =>
-        Set<DomainBooking>();
-
-    internal DbSet<IdempotencyRequest> IdempotencyRequests =>
-        Set<IdempotencyRequest>();
-
-    public DbSet<Payment> Payments =>
-        Set<Payment>();
-
-    public DbSet<PaymentAttempt> PaymentAttempts =>
-        Set<PaymentAttempt>();
+    public DbSet<Property> Properties => Set<Property>();
+    public DbSet<RentableUnit> RentableUnits => Set<RentableUnit>();
+    public DbSet<DomainBooking> Bookings => Set<DomainBooking>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
+    internal DbSet<IdempotencyRequest> IdempotencyRequests => Set<IdempotencyRequest>();
+    internal DbSet<PaymentWebhookEvent> PaymentWebhookEvents => Set<PaymentWebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
