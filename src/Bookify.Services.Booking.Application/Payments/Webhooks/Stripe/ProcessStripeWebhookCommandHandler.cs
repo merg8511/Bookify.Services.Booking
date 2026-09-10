@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Payments;
+using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
@@ -19,6 +20,7 @@ public sealed class ProcessStripeWebhookCommandHandler
     private readonly IBookingRepository _bookingRepository;
     private readonly IPaymentRepository _paymentRepository;
     private readonly IStripeWebhookSignatureVerifier _signatureVerifier;
+    private readonly IPaymentWebhookEventStore _webhookEventStore;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITransactionManager _transactionManager;
     private readonly IClock _clock;
@@ -27,6 +29,7 @@ public sealed class ProcessStripeWebhookCommandHandler
         IBookingRepository bookingRepository,
         IPaymentRepository paymentRepository,
         IStripeWebhookSignatureVerifier signatureVerifier,
+        IPaymentWebhookEventStore webhookEventStore,
         IUnitOfWork unitOfWork,
         ITransactionManager transactionManager,
         IClock clock)
@@ -34,6 +37,7 @@ public sealed class ProcessStripeWebhookCommandHandler
         _bookingRepository = bookingRepository;
         _paymentRepository = paymentRepository;
         _signatureVerifier = signatureVerifier;
+        _webhookEventStore = webhookEventStore;
         _unitOfWork = unitOfWork;
         _transactionManager = transactionManager;
         _clock = clock;
@@ -72,56 +76,20 @@ public sealed class ProcessStripeWebhookCommandHandler
                 return Result.Failure(StripeWebhookErrors.InvalidPayload);
             }
 
+            if (!TryGetRequiredString(root, "id", out string eventId))
+            {
+                return Result.Failure(StripeWebhookErrors.InvalidPayload);
+            }
+
             if (!TryGetRequiredString(root, "type", out string eventType))
             {
                 return Result.Failure(StripeWebhookErrors.InvalidPayload);
             }
 
-            bool isSupportedEvent = StripeWebhookEventTypes.TryMapToGatewayStatus(
-                eventType, out PaymentGatewayStatus observedStatus);
-
-            if (!isSupportedEvent)
-            {
-                return Result.Success();
-            }
-
-            if (!root.TryGetProperty("data", out JsonElement dataElement) ||
-                dataElement.ValueKind != JsonValueKind.Object)
-            {
-                return Result.Failure(StripeWebhookErrors.InvalidPayload);
-            }
-
-            if (!dataElement.TryGetProperty("object", out JsonElement paymentIntentElement) ||
-                paymentIntentElement.ValueKind != JsonValueKind.Object)
-            {
-                return Result.Failure(StripeWebhookErrors.InvalidPayload);
-            }
-
-            if (!paymentIntentElement.TryGetProperty("metadata", out JsonElement metadataElement) ||
-                metadataElement.ValueKind != JsonValueKind.Object)
-            {
-                return Result.Success();
-            }
-
-            if (!TryGetRequiredString(metadataElement, BookingMetadataKey, out string bookingIdValue))
-            {
-                return Result.Success();
-            }
-
-            if (!Guid.TryParse(bookingIdValue, out Guid bookingId))
-            {
-                return Result.Failure(StripeWebhookErrors.InvalidBookingId(bookingIdValue));
-            }
-
-            if (!TryGetRequiredString(paymentIntentElement, "id", out string extenalReference))
-            {
-                return Result.Failure(StripeWebhookErrors.InvalidPayload);
-            }
-
-            return await ProcessRelevantEventAsync(
-                bookingId,
-                extenalReference,
-                observedStatus,
+            return await ProcessVerifiedEventAsync(
+                root,
+                eventId,
+                eventType,
                 cancellationToken);
         }
         catch (JsonException)
@@ -130,51 +98,139 @@ public sealed class ProcessStripeWebhookCommandHandler
         }
     }
 
-    private async Task<Result> ProcessRelevantEventAsync(
-        Guid bookingId,
-        string externalReference,
-        PaymentGatewayStatus observedStatus,
+    private async Task<Result> ProcessVerifiedEventAsync(
+        JsonElement root,
+        string eventId,
+        string eventType,
         CancellationToken cancellationToken)
     {
-        await using ITransaction transaction = await _transactionManager
-            .BeginAsync(cancellationToken);
+        await using ITransaction transaction = await _transactionManager.BeginAsync(cancellationToken);
 
         try
         {
-            DomainBooking? booking = await _bookingRepository
-                .GetByIdAsync(bookingId, cancellationToken);
+            Result<PaymentWebhookEventPreparation> preparationResult =
+                await _webhookEventStore.PrepareAsync(
+                    PaymentWebhookProviders.Stripe,
+                    eventId,
+                    eventType,
+                    _clock.UtcNow,
+                    cancellationToken);
 
-            if (booking is null)
+            if (preparationResult.IsFailure)
             {
                 return await RollbackFailureAsync(
                     transaction,
+                    preparationResult.Error,
+                    cancellationToken);
+            }
+
+            PaymentWebhookEventPreparation preparation = preparationResult.Value;
+
+            if (preparation.Status == PaymentWebhookPreparationStatus.AlreadyProcessed)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return Result.Success();
+            }
+
+            Guid eventRecordId = preparation.EventRecordId;
+
+            bool isSupportedEvent = StripeWebhookEventTypes.TryMapToGatewayStatus(eventType, out PaymentGatewayStatus observedStatus);
+
+            if (!isSupportedEvent)
+            {
+                return await CompleteProcessedAsync(
+                    transaction,
+                    eventRecordId,
+                    cancellationToken);
+            }
+
+            if (!root.TryGetProperty("data", out JsonElement dataElement) ||
+                dataElement.ValueKind != JsonValueKind.Object)
+            {
+                return await CompleteFailureAsync(
+                    transaction,
+                    eventRecordId,
+                    StripeWebhookErrors.InvalidPayload,
+                    cancellationToken);
+            }
+
+            if (!dataElement.TryGetProperty("object", out JsonElement paymentIntentElement) ||
+                paymentIntentElement.ValueKind != JsonValueKind.Object)
+            {
+                return await CompleteFailureAsync(
+                    transaction,
+                    eventRecordId,
+                    StripeWebhookErrors.InvalidPayload,
+                    cancellationToken);
+            }
+
+            if (!paymentIntentElement.TryGetProperty("metadata", out JsonElement metadataElement) ||
+                metadataElement.ValueKind != JsonValueKind.Object)
+            {
+                return await CompleteProcessedAsync(
+                    transaction,
+                    eventRecordId,
+                    cancellationToken);
+            }
+
+            if (!TryGetRequiredString(metadataElement, BookingMetadataKey, out string bookingIdValue))
+            {
+                return await CompleteProcessedAsync(
+                    transaction,
+                    eventRecordId,
+                    cancellationToken);
+            }
+
+            if (!Guid.TryParse(bookingIdValue, out Guid bookingId))
+            {
+                return await CompleteFailureAsync(
+                    transaction,
+                    eventRecordId,
+                    StripeWebhookErrors.InvalidBookingId(bookingIdValue),
+                    cancellationToken);
+            }
+
+            if (!TryGetRequiredString(paymentIntentElement, "id", out string extenalReference))
+            {
+                return await CompleteFailureAsync(
+                    transaction,
+                    eventRecordId,
+                    StripeWebhookErrors.InvalidPayload,
+                    cancellationToken);
+            }
+
+            DomainBooking? booking = await _bookingRepository.GetByIdAsync(bookingId, cancellationToken);
+
+            if (booking is null)
+            {
+                return await CompleteFailureAsync(
+                    transaction,
+                    eventRecordId,
                     StripeWebhookErrors.BookingNotFound(bookingId),
                     cancellationToken);
             }
 
-            Payment? payment = await _paymentRepository
-                .GetByBookingIdAsync(bookingId, cancellationToken);
+            Payment? payment = await _paymentRepository.GetByBookingIdAsync(booking.Id, cancellationToken);
 
             if (payment is null)
             {
-                return await RollbackFailureAsync(
+                return await CompleteFailureAsync(
                     transaction,
-                    StripeWebhookErrors.PaymentNotFound(booking.Id), cancellationToken);
+                    eventRecordId,
+                    StripeWebhookErrors.PaymentNotFound(booking.Id),
+                    cancellationToken);
             }
 
-            PaymentAttempt? attempt = payment.Attempts
-                .FirstOrDefault(
-                    currentAttempt =>
-                        string.Equals(
-                            currentAttempt.ExternalReference,
-                            externalReference,
-                            StringComparison.Ordinal));
+            PaymentAttempt? attempt = payment.Attempts.FirstOrDefault(
+                currentAttempt => string.Equals(currentAttempt.ExternalReference, extenalReference, StringComparison.Ordinal));
 
             if (attempt is null)
             {
-                return await RollbackFailureAsync(
+                return await CompleteFailureAsync(
                     transaction,
-                    StripeWebhookErrors.PaymentAttemptNotFound(payment.Id, externalReference), cancellationToken);
+                    eventRecordId,
+                    StripeWebhookErrors.PaymentAttemptNotFound(payment.Id, extenalReference),
+                    cancellationToken);
             }
 
             Result reconciliationResult = PaymentReconciler.Reconcile(
@@ -186,22 +242,48 @@ public sealed class ProcessStripeWebhookCommandHandler
 
             if (reconciliationResult.IsFailure)
             {
-                return await RollbackFailureAsync(
+                return await CompleteFailureAsync(
                     transaction,
+                    eventRecordId,
                     reconciliationResult.Error,
                     cancellationToken);
             }
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return Result.Success();
+            return await CompleteProcessedAsync(
+                transaction,
+                eventRecordId,
+                cancellationToken);
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private async Task<Result> CompleteProcessedAsync(
+        ITransaction transaction,
+        Guid eventRecordId,
+        CancellationToken cancellationToken)
+    {
+        await _webhookEventStore.MarkProcessedAsync(eventRecordId, _clock.UtcNow, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Result.Success();
+    }
+
+    public async Task<Result> CompleteFailureAsync(
+        ITransaction transaction,
+        Guid eventRecordId,
+        Error error,
+        CancellationToken cancellationToken)
+    {
+        await _webhookEventStore.MarkFailedAsync(eventRecordId, error, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Result.Failure(error);
     }
 
     private static bool TryGetRequiredString(
