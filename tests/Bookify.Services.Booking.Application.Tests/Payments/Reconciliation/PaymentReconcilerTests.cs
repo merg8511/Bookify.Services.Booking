@@ -505,6 +505,222 @@ public sealed class PaymentReconcilerTests
         return booking;
     }
 
+    [Theory]
+    [InlineData(PaymentGatewayStatus.Failed)]
+    [InlineData(PaymentGatewayStatus.Cancelled)]
+    [InlineData(PaymentGatewayStatus.Pending)]
+    public void Reconcile_WhenPaymentAlreadySucceededAndLateNonSuccessArrives_ShouldRemainSucceeded(
+    PaymentGatewayStatus lateStatus)
+    {
+        // Arrange
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
+
+        Payment payment =
+            CreatePayment(
+                booking);
+
+        PaymentAttempt attempt =
+            AddPendingAttempt(
+                payment,
+                "operation-succeeded-monotonic",
+                "external-succeeded-monotonic");
+
+        DateTimeOffset succeededAtUtc =
+            UtcNow.AddMinutes(1);
+
+        Result succeededResult =
+            PaymentReconciler.Reconcile(
+                payment,
+                attempt,
+                booking,
+                PaymentGatewayStatus.Succeeded,
+                succeededAtUtc);
+
+        Assert.True(
+            succeededResult.IsSuccess);
+
+        // Act
+        Result lateResult =
+            PaymentReconciler.Reconcile(
+                payment,
+                attempt,
+                booking,
+                lateStatus,
+                succeededAtUtc.AddMinutes(5));
+
+        // Assert
+        Assert.True(
+            lateResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Succeeded,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Succeeded,
+            attempt.Status);
+
+        Assert.Equal(
+            BookingStatus.Paid,
+            booking.Status);
+
+        Assert.Equal(
+            succeededAtUtc,
+            payment.CompletedAtUtc);
+
+        Assert.Equal(
+            succeededAtUtc,
+            attempt.CompletedAtUtc);
+    }
+
+    [Theory]
+    [InlineData(PaymentGatewayStatus.Failed)]
+    [InlineData(PaymentGatewayStatus.Cancelled)]
+    public void Reconcile_WhenNonSuccessWasObservedBeforeSucceeded_ShouldPromoteToSucceeded(
+        PaymentGatewayStatus firstStatus)
+    {
+        // Arrange
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
+
+        Payment payment =
+            CreatePayment(
+                booking);
+
+        PaymentAttempt attempt =
+            AddPendingAttempt(
+                payment,
+                "operation-late-success",
+                "external-late-success");
+
+        Result firstResult =
+            PaymentReconciler.Reconcile(
+                payment,
+                attempt,
+                booking,
+                firstStatus,
+                UtcNow.AddMinutes(1));
+
+        Assert.True(
+            firstResult.IsSuccess);
+
+        Assert.Equal(
+            BookingStatus.PendingPayment,
+            booking.Status);
+
+        // Act
+        DateTimeOffset succeededAtUtc =
+            UtcNow.AddMinutes(2);
+
+        Result succeededResult =
+            PaymentReconciler.Reconcile(
+                payment,
+                attempt,
+                booking,
+                PaymentGatewayStatus.Succeeded,
+                succeededAtUtc);
+
+        // Assert
+        Assert.True(
+            succeededResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Succeeded,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Succeeded,
+            attempt.Status);
+
+        Assert.Equal(
+            BookingStatus.Paid,
+            booking.Status);
+
+        Assert.Equal(
+            succeededAtUtc,
+            payment.CompletedAtUtc);
+
+        Assert.Equal(
+            succeededAtUtc,
+            attempt.CompletedAtUtc);
+    }
+
+    [Theory]
+    [InlineData(
+        PaymentGatewayStatus.Failed,
+        PaymentGatewayStatus.Cancelled,
+        PaymentStatus.Failed,
+        PaymentAttemptStatus.Failed)]
+    [InlineData(
+        PaymentGatewayStatus.Cancelled,
+        PaymentGatewayStatus.Failed,
+        PaymentStatus.Cancelled,
+        PaymentAttemptStatus.Cancelled)]
+    public void Reconcile_WhenDifferentNonSuccessTerminalObservationArrivesLate_ShouldKeepFirstTerminalState(
+        PaymentGatewayStatus firstStatus,
+        PaymentGatewayStatus lateStatus,
+        PaymentStatus expectedPaymentStatus,
+        PaymentAttemptStatus expectedAttemptStatus)
+    {
+        // Arrange
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
+
+        Payment payment =
+            CreatePayment(
+                booking);
+
+        PaymentAttempt attempt =
+            AddPendingAttempt(
+                payment,
+                "operation-terminal-order",
+                "external-terminal-order");
+
+        DateTimeOffset firstObservedAtUtc =
+            UtcNow.AddMinutes(1);
+
+        Result firstResult =
+            PaymentReconciler.Reconcile(
+                payment,
+                attempt,
+                booking,
+                firstStatus,
+                firstObservedAtUtc);
+
+        Assert.True(
+            firstResult.IsSuccess);
+
+        // Act
+        Result lateResult =
+            PaymentReconciler.Reconcile(
+                payment,
+                attempt,
+                booking,
+                lateStatus,
+                firstObservedAtUtc.AddMinutes(5));
+
+        // Assert
+        Assert.True(
+            lateResult.IsSuccess);
+
+        Assert.Equal(
+            expectedPaymentStatus,
+            payment.Status);
+
+        Assert.Equal(
+            expectedAttemptStatus,
+            attempt.Status);
+
+        Assert.Equal(
+            BookingStatus.PendingPayment,
+            booking.Status);
+
+        Assert.Equal(
+            firstObservedAtUtc,
+            attempt.CompletedAtUtc);
+    }
+
     private static Payment CreatePayment(
         DomainBooking booking)
     {

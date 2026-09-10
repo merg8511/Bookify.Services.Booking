@@ -84,9 +84,19 @@ public sealed class PaymentAttempt
 
     internal Result MarkAsSucceeded(DateTimeOffset completedAtUtc)
     {
-        return TransitionTo(
-            PaymentAttemptStatus.Succeeded,
-            completedAtUtc);
+        if (completedAtUtc < CreatedAtUtc)
+        {
+            return Result.Failure(PaymentAttemptErrors.CompletionBeforeCreation);
+        }
+
+        if (Status == PaymentAttemptStatus.Succeeded)
+        {
+            return Result.Success();
+        }
+        Status = PaymentAttemptStatus.Succeeded;
+        CompletedAtUtc = completedAtUtc;
+
+        return Result.Success();
     }
 
     internal Result MarkAsFailed(DateTimeOffset completedAtUtc)

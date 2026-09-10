@@ -686,6 +686,122 @@ public sealed class PaymentTests
             payment.CompletedAtUtc);
     }
 
+    [Fact]
+    public void MarkAttemptAsSucceeded_WhenAttemptPreviouslyFailed_ShouldPromotePaymentToSucceeded()
+    {
+        // Arrange
+        Payment payment =
+            CreatePayment();
+
+        Result<PaymentAttempt> attemptResult =
+            payment.AddAttempt(
+                "payment-operation-late-success-failed",
+                "external-late-success-failed",
+                CreatedAtUtc.AddMinutes(1));
+
+        Assert.True(
+            attemptResult.IsSuccess);
+
+        Result failedResult =
+            payment.MarkAttemptAsFailed(
+                attemptResult.Value.ExternalReference,
+                CreatedAtUtc.AddMinutes(2));
+
+        Assert.True(
+            failedResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Failed,
+            payment.Status);
+
+        // Act
+        DateTimeOffset succeededAtUtc =
+            CreatedAtUtc.AddMinutes(3);
+
+        Result result =
+            payment.MarkAttemptAsSucceeded(
+                attemptResult.Value.ExternalReference,
+                succeededAtUtc);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Succeeded,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Succeeded,
+            attemptResult.Value.Status);
+
+        Assert.Equal(
+            succeededAtUtc,
+            payment.CompletedAtUtc);
+
+        Assert.Equal(
+            succeededAtUtc,
+            attemptResult.Value.CompletedAtUtc);
+    }
+
+    [Fact]
+    public void MarkAttemptAsSucceeded_WhenAttemptPreviouslyCancelled_ShouldPromotePaymentToSucceeded()
+    {
+        // Arrange
+        Payment payment =
+            CreatePayment();
+
+        Result<PaymentAttempt> attemptResult =
+            payment.AddAttempt(
+                "payment-operation-late-success-cancelled",
+                "external-late-success-cancelled",
+                CreatedAtUtc.AddMinutes(1));
+
+        Assert.True(
+            attemptResult.IsSuccess);
+
+        Result cancelledResult =
+            payment.CancelAttempt(
+                attemptResult.Value.ExternalReference,
+                CreatedAtUtc.AddMinutes(2));
+
+        Assert.True(
+            cancelledResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Cancelled,
+            payment.Status);
+
+        // Act
+        DateTimeOffset succeededAtUtc =
+            CreatedAtUtc.AddMinutes(3);
+
+        Result result =
+            payment.MarkAttemptAsSucceeded(
+                attemptResult.Value.ExternalReference,
+                succeededAtUtc);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            PaymentStatus.Succeeded,
+            payment.Status);
+
+        Assert.Equal(
+            PaymentAttemptStatus.Succeeded,
+            attemptResult.Value.Status);
+
+        Assert.Equal(
+            succeededAtUtc,
+            payment.CompletedAtUtc);
+
+        Assert.Equal(
+            succeededAtUtc,
+            attemptResult.Value.CompletedAtUtc);
+    }
+
     private static Payment CreatePayment()
     {
         Result<Payment> result =

@@ -25,39 +25,59 @@ public static class PaymentReconciler
         }
 
         bool attemptBelingsToPayment = payment
-            .Attempts.Any(
-                currentAttempt =>
-                    currentAttempt.Id == attempt.Id);
+            .Attempts.Any(currentAttempt => currentAttempt.Id == attempt.Id);
 
         if (!attemptBelingsToPayment)
         {
             throw new InvalidOperationException("The payment attempt does not belong to the supplied payment.");
         }
 
+        if (payment.Status == PaymentStatus.Succeeded &&
+            observedStatus != PaymentGatewayStatus.Succeeded)
+        {
+            return ReconcileAlreadySucceededPayment(payment, booking);
+        }
+
         return observedStatus switch
         {
-            PaymentGatewayStatus.Pending => Result.Success(),
+            PaymentGatewayStatus.Pending =>
+                    ReconcilePending(
+                        payment,
+                        attempt),
+
             PaymentGatewayStatus.Succeeded =>
                     ReconcileSucceeded(
                     payment,
                     attempt,
                     booking,
                     observedAtUtc),
+
             PaymentGatewayStatus.Failed =>
                 ReconcileFailed(
                     payment,
                     attempt,
                     observedAtUtc),
+
             PaymentGatewayStatus.Cancelled =>
                 ReconcileCancelled(
                     payment,
                     attempt,
                     observedAtUtc),
             _ =>
-                throw new InvalidOperationException(
-                        $"Unsupported payment gateway " +
-                        $"status '{observedStatus}'.")
+                throw new InvalidOperationException($"Unsupported payment gateway status '{observedStatus}'.")
         };
+    }
+
+    private static Result ReconcilePending(Payment payment, PaymentAttempt attempt)
+    {
+        if (attempt.Status == PaymentAttemptStatus.Succeeded &&
+            payment.Status != PaymentStatus.Succeeded)
+        {
+            throw new InvalidOperationException(
+                "A succeeded payment attempt requires the payment to be succeeded.");
+        }
+
+        return Result.Success();
     }
 
     private static Result ReconcileSucceeded(
@@ -74,6 +94,12 @@ public static class PaymentReconciler
                     .BookingStateConflict(booking.Id, booking.Status));
         }
 
+        if (booking.Status is BookingStatus.PendingApproval or
+            BookingStatus.Cancelled)
+        {
+            return Result.Failure(PaymentReconciliationErrors.BookingStateConflict(booking.Id, booking.Status));
+        }
+
         if (attempt.Status == PaymentAttemptStatus.Succeeded)
         {
             if (payment.Status != PaymentStatus.Succeeded)
@@ -83,6 +109,12 @@ public static class PaymentReconciler
             }
 
             return ReconcileBookingAsPaid(booking);
+        }
+
+        if (payment.Status == PaymentStatus.Succeeded)
+        {
+            throw new InvalidOperationException("A payment that already succeeded cannot accept " +
+                "a second succeeded payment attempt.");
         }
 
         Result paymentResult = payment
@@ -101,7 +133,18 @@ public static class PaymentReconciler
         PaymentAttempt attempt,
         DateTimeOffset observedAtUtc)
     {
-        if (attempt.Status == PaymentAttemptStatus.Failed)
+        if (attempt.Status == PaymentAttemptStatus.Succeeded)
+        {
+            if (payment.Status != PaymentStatus.Succeeded)
+            {
+                throw new InvalidOperationException("A succeeded payment requires the payment to be succeeded.");
+            }
+
+            return Result.Success();
+        }
+
+        if (attempt.Status is PaymentAttemptStatus.Failed or
+            PaymentAttemptStatus.Cancelled)
         {
             return Result.Success();
         }
@@ -114,12 +157,36 @@ public static class PaymentReconciler
         PaymentAttempt attempt,
         DateTimeOffset observedAtUtc)
     {
-        if (attempt.Status == PaymentAttemptStatus.Cancelled)
+        if (attempt.Status == PaymentAttemptStatus.Succeeded)
+        {
+            if (payment.Status != PaymentStatus.Succeeded)
+            {
+                throw new InvalidOperationException("A succeeded payment attempt requires the payment to be succeeded.");
+            }
+
+            return Result.Success();
+        }
+
+        if (attempt.Status is PaymentAttemptStatus.Failed or
+            PaymentAttemptStatus.Cancelled)
         {
             return Result.Success();
         }
 
         return payment.CancelAttempt(attempt.ExternalReference, observedAtUtc);
+    }
+
+    private static Result ReconcileAlreadySucceededPayment(Payment payment, DomainBooking booking)
+    {
+        bool hasSucceededAttempt = payment.Attempts.Any(
+            attempt => attempt.Status == PaymentAttemptStatus.Succeeded);
+
+        if (!hasSucceededAttempt)
+        {
+            throw new InvalidOperationException("A succeeded payment requires at least one succeeded payment attempt.");
+        }
+
+        return ReconcileBookingAsPaid(booking);
     }
 
     private static Result ReconcileBookingAsPaid(DomainBooking booking)
@@ -131,9 +198,7 @@ public static class PaymentReconciler
             BookingStatus.Completed => Result.Success(),
 
             _ =>
-                Result.Failure(
-                    PaymentReconciliationErrors
-                        .BookingStateConflict(booking.Id, booking.Status))
+                Result.Failure(PaymentReconciliationErrors.BookingStateConflict(booking.Id, booking.Status))
         };
     }
 }
