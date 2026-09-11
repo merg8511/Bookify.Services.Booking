@@ -7,7 +7,6 @@ using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Application.Bookings.Complete;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
-using Bookify.Services.Booking.Application.Bookings.MarkAsPaid;
 using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.DomainEvents;
@@ -101,14 +100,6 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<RejectBookingCommand>,
             RejectBookingCommandHandler>();
-
-        services.AddScoped<
-            IRequestValidator<MarkBookingAsPaidCommand>,
-            MarkBookingAsPaidCommandValidator>();
-
-        services.AddScoped<
-            ICommandHandler<MarkBookingAsPaidCommand>,
-            MarkBookingAsPaidCommandHandler>();
 
         services.AddScoped<
             IRequestValidator<ExpireBookingPaymentCommand>,
