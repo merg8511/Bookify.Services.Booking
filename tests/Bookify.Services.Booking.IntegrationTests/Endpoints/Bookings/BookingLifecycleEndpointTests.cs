@@ -10,7 +10,9 @@ using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
-using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
+
+using DomainBooking =
+    Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.IntegrationTests.Endpoints.Bookings;
 
@@ -23,11 +25,12 @@ public sealed class BookingLifecycleEndpointTests
     public BookingLifecycleEndpointTests(
         BookingApiFactory factory)
     {
-        _factory = factory;
+        _factory =
+            factory;
     }
 
     [Fact]
-    public async Task HappyPath_ShouldTransitionFromPendingApprovalToCompleted()
+    public async Task ApprovalPath_ShouldTransitionFromPendingApprovalToPendingPayment()
     {
         // ARRANGE
         CancellationToken cancellationToken =
@@ -47,41 +50,16 @@ public sealed class BookingLifecycleEndpointTests
             expectedBlocksInventory: true,
             cancellationToken);
 
-        // ACT + ASSERT - APPROVE
+        // ACT
         await PostAndAssertNoContentAsync(
             client,
             $"/api/v1/bookings/{booking.Id}/approve",
             cancellationToken);
 
+        // ASSERT
         await AssertBookingStateAsync(
             booking.Id,
             BookingStatus.PendingPayment,
-            expectedCancellationReason: null,
-            expectedBlocksInventory: true,
-            cancellationToken);
-
-        // ACT + ASSERT - MARK AS PAID
-        await PostAndAssertNoContentAsync(
-            client,
-            $"/api/v1/bookings/{booking.Id}/mark-as-paid",
-            cancellationToken);
-
-        await AssertBookingStateAsync(
-            booking.Id,
-            BookingStatus.Paid,
-            expectedCancellationReason: null,
-            expectedBlocksInventory: true,
-            cancellationToken);
-
-        // ACT + ASSERT - COMPLETE
-        await PostAndAssertNoContentAsync(
-            client,
-            $"/api/v1/bookings/{booking.Id}/complete",
-            cancellationToken);
-
-        await AssertBookingStateAsync(
-            booking.Id,
-            BookingStatus.Completed,
             expectedCancellationReason: null,
             expectedBlocksInventory: true,
             cancellationToken);
@@ -235,25 +213,17 @@ public sealed class BookingLifecycleEndpointTests
             TestContext.Current.CancellationToken;
 
         DomainBooking booking =
-            await SeedBookingAsync(
+            await SeedCompletedBookingAsync(
                 cancellationToken);
 
         HttpClient client =
             _factory.CreateClient();
 
-        await PostAndAssertNoContentAsync(
-            client,
-            $"/api/v1/bookings/{booking.Id}/approve",
-            cancellationToken);
-
-        await PostAndAssertNoContentAsync(
-            client,
-            $"/api/v1/bookings/{booking.Id}/mark-as-paid",
-            cancellationToken);
-
-        await PostAndAssertNoContentAsync(
-            client,
-            $"/api/v1/bookings/{booking.Id}/complete",
+        await AssertBookingStateAsync(
+            booking.Id,
+            BookingStatus.Completed,
+            expectedCancellationReason: null,
+            expectedBlocksInventory: true,
             cancellationToken);
 
         // ACT
@@ -318,38 +288,116 @@ public sealed class BookingLifecycleEndpointTests
     private async Task<DomainBooking> SeedBookingAsync(
         CancellationToken cancellationToken)
     {
+        (
+            Property property,
+            RentableUnit rentableUnit,
+            DomainBooking booking) =
+                CreateBookingGraph();
+
+        await PersistBookingGraphAsync(
+            property,
+            rentableUnit,
+            booking,
+            cancellationToken);
+
+        return booking;
+    }
+
+    private async Task<DomainBooking>
+        SeedCompletedBookingAsync(
+            CancellationToken cancellationToken)
+    {
+        (
+            Property property,
+            RentableUnit rentableUnit,
+            DomainBooking booking) =
+                CreateBookingGraph();
+
+        Assert.True(
+            booking.Approve().IsSuccess);
+
+        Assert.True(
+            booking.MarkAsPaid().IsSuccess);
+
+        Assert.True(
+            booking.Complete().IsSuccess);
+
+        Assert.Equal(
+            BookingStatus.Completed,
+            booking.Status);
+
+        await PersistBookingGraphAsync(
+            property,
+            rentableUnit,
+            booking,
+            cancellationToken);
+
+        return booking;
+    }
+
+    private static (
+        Property Property,
+        RentableUnit RentableUnit,
+        DomainBooking Booking)
+        CreateBookingGraph()
+    {
         Property property =
             Property.Create(
-                    $"Lifecycle Test {Guid.NewGuid():N}",
-                    "America/El_Salvador",
-                    new TimeOnly(15, 0),
-                    new TimeOnly(11, 0))
-                .Value;
+                $"Lifecycle Test {Guid.NewGuid():N}",
+                "America/El_Salvador",
+                new TimeOnly(
+                    15,
+                    0),
+                new TimeOnly(
+                    11,
+                    0))
+            .Value;
 
         RentableUnit rentableUnit =
             RentableUnit.Create(
-                    property.Id,
-                    "Room A",
-                    RentableUnitType.Room,
-                    maximumCapacity: 4,
-                    maxBaseGuests: 2)
-                .Value;
+                property.Id,
+                "Room A",
+                RentableUnitType.Room,
+                maximumCapacity: 4,
+                maxBaseGuests: 2)
+            .Value;
 
         StayPeriod stayPeriod =
             StayPeriod.Create(
-                    new DateOnly(2026, 9, 10),
-                    new DateOnly(2026, 9, 12))
-                .Value;
+                new DateOnly(
+                    2026,
+                    9,
+                    10),
+                new DateOnly(
+                    2026,
+                    9,
+                    12))
+            .Value;
 
         DomainBooking booking =
             DomainBooking.Create(
-                    rentableUnit,
-                    stayPeriod,
-                    GuestCount.Create(2).Value)
-                .Value;
+                rentableUnit,
+                stayPeriod,
+                GuestCount.Create(
+                    2)
+                .Value)
+            .Value;
 
+        return (
+            property,
+            rentableUnit,
+            booking);
+    }
+
+    private async Task PersistBookingGraphAsync(
+        Property property,
+        RentableUnit rentableUnit,
+        DomainBooking booking,
+        CancellationToken cancellationToken)
+    {
         using IServiceScope scope =
-            _factory.Services.CreateScope();
+            _factory.Services
+                .CreateScope();
 
         IPropertyRepository propertyRepository =
             scope.ServiceProvider
@@ -383,14 +431,13 @@ public sealed class BookingLifecycleEndpointTests
         await unitOfWork
             .SaveChangesAsync(
                 cancellationToken);
-
-        return booking;
     }
 
-    private static async Task PostAndAssertNoContentAsync(
-        HttpClient client,
-        string requestUri,
-        CancellationToken cancellationToken)
+    private static async Task
+        PostAndAssertNoContentAsync(
+            HttpClient client,
+            string requestUri,
+            CancellationToken cancellationToken)
     {
         using HttpResponseMessage response =
             await client.PostAsync(
@@ -411,7 +458,8 @@ public sealed class BookingLifecycleEndpointTests
         CancellationToken cancellationToken)
     {
         using IServiceScope scope =
-            _factory.Services.CreateScope();
+            _factory.Services
+                .CreateScope();
 
         IBookingRepository bookingRepository =
             scope.ServiceProvider

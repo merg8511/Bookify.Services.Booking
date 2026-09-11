@@ -331,6 +331,69 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Bookify.Services.Booking.Infrastructure.Persistence.Payments.Webhooks.PaymentWebhookEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("error_code");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("event_id");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("event_type");
+
+                    b.Property<DateTimeOffset?>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at_utc");
+
+                    b.Property<string>("ProcessingStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("processing_status");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("provider");
+
+                    b.Property<DateTimeOffset>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_payment_webhook_events_event_id");
+
+                    b.ToTable("payment_webhook_events", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_payment_webhook_events_processed_time", "processed_at_utc IS NULL\nOR\nprocessed_at_utc >= received_at_utc");
+
+                            t.HasCheckConstraint("ck_payment_webhook_events_state", "(\n    processing_status = 'Processing'\n    AND processed_at_utc IS NULL\n    AND error_code IS NULL\n    AND error_message IS NULL\n)\nOR\n(\n    processing_status = 'Processed'\n    AND processed_at_utc IS NOT NULL\n    AND error_code IS NULL\n    AND error_message IS NULL\n)\nOR\n(\n    processing_status = 'Failed'\n    AND processed_at_utc IS NULL\n    AND error_code IS NOT NULL\n    AND error_message IS NOT NULL\n)");
+
+                            t.HasCheckConstraint("ck_payment_webhook_events_status", "processing_status IN\n(\n    'Processing',\n    'Processed',\n    'Failed'\n)");
+                        });
+                });
+
             modelBuilder.Entity("Bookify.Services.Booking.Domain.Bookings.Booking", b =>
                 {
                     b.HasOne("Bookify.Services.Booking.Domain.Properties.Property", null)

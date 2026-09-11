@@ -22,7 +22,8 @@ public sealed class StripePaymentGatewayTests
                     {
                         Id = "pi_test",
                         Status =
-                            "requires_payment_method"
+                            "requires_payment_method",
+                        ClientSecret = "pi_test_secret_example"
                     }
             };
 
@@ -41,7 +42,7 @@ public sealed class StripePaymentGatewayTests
                 "payment-operation-001");
 
         // ACT
-        Result<PaymentGatewayResponse> result =
+        Result<CreatePaymentAttemptResponse> result =
             await gateway
                 .CreatePaymentAttemptAsync(
                     request, cancellationToken);
@@ -53,6 +54,10 @@ public sealed class StripePaymentGatewayTests
         Assert.Equal(
             "pi_test",
             result.Value.ExternalReference);
+
+        Assert.Equal(
+            "pi_test_secret_example",
+            result.Value.ClientSecret);
 
         Assert.Equal(
             PaymentGatewayStatus.Pending,
@@ -99,7 +104,8 @@ public sealed class StripePaymentGatewayTests
                     {
                         Id = "pi_jpy",
                         Status =
-                            "requires_payment_method"
+                            "requires_payment_method",
+                        ClientSecret = "pi_test_secret_example"
                     }
             };
 
@@ -115,7 +121,7 @@ public sealed class StripePaymentGatewayTests
                 "payment-operation-jpy");
 
         // ACT
-        Result<PaymentGatewayResponse> result =
+        Result<CreatePaymentAttemptResponse> result =
             await gateway
                 .CreatePaymentAttemptAsync(
                     request, cancellationToken);
@@ -128,6 +134,147 @@ public sealed class StripePaymentGatewayTests
             500L,
             service.LastCreateOptions!
                 .Amount.GetValueOrDefault());
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithThreeDecimalCurrency_ShouldUseThousandths()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        var service =
+            new StubPaymentIntentService
+            {
+                CreateResult =
+                    new PaymentIntent
+                    {
+                        Id = "pi_kwd",
+                        Status =
+                            "requires_payment_method",
+                        ClientSecret = "pi_test_secret_example"
+                    }
+            };
+
+        var gateway =
+            new StripePaymentGateway(
+                service);
+
+        CreatePaymentAttemptRequest request =
+            CreateRequest(
+                Guid.NewGuid(),
+                12.345m,
+                "KWD",
+                "payment-operation-kwd");
+
+        // Act
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway
+                .CreatePaymentAttemptAsync(
+                    request,
+                    cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            12345L,
+            service.LastCreateOptions!
+                .Amount.GetValueOrDefault());
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithUgx_ShouldUseTwoDecimalMinorUnitRepresentation()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        var service =
+            new StubPaymentIntentService
+            {
+                CreateResult =
+                    new PaymentIntent
+                    {
+                        Id = "pi_ugx",
+                        Status =
+                            "requires_payment_method",
+                        ClientSecret = "pi_test_secret_example"
+                    }
+            };
+
+        var gateway =
+            new StripePaymentGateway(
+                service);
+
+        CreatePaymentAttemptRequest request =
+            CreateRequest(
+                Guid.NewGuid(),
+                5m,
+                "UGX",
+                "payment-operation-ugx");
+
+        // Act
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway
+                .CreatePaymentAttemptAsync(
+                    request,
+                    cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            500L,
+            service.LastCreateOptions!
+                .Amount.GetValueOrDefault());
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WhenClientSecretIsNull_ShouldFail()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var service =
+            new StubPaymentIntentService
+            {
+                CreateResult =
+                    new PaymentIntent
+                    {
+                        Id = "pi_test",
+                        Status =
+                            "requires_payment_method",
+                        ClientSecret = null
+                    }
+            };
+
+        var gateway =
+            new StripePaymentGateway(
+                service);
+
+        CreatePaymentAttemptRequest request =
+            CreateRequest(
+                Guid.NewGuid(),
+                100m,
+                "USD",
+                "payment-operation-001");
+
+        // ACT
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway
+                .CreatePaymentAttemptAsync(
+                    request, cancellationToken);
+
+        // ASSERT
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            PaymentGatewayErrors.ClientSecretMissing,
+            result.Error);
     }
 
     [Fact]
@@ -151,7 +298,7 @@ public sealed class StripePaymentGatewayTests
                 "payment-operation-invalid");
 
         // ACT
-        Result<PaymentGatewayResponse> result =
+        Result<CreatePaymentAttemptResponse> result =
             await gateway
                 .CreatePaymentAttemptAsync(
                     request, cancellationToken);
@@ -192,7 +339,7 @@ public sealed class StripePaymentGatewayTests
                 string.Empty);
 
         // ACT
-        Result<PaymentGatewayResponse> result =
+        Result<CreatePaymentAttemptResponse> result =
             await gateway
                 .CreatePaymentAttemptAsync(
                     request, cancellationToken);
@@ -204,6 +351,49 @@ public sealed class StripePaymentGatewayTests
         Assert.Equal(
             PaymentGatewayErrors
                 .IdempotencyKeyRequired,
+            result.Error);
+
+        Assert.Equal(
+            0,
+            service.CreateInvocationCount);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithFractionalUgx_ShouldFailBeforeCallingStripe()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        var service =
+            new StubPaymentIntentService();
+
+        var gateway =
+            new StripePaymentGateway(
+                service);
+
+        CreatePaymentAttemptRequest request =
+            CreateRequest(
+                Guid.NewGuid(),
+                5.5m,
+                "UGX",
+                "payment-operation-ugx-invalid");
+
+        // Act
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway
+                .CreatePaymentAttemptAsync(
+                    request,
+                    cancellationToken);
+
+        // Assert
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            PaymentGatewayErrors
+                .InvalidAmountPrecision(
+                    "UGX"),
             result.Error);
 
         Assert.Equal(
@@ -440,143 +630,6 @@ public sealed class StripePaymentGatewayTests
             service.CancelInvocationCount);
     }
 
-    [Fact]
-    public async Task CreatePaymentAttemptAsync_WithThreeDecimalCurrency_ShouldUseThousandths()
-    {
-        // Arrange
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
-
-        var service =
-            new StubPaymentIntentService
-            {
-                CreateResult =
-                    new PaymentIntent
-                    {
-                        Id = "pi_kwd",
-                        Status =
-                            "requires_payment_method"
-                    }
-            };
-
-        var gateway =
-            new StripePaymentGateway(
-                service);
-
-        CreatePaymentAttemptRequest request =
-            CreateRequest(
-                Guid.NewGuid(),
-                12.345m,
-                "KWD",
-                "payment-operation-kwd");
-
-        // Act
-        Result<PaymentGatewayResponse> result =
-            await gateway
-                .CreatePaymentAttemptAsync(
-                    request,
-                    cancellationToken);
-
-        // Assert
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            12345L,
-            service.LastCreateOptions!
-                .Amount.GetValueOrDefault());
-    }
-
-    [Fact]
-    public async Task CreatePaymentAttemptAsync_WithUgx_ShouldUseTwoDecimalMinorUnitRepresentation()
-    {
-        // Arrange
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
-
-        var service =
-            new StubPaymentIntentService
-            {
-                CreateResult =
-                    new PaymentIntent
-                    {
-                        Id = "pi_ugx",
-                        Status =
-                            "requires_payment_method"
-                    }
-            };
-
-        var gateway =
-            new StripePaymentGateway(
-                service);
-
-        CreatePaymentAttemptRequest request =
-            CreateRequest(
-                Guid.NewGuid(),
-                5m,
-                "UGX",
-                "payment-operation-ugx");
-
-        // Act
-        Result<PaymentGatewayResponse> result =
-            await gateway
-                .CreatePaymentAttemptAsync(
-                    request,
-                    cancellationToken);
-
-        // Assert
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            500L,
-            service.LastCreateOptions!
-                .Amount.GetValueOrDefault());
-    }
-
-    [Fact]
-    public async Task CreatePaymentAttemptAsync_WithFractionalUgx_ShouldFailBeforeCallingStripe()
-    {
-        // Arrange
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
-
-        var service =
-            new StubPaymentIntentService();
-
-        var gateway =
-            new StripePaymentGateway(
-                service);
-
-        CreatePaymentAttemptRequest request =
-            CreateRequest(
-                Guid.NewGuid(),
-                5.5m,
-                "UGX",
-                "payment-operation-ugx-invalid");
-
-        // Act
-        Result<PaymentGatewayResponse> result =
-            await gateway
-                .CreatePaymentAttemptAsync(
-                    request,
-                    cancellationToken);
-
-        // Assert
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            PaymentGatewayErrors
-                .InvalidAmountPrecision(
-                    "UGX"),
-            result.Error);
-
-        Assert.Equal(
-            0,
-            service.CreateInvocationCount);
-    }
-
     private static CreatePaymentAttemptRequest
         CreateRequest(
             Guid bookingId,
@@ -605,7 +658,8 @@ public sealed class StripePaymentGatewayTests
             new()
             {
                 Id = "pi_create",
-                Status = "requires_payment_method"
+                Status = "requires_payment_method",
+                ClientSecret = "pi_test_secret_example"
             };
 
         public PaymentIntent GetResult { get; set; } =

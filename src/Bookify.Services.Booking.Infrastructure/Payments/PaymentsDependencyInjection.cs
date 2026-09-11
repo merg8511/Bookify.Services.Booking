@@ -9,6 +9,9 @@ namespace Bookify.Services.Booking.Infrastructure.Payments;
 
 public static class PaymentsDependencyInjection
 {
+    private const string StripeWebhookSecretConfigurationKey = "Payments:Stripe:WebhookSecret";
+    private const string StripeWebhookToleranceConfigurationKey = "Payments:Stripe:WebhookToleranceSeconds";
+
     public static IServiceCollection AddPayments(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -27,6 +30,8 @@ public static class PaymentsDependencyInjection
                 $"{PaymentProvider.Stripe}.");
         }
 
+        AddStripeWebhookSignatureVerification(services, configuration);
+
         return provider switch
         {
             PaymentProvider.Fake =>
@@ -38,6 +43,35 @@ public static class PaymentsDependencyInjection
             _ =>
                 throw new InvalidOperationException($"Payment provider '{provider}' is not supported.")
         };
+    }
+
+    private static void AddStripeWebhookSignatureVerification(IServiceCollection services, IConfiguration configuration)
+    {
+        string webhookSecret = configuration[StripeWebhookSecretConfigurationKey]?.Trim() ?? string.Empty;
+        long toleranceSeconds = GetStripeWebhookToleranceSeconds(configuration);
+
+        services.AddSingleton<IStripeWebhookSignatureVerifier>(
+            new StripeWebhookSignatureVerifier(webhookSecret, toleranceSeconds));
+    }
+
+    private static long GetStripeWebhookToleranceSeconds(IConfiguration configuration)
+    {
+        string configuredTolerance = configuration[StripeWebhookToleranceConfigurationKey]?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(configuredTolerance))
+        {
+            return StripeWebhookSignatureVerifier.DefaultToleranceSeconds;
+        }
+
+        if (!long.TryParse(configuredTolerance, out long toleranceSeconds) ||
+            toleranceSeconds <= 0)
+        {
+            throw new InvalidOperationException(
+                $"Configuration '{StripeWebhookToleranceConfigurationKey}' " +
+                $"must contain a positive integer number of seconds.");
+        }
+
+        return toleranceSeconds;
     }
 
     private static IServiceCollection AddFakePaymentGateway(IServiceCollection services)
@@ -52,10 +86,7 @@ public static class PaymentsDependencyInjection
         return services;
     }
 
-    private static IServiceCollection
-        AddStripePaymentGateway(
-            IServiceCollection services,
-            IConfiguration configuration)
+    private static IServiceCollection AddStripePaymentGateway(IServiceCollection services, IConfiguration configuration)
     {
         string secretKey = configuration["Payments:Stripe:SecretKey"]?
             .Trim() ?? string.Empty;

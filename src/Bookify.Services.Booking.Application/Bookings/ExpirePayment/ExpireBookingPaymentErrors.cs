@@ -13,4 +13,10 @@ public static class ExpireBookingPaymentErrors
         Error.NotFound(
             "Booking.NotFound",
             $"The booking with ID '{bookingId}' was not found.");
+
+    public static Error PaymentAlreadySucceeded(Guid bookingId) =>
+        Error.Conflict(
+            "Booking.PaymentAlreadySucceeded",
+            $"Booking '{bookingId}' cannot expire because " +
+            $"its payment has already succeeded.");
 }

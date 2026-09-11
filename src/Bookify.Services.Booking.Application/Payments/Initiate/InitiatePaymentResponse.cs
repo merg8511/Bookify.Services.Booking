@@ -8,4 +8,5 @@ public sealed record InitiatePaymentResponse(
     string ExternalReference,
     PaymentAttemptStatus Status,
     decimal Amount,
-    string Currency);
+    string Currency,
+    string ClientSecret);

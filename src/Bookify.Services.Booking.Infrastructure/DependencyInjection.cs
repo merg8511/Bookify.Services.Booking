@@ -1,10 +1,12 @@
 using Bookify.Services.Booking.Application.Abstractions.Idempotency;
+using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Payments;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
@@ -14,6 +16,7 @@ using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
 using Bookify.Services.Booking.Infrastructure.Persistence.Dapper;
 using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
+using Bookify.Services.Booking.Infrastructure.Persistence.Payments.Webhooks;
 using Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
 using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
 using Bookify.Services.Booking.Infrastructure.Persistence.Transactions;
@@ -102,6 +105,13 @@ public static class DependencyInjection
             EfCoreIdempotencyStore>();
 
         // ==========================================
+        //  Module: Payment Webhooks
+        // ==========================================
+        services.AddScoped<
+            IPaymentWebhookEventStore,
+            EfCorePaymentWebhookEventStore>();
+
+        // ==========================================
         //  Repositories (Write Side / Domain)
         // ==========================================
         services.AddScoped<
@@ -148,5 +158,9 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentRepository,
             PaymentRepository>();
+
+        services.AddScoped<
+            IPaymentReadService,
+            DapperPaymentReadService>();
     }
 }

@@ -43,10 +43,8 @@ internal sealed class IdempotencyMiddleware
         }
 
         if (keyValues.Count != 1 ||
-            string.IsNullOrWhiteSpace(
-                keyValues[0]) ||
-            keyValues[0]!.Length >
-                MaximumKeyLength)
+            string.IsNullOrWhiteSpace(keyValues[0]) ||
+            keyValues[0]!.Length > MaximumKeyLength)
         {
             await WriteProblemAsync(httpContext, IdempotencyHttpErrors.InvalidKey);
             return;
@@ -67,8 +65,7 @@ internal sealed class IdempotencyMiddleware
                 endpoint,
                 requestHash);
 
-        Result<IdempotencyProcessingResult>
-            processingResult =
+        Result<IdempotencyProcessingResult> processingResult =
                 await idempotencyProcessor
                     .BeginAsync(
                         context,
@@ -84,6 +81,12 @@ internal sealed class IdempotencyMiddleware
 
         if (decision.Action == IdempotencyProcessingAction.Replay)
         {
+            if (HasSensitiveResponse(httpContext))
+            {
+                await _next(httpContext);
+                return;
+            }
+
             await ReplayAsync(httpContext, decision);
             return;
         }
@@ -108,22 +111,30 @@ internal sealed class IdempotencyMiddleware
             string? responseBody = GetResponseBody(responseBuffer);
             int statusCode = httpContext.Response.StatusCode;
 
-            if (statusCode == 200 && httpContext.Request.Method == "POST" && responseBody?.Contains("\"id\"", StringComparison.Ordinal) == true)
+            if (statusCode == 200 &&
+                httpContext.Request.Method == "POST" &&
+                responseBody?.Contains("\"id\"",
+                StringComparison.Ordinal) == true)
             {
                 statusCode = 201;
             }
-            else if (statusCode == 200 && responseBody?.Contains("\"status\":409", StringComparison.Ordinal) == true)
+            else if (statusCode == 200 &&
+                responseBody?.Contains("\"status\":409",
+                StringComparison.Ordinal) == true)
             {
                 statusCode = 409;
             }
 
+            string? persistedResponseBody = HasSensitiveResponse(httpContext) ? null : responseBody;
+
             await idempotencyProcessor.CompleteAsync(
                 context,
                 statusCode,
-                responseBody,
+                persistedResponseBody,
                 CancellationToken.None);
 
             responseBuffer.Position = 0;
+
             await responseBuffer.CopyToAsync(originalResponseBody, httpContext.RequestAborted);
         }
         finally
@@ -141,19 +152,22 @@ internal sealed class IdempotencyMiddleware
             is not null;
     }
 
-    private static StringValues GetIdempotencyKeyValues(HttpRequest request)
+    private static bool HasSensitiveResponse(HttpContext httpContext)
     {
-        return request.Headers[
-            HeaderName];
+        return httpContext
+            .GetEndpoint()?
+            .Metadata
+            .GetMetadata<IdempotencySensitiveResponseMetadata>() is not null;
     }
 
-    private static async Task<string>
-        CalculateRequestHashAsync(
-        HttpRequest request,
-        CancellationToken cancellationToken)
+    private static StringValues GetIdempotencyKeyValues(HttpRequest request)
+    {
+        return request.Headers[HeaderName];
+    }
+
+    private static async Task<string> CalculateRequestHashAsync(HttpRequest request, CancellationToken cancellationToken)
     {
         request.EnableBuffering();
-
         request.Body.Position = 0;
 
         byte[] hash = await SHA256.HashDataAsync(request.Body, cancellationToken);
@@ -170,10 +184,7 @@ internal sealed class IdempotencyMiddleware
             throw new InvalidOperationException("Idempotency requires a routed endpoint.");
         }
 
-        string? rawPattern =
-            routeEndpoint
-                .RoutePattern
-                .RawText;
+        string? rawPattern = routeEndpoint.RoutePattern.RawText;
 
         if (string.IsNullOrWhiteSpace(rawPattern))
         {
@@ -182,10 +193,7 @@ internal sealed class IdempotencyMiddleware
                 "a route pattern.");
         }
 
-        string normalized =
-            rawPattern.StartsWith('/')
-                ? rawPattern
-                : $"/{rawPattern}";
+        string normalized = rawPattern.StartsWith('/') ? rawPattern : $"/{rawPattern}";
 
         return normalized;
     }
@@ -200,30 +208,23 @@ internal sealed class IdempotencyMiddleware
         return Encoding.UTF8.GetString(responseBuffer.ToArray());
     }
 
-    private static async Task ReplayAsync(
-        HttpContext httpContext,
-        IdempotencyProcessingResult result)
+    private static async Task ReplayAsync(HttpContext httpContext, IdempotencyProcessingResult result)
     {
-        int statusCode =
-            result.StatusCode ??
+        int statusCode = result.StatusCode ??
             throw new InvalidOperationException(
                 "A replay result must contain " +
                 "an HTTP status code.");
 
-        httpContext.Response.StatusCode =
-            statusCode;
+        httpContext.Response.StatusCode = statusCode;
 
         if (result.ResponseBody is null)
         {
             return;
         }
 
-        httpContext.Response.ContentType =
-            GetReplayContentType(statusCode);
+        httpContext.Response.ContentType = GetReplayContentType(statusCode);
 
-        await httpContext.Response.WriteAsync(
-            result.ResponseBody,
-            httpContext.RequestAborted);
+        await httpContext.Response.WriteAsync(result.ResponseBody, httpContext.RequestAborted);
     }
 
     private static string GetReplayContentType(int statusCode)
@@ -235,8 +236,7 @@ internal sealed class IdempotencyMiddleware
 
     private static async Task WriteProblemAsync(HttpContext httpContext, Error error)
     {
-        ProblemHttpResult problem =
-            error.ToProblem(httpContext);
+        ProblemHttpResult problem = error.ToProblem(httpContext);
 
         await problem.ExecuteAsync(httpContext);
     }

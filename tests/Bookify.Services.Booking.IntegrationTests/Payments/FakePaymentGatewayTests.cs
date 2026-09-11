@@ -21,7 +21,7 @@ public sealed class FakePaymentGatewayTests
             CreateRequest();
 
         // ACT
-        Result<PaymentGatewayResponse> result =
+        Result<CreatePaymentAttemptResponse> result =
             await gateway.CreatePaymentAttemptAsync(
                 request,
                 cancellationToken);
@@ -33,6 +33,9 @@ public sealed class FakePaymentGatewayTests
             "fake_",
             result.Value.ExternalReference,
             StringComparison.Ordinal);
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(result.Value.ClientSecret));
 
         Assert.Equal(
             PaymentGatewayStatus.Pending,
@@ -50,7 +53,7 @@ public sealed class FakePaymentGatewayTests
                 FakePaymentGatewayScenario.Failure);
 
         // ACT
-        Result<PaymentGatewayResponse> result =
+        Result<CreatePaymentAttemptResponse> result =
             await gateway.CreatePaymentAttemptAsync(
                 CreateRequest(), cancellationToken);
 
@@ -73,7 +76,7 @@ public sealed class FakePaymentGatewayTests
                 FakePaymentGatewayScenario.Timeout);
 
         // ACT
-        Result<PaymentGatewayResponse> result =
+        Result<CreatePaymentAttemptResponse> result =
             await gateway.CreatePaymentAttemptAsync(
                 CreateRequest(), cancellationToken);
 
@@ -95,7 +98,7 @@ public sealed class FakePaymentGatewayTests
             new FakePaymentGateway(
                 FakePaymentGatewayScenario.Success);
 
-        Result<PaymentGatewayResponse> createResult =
+        Result<CreatePaymentAttemptResponse> createResult =
             await gateway.CreatePaymentAttemptAsync(
                 CreateRequest(), cancellationToken);
 
@@ -155,7 +158,7 @@ public sealed class FakePaymentGatewayTests
             new FakePaymentGateway(
                 FakePaymentGatewayScenario.Success);
 
-        Result<PaymentGatewayResponse> createResult =
+        Result<CreatePaymentAttemptResponse> createResult =
             await gateway.CreatePaymentAttemptAsync(
                 CreateRequest(), cancellationToken);
 
@@ -200,7 +203,7 @@ public sealed class FakePaymentGatewayTests
             new FakePaymentGateway(
                 FakePaymentGatewayScenario.Success);
 
-        Result<PaymentGatewayResponse> createResult =
+        Result<CreatePaymentAttemptResponse> createResult =
             await gateway.CreatePaymentAttemptAsync(
                 CreateRequest(), cancellationToken);
 
@@ -242,11 +245,11 @@ public sealed class FakePaymentGatewayTests
                 FakePaymentGatewayScenario.Success);
 
         // ACT
-        Result<PaymentGatewayResponse> firstResult =
+        Result<CreatePaymentAttemptResponse> firstResult =
             await gateway.CreatePaymentAttemptAsync(
                 CreateRequest(), cancellationToken);
 
-        Result<PaymentGatewayResponse> secondResult =
+        Result<CreatePaymentAttemptResponse> secondResult =
             await gateway.CreatePaymentAttemptAsync(
                 CreateRequest(), cancellationToken);
 
@@ -263,7 +266,7 @@ public sealed class FakePaymentGatewayTests
     }
 
     [Fact]
-    public async Task CreatePaymentAttemptAsync_WithSameIdempotencyKey_ShouldReturnSameExternalReference()
+    public async Task CreatePaymentAttemptAsync_WithSameIdempotencyKey_ShouldReturnSameExternalReferenceAndClientSecret()
     {
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
@@ -291,13 +294,13 @@ public sealed class FakePaymentGatewayTests
                 idempotencyKey);
 
         // ACT
-        Result<PaymentGatewayResponse>
+        Result<CreatePaymentAttemptResponse>
             firstResult =
                 await gateway
                     .CreatePaymentAttemptAsync(
                         request, cancellationToken);
 
-        Result<PaymentGatewayResponse>
+        Result<CreatePaymentAttemptResponse>
             secondResult =
                 await gateway
                     .CreatePaymentAttemptAsync(
@@ -313,6 +316,10 @@ public sealed class FakePaymentGatewayTests
         Assert.Equal(
             firstResult.Value.ExternalReference,
             secondResult.Value.ExternalReference);
+
+        Assert.Equal(
+            firstResult.Value.ClientSecret,
+            secondResult.Value.ClientSecret);
     }
 
     private static CreatePaymentAttemptRequest

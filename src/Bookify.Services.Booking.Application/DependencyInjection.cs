@@ -7,13 +7,16 @@ using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Application.Bookings.Complete;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
-using Bookify.Services.Booking.Application.Bookings.MarkAsPaid;
 using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.DomainEvents;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
+using Bookify.Services.Booking.Application.Payments.Cancellation;
+using Bookify.Services.Booking.Application.Payments.GetStatus;
 using Bookify.Services.Booking.Application.Payments.Initiate;
+using Bookify.Services.Booking.Application.Payments.ReadModels;
+using Bookify.Services.Booking.Application.Payments.Webhooks.Stripe;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Application.Properties.GetPaged;
@@ -99,14 +102,6 @@ public static class DependencyInjection
             RejectBookingCommandHandler>();
 
         services.AddScoped<
-            IRequestValidator<MarkBookingAsPaidCommand>,
-            MarkBookingAsPaidCommandValidator>();
-
-        services.AddScoped<
-            ICommandHandler<MarkBookingAsPaidCommand>,
-            MarkBookingAsPaidCommandHandler>();
-
-        services.AddScoped<
             IRequestValidator<ExpireBookingPaymentCommand>,
             ExpireBookingPaymentCommandValidator>();
 
@@ -153,15 +148,31 @@ public static class DependencyInjection
         // ==========================================
         //  Module: Payments
         // ==========================================
+        services.AddScoped<PaymentCancellationCoordinator>();
+
         services.AddScoped<
             IRequestValidator<InitiatePaymentCommand>,
             InitiatePaymentCommandValidator>();
 
         services.AddScoped<
-            ICommandHandler<
-                InitiatePaymentCommand,
-                InitiatePaymentResponse>,
+            ICommandHandler<InitiatePaymentCommand, InitiatePaymentResponse>,
             InitiatePaymentCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetPaymentStatusQuery>,
+            GetPaymentStatusQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetPaymentStatusQuery, PaymentStatusReadModel>,
+            GetPaymentStatusQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<ProcessStripeWebhookCommand>,
+            ProcessStripeWebhookCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<ProcessStripeWebhookCommand>,
+            ProcessStripeWebhookCommandHandler>();
 
         return services;
     }

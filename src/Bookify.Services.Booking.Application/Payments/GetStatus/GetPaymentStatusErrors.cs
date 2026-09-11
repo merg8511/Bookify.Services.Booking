@@ -1,8 +1,8 @@
 using Bookify.Services.Booking.Domain.Shared;
 
-namespace Bookify.Services.Booking.Application.Bookings.MarkAsPaid;
+namespace Bookify.Services.Booking.Application.Payments.GetStatus;
 
-public static class MarkBookingAsPaidErrors
+public static class GetPaymentStatusErrors
 {
     public static readonly Error InvalidBookingId =
         Error.Validation(

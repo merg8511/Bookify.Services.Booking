@@ -14,14 +14,13 @@ public sealed class StripePaymentGateway : IPaymentGateway
 {
     private readonly StripePaymentIntentService _paymentIntentService;
 
-    public StripePaymentGateway(
-        StripePaymentIntentService paymentIntentService)
+    public StripePaymentGateway(StripePaymentIntentService paymentIntentService)
     {
-        _paymentIntentService =
-            paymentIntentService ?? throw new ArgumentNullException(nameof(paymentIntentService));
+        _paymentIntentService = paymentIntentService ??
+            throw new ArgumentNullException(nameof(paymentIntentService));
     }
 
-    public async Task<Result<PaymentGatewayResponse>> CreatePaymentAttemptAsync(
+    public async Task<Result<CreatePaymentAttemptResponse>> CreatePaymentAttemptAsync(
         CreatePaymentAttemptRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -33,7 +32,7 @@ public sealed class StripePaymentGateway : IPaymentGateway
 
         if (string.IsNullOrWhiteSpace(idempotencyKey))
         {
-            return Result<PaymentGatewayResponse>
+            return Result<CreatePaymentAttemptResponse>
                 .Failure(
                     PaymentGatewayErrors
                         .IdempotencyKeyRequired);
@@ -44,7 +43,7 @@ public sealed class StripePaymentGateway : IPaymentGateway
 
         if (amountResult.IsFailure)
         {
-            return Result<PaymentGatewayResponse>
+            return Result<CreatePaymentAttemptResponse>
                 .Failure(amountResult.Error);
         }
 
@@ -76,17 +75,16 @@ public sealed class StripePaymentGateway : IPaymentGateway
                         requestOptions,
                         cancellationToken);
 
-            return MapPaymentIntent(paymentIntent);
+            return MapCreatedPaymentIntent(paymentIntent);
         }
-        catch (OperationCanceledException) when (!cancellationToken
-                .IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return Result<PaymentGatewayResponse>
+            return Result<CreatePaymentAttemptResponse>
                 .Failure(PaymentGatewayErrors.ProviderTimeout);
         }
         catch (StripeException exception)
         {
-            return Result<PaymentGatewayResponse>
+            return Result<CreatePaymentAttemptResponse>
                 .Failure(MapStripeException(exception));
         }
     }
@@ -187,6 +185,33 @@ public sealed class StripePaymentGateway : IPaymentGateway
                 .Failure(
                     MapStripeException(exception, normalizedExternalReference));
         }
+    }
+
+    private static Result<CreatePaymentAttemptResponse>
+        MapCreatedPaymentIntent(StripePaymentIntent paymentIntent)
+    {
+        Result<PaymentGatewayResponse> paymentResult = MapPaymentIntent(paymentIntent);
+
+        if (paymentResult.IsFailure)
+        {
+            return Result<CreatePaymentAttemptResponse>
+                .Failure(paymentResult.Error);
+        }
+
+        if (string.IsNullOrWhiteSpace(paymentIntent.ClientSecret))
+        {
+            return Result<CreatePaymentAttemptResponse>
+                .Failure(PaymentGatewayErrors.ClientSecretMissing);
+        }
+
+        PaymentGatewayResponse payment = paymentResult.Value;
+
+        return Result<CreatePaymentAttemptResponse>
+            .Success(
+                new CreatePaymentAttemptResponse(
+                    payment.ExternalReference,
+                    payment.Status,
+                    paymentIntent.ClientSecret));
     }
 
     private static Result<PaymentGatewayResponse> MapPaymentIntent
