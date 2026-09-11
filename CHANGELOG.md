@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.8.0...v0.9.0) (2026-09-11)
+
+
+### Features
+
+* **payments:** complete payment lifecycle and webhook reconciliation ([#36](https://github.com/merg8511/Bookify.Services.Booking/issues/36)) ([255182f](https://github.com/merg8511/Bookify.Services.Booking/commit/255182f95b4e67886256408e546144e1f6b55022))
+
 ## [0.8.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.7.0...v0.8.0) (2026-08-27)
 
 
