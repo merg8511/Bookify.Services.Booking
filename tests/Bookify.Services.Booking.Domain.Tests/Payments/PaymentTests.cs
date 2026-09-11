@@ -155,9 +155,17 @@ public sealed class PaymentTests
             "external-001",
             attempt.ExternalReference);
 
-        Assert.Same(
+        Assert.NotSame(
             payment.Amount,
             attempt.Amount);
+
+        Assert.Equal(
+            payment.Amount.Amount,
+            attempt.Amount.Amount);
+
+        Assert.Equal(
+            payment.Amount.Currency,
+            attempt.Amount.Currency);
 
         Assert.Equal(
             PaymentAttemptStatus.Pending,
@@ -800,6 +808,76 @@ public sealed class PaymentTests
         Assert.Equal(
             succeededAtUtc,
             attemptResult.Value.CompletedAtUtc);
+    }
+
+    [Fact]
+    public void AddAttempt_AfterFailedAttempt_ShouldCreateIndependentAmountSnapshots()
+    {
+        // Arrange
+        Payment payment =
+            CreatePayment();
+
+        Result<PaymentAttempt> firstAttemptResult =
+            payment.AddAttempt(
+                "payment-operation-first",
+                "external-first",
+                CreatedAtUtc.AddMinutes(1));
+
+        Assert.True(
+            firstAttemptResult.IsSuccess);
+
+        Result failedResult =
+            payment.MarkAttemptAsFailed(
+                firstAttemptResult.Value.ExternalReference,
+                CreatedAtUtc.AddMinutes(2));
+
+        Assert.True(
+            failedResult.IsSuccess);
+
+        // Act
+        Result<PaymentAttempt> secondAttemptResult =
+            payment.AddAttempt(
+                "payment-operation-second",
+                "external-second",
+                CreatedAtUtc.AddMinutes(3));
+
+        // Assert
+        Assert.True(
+            secondAttemptResult.IsSuccess);
+
+        PaymentAttempt firstAttempt =
+            firstAttemptResult.Value;
+
+        PaymentAttempt secondAttempt =
+            secondAttemptResult.Value;
+
+        Assert.NotSame(
+            payment.Amount,
+            firstAttempt.Amount);
+
+        Assert.NotSame(
+            payment.Amount,
+            secondAttempt.Amount);
+
+        Assert.NotSame(
+            firstAttempt.Amount,
+            secondAttempt.Amount);
+
+        Assert.Equal(
+            payment.Amount.Amount,
+            firstAttempt.Amount.Amount);
+
+        Assert.Equal(
+            payment.Amount.Amount,
+            secondAttempt.Amount.Amount);
+
+        Assert.Equal(
+            payment.Amount.Currency,
+            firstAttempt.Amount.Currency);
+
+        Assert.Equal(
+            payment.Amount.Currency,
+            secondAttempt.Amount.Currency);
     }
 
     private static Payment CreatePayment()

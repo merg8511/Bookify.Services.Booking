@@ -120,13 +120,19 @@ public sealed class Payment
                 PaymentErrors.AttemptBeforePaymentCreation);
         }
 
-        Result<PaymentAttempt> attemptResult =
-            PaymentAttempt.Create(
-                Id,
-                normalizedIdempotencyKey,
-                normalizedExternalReference,
-                Amount,
-                createdAtUtc);
+        Result<Money> attemptAmountResult = Money.Create(Amount.Amount, Amount.Currency);
+
+        if (attemptAmountResult.IsFailure)
+        {
+            return Result<PaymentAttempt>.Failure(attemptAmountResult.Error);
+        }
+
+        Result<PaymentAttempt> attemptResult = PaymentAttempt.Create(
+            Id,
+            normalizedIdempotencyKey,
+            normalizedExternalReference,
+            attemptAmountResult.Value,
+            createdAtUtc);
 
         if (attemptResult.IsFailure)
         {
