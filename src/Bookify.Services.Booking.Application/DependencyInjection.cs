@@ -14,7 +14,9 @@ using Bookify.Services.Booking.Application.DomainEvents;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
+using Bookify.Services.Booking.Application.Payments.GetStatus;
 using Bookify.Services.Booking.Application.Payments.Initiate;
+using Bookify.Services.Booking.Application.Payments.ReadModels;
 using Bookify.Services.Booking.Application.Payments.Webhooks.Stripe;
 using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
@@ -164,6 +166,14 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<InitiatePaymentCommand, InitiatePaymentResponse>,
             InitiatePaymentCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetPaymentStatusQuery>,
+            GetPaymentStatusQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetPaymentStatusQuery, PaymentStatusReadModel>,
+            GetPaymentStatusQueryHandler>();
 
         services.AddScoped<
             IRequestValidator<ProcessStripeWebhookCommand>,

@@ -6,6 +6,7 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Payments;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
@@ -157,5 +158,9 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentRepository,
             PaymentRepository>();
+
+        services.AddScoped<
+            IPaymentReadService,
+            DapperPaymentReadService>();
     }
 }
