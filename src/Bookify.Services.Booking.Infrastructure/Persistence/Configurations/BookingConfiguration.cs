@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -132,6 +133,49 @@ internal sealed class BookingConfiguration
                         "guest_count")
                     .IsRequired();
             });
+
+        builder.OwnsOne(
+            booking => booking.GuestDetails,
+            guestDetailsBuilder =>
+            {
+                guestDetailsBuilder.ToTable("booking_guest_details");
+
+                guestDetailsBuilder
+                    .Property<Guid>("BookingId")
+                    .HasColumnName("booking_id")
+                    .HasColumnType("uuid");
+
+                guestDetailsBuilder
+                    .HasKey("BookingId")
+                    .HasName("pk_booking_guest_details");
+
+                guestDetailsBuilder
+                    .WithOwner()
+                    .HasForeignKey("BookingId")
+                    .HasConstraintName("fk_booking_guest_details_bookings_booking_id");
+
+                guestDetailsBuilder
+                    .Property(guestDetails => guestDetails.FullName)
+                    .HasColumnName("full_name")
+                    .HasMaxLength(GuestDetails.MaxFullNameLength)
+                    .IsRequired();
+
+                guestDetailsBuilder
+                    .Property(guestDetails => guestDetails.Email)
+                    .HasColumnName("email")
+                    .HasMaxLength(GuestDetails.MaxEmailLength)
+                    .IsRequired();
+
+                guestDetailsBuilder
+                    .Property(guestDetails => guestDetails.Phone)
+                    .HasColumnName("phone")
+                    .HasMaxLength(GuestDetails.MaxPhoneDigits + 1)
+                    .IsRequired();
+            });
+
+        builder
+            .Navigation(booking => booking.GuestDetails)
+            .IsRequired(false);
 
         builder.OwnsOne(
             booking =>

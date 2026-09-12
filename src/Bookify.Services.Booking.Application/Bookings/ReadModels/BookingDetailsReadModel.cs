@@ -11,6 +11,9 @@ public sealed class BookingDetailsReadModel
     public DateOnly CheckOutDate { get; set; }
     public int NumberOfNights { get; set; }
     public int GuestCount { get; set; }
+    public string? GuestFullName { get; set; }
+    public string? GuestEmail { get; set; }
+    public string? GuestPhone { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? CancellationReason { get; set; }
     public bool BlocksInventory { get; set; }

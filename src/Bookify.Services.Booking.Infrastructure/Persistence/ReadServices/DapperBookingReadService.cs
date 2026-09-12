@@ -23,6 +23,9 @@ internal sealed class DapperBookingReadService : IBookingReadService
                 b.check_in_date
             ) AS "NumberOfNights",
             b.guest_count AS "GuestCount",
+            bgd.full_name AS "GuestFullName",
+            bgd.email AS "GuestEmail",
+            bgd.phone AS "GuestPhone",
             b.status AS "Status",
             b.cancellation_reason AS "CancellationReason",
             (
@@ -37,6 +40,8 @@ internal sealed class DapperBookingReadService : IBookingReadService
         FROM bookings AS b
         INNER JOIN rentable_units AS ru
             ON ru.id = b.rentable_unit_id
+        LEFT JOIN booking_guest_details AS bgd
+            ON bgd.booking_id = b.id
         WHERE b.id = @BookingId;
         """;
 
