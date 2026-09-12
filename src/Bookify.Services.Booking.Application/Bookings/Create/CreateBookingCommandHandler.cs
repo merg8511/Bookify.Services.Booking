@@ -81,8 +81,19 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                 guestCountResult.Error);
         }
 
+        Result<GuestDetails> guestDetailsResult = GuestDetails.Create(
+            command.GuestFullName,
+            command.GuestEmail,
+            command.GuestPhone);
+
+        if (guestDetailsResult.IsFailure)
+        {
+            return Result<CreateBookingResult>.Failure(guestDetailsResult.Error);
+        }
+
         StayPeriod stayPeriod = stayPeriodResult.Value;
         GuestCount guestCount = guestCountResult.Value;
+        GuestDetails guestDetails = guestDetailsResult.Value;
 
         await using ITransaction transaction =
             await _transactionManager.BeginAsync(cancellationToken);
@@ -106,9 +117,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
             Property? property =
                 await _propertyRepository
-                    .GetByIdAsync(
-                        command.PropertyId,
-                        cancellationToken);
+                    .GetByIdAsync(command.PropertyId, cancellationToken);
 
             if (property is null)
             {
@@ -131,9 +140,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
             RentableUnit? rentableUnit =
                 await _rentableUnitRepository
-                    .GetByIdAsync(
-                        command.RentableUnitId,
-                        cancellationToken);
+                    .GetByIdAsync(command.RentableUnitId, cancellationToken);
 
             if (rentableUnit is null)
             {
@@ -184,14 +191,14 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                     cancellationToken);
             }
 
-            PriceSnapshot priceSnapshot =
-                    PriceSnapshot.Create(priceResult.Value);
+            PriceSnapshot priceSnapshot = PriceSnapshot.Create(priceResult.Value);
 
             Result<DomainBooking> bookingResult =
                 DomainBooking.Create(
                     rentableUnit,
                     stayPeriod,
                     guestCount,
+                    guestDetails,
                     priceSnapshot);
 
             if (bookingResult.IsFailure)

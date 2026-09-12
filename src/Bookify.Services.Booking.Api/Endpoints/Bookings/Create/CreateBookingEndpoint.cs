@@ -13,11 +13,8 @@ internal static class CreateBookingEndpoint
     public static void Map(RouteGroupBuilder bookingsGroup)
     {
         bookingsGroup
-            .MapPost(
-                "/",
-                HandleAsync)
-            .WithName(
-                EndpointNames.Bookings.Create)
+            .MapPost("/", HandleAsync)
+            .WithName(EndpointNames.Bookings.Create)
             .WithSummary("Creates a new booking.")
             .WithMetadata(IdempotencyRequiredMetadata.Instance)
             .Accepts<CreateBookingRequest>("application/json")
@@ -29,16 +26,15 @@ internal static class CreateBookingEndpoint
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
-    private static async Task<
-        Results<
-            Created<CreateBookingResponse>,
-            ProblemHttpResult>> HandleAsync(
-        CreateBookingRequest request,
-        ICommandExecutor<
-            CreateBookingCommand,
-            CreateBookingResult> commandExecutor,
-        HttpContext httpContext,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Created<
+        CreateBookingResponse>,
+        ProblemHttpResult>> HandleAsync(
+            CreateBookingRequest request,
+            ICommandExecutor<
+                CreateBookingCommand,
+                CreateBookingResult> commandExecutor,
+            HttpContext httpContext,
+            CancellationToken cancellationToken)
     {
         var command =
             new CreateBookingCommand(
@@ -46,7 +42,10 @@ internal static class CreateBookingEndpoint
                 request.RentableUnitId,
                 request.CheckInDate,
                 request.CheckOutDate,
-                request.GuestCount);
+                request.GuestCount,
+                request.Guest?.FullName,
+                request.Guest?.Email,
+                request.Guest?.Phone);
 
         Result<CreateBookingResult> result = await commandExecutor.ExecuteAsync(command, cancellationToken);
 
@@ -54,25 +53,20 @@ internal static class CreateBookingEndpoint
             httpContext,
             booking =>
             {
-                var price =
-                    new CreateBookingPriceResponse(
-                        booking.AccommodationPrice,
-                        booking.ExtraGuestPrice,
-                        booking.TotalPrice,
-                        booking.Currency);
+                var price = new CreateBookingPriceResponse(
+                    booking.AccommodationPrice,
+                    booking.ExtraGuestPrice,
+                    booking.TotalPrice,
+                    booking.Currency);
 
-                var response =
-                    new CreateBookingResponse(
-                        booking.Id,
-                        booking.Status.ToString(),
-                        price);
+                var response = new CreateBookingResponse(
+                    booking.Id,
+                    booking.Status.ToString(),
+                    price);
 
-                string location = BookingsEndpoints
-                                    .GetResourceLocation(booking.Id);
+                string location = BookingsEndpoints.GetResourceLocation(booking.Id);
 
-                return TypedResults.Created(
-                    location,
-                    response);
+                return TypedResults.Created(location, response);
             });
     }
 }

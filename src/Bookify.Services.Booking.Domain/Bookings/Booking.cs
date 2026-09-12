@@ -23,6 +23,7 @@ public sealed class Booking : AggregateRoot
         Guid rentableUnitId,
         StayPeriod stayPeriod,
         GuestCount guestCount,
+        GuestDetails guestDetails,
         PriceSnapshot? priceSnapshot,
         BookingStatus status)
     {
@@ -31,6 +32,7 @@ public sealed class Booking : AggregateRoot
         RentableUnitId = rentableUnitId;
         StayPeriod = stayPeriod;
         GuestCount = guestCount;
+        GuestDetails = guestDetails;
         PriceSnapshot = priceSnapshot;
         Status = status;
     }
@@ -40,6 +42,7 @@ public sealed class Booking : AggregateRoot
     public Guid RentableUnitId { get; private set; }
     public StayPeriod StayPeriod { get; private set; }
     public GuestCount GuestCount { get; private set; }
+    public GuestDetails? GuestDetails { get; private set; }
     public PriceSnapshot? PriceSnapshot { get; private set; }
     public BookingStatus Status { get; private set; }
     public BookingCancellationReason? CancellationReason { get; private set; }
@@ -53,12 +56,14 @@ public sealed class Booking : AggregateRoot
     public static Result<Booking> Create(
         RentableUnit rentableUnit,
         StayPeriod stayPeriod,
-        GuestCount guestCount)
+        GuestCount guestCount,
+        GuestDetails guestDetails)
     {
         return CreateInternal(
             rentableUnit,
             stayPeriod,
             guestCount,
+            guestDetails,
             priceSnapshot: null);
     }
 
@@ -66,6 +71,7 @@ public sealed class Booking : AggregateRoot
         RentableUnit rentableUnit,
         StayPeriod stayPeriod,
         GuestCount guestCount,
+        GuestDetails guestDetails,
         PriceSnapshot priceSnapshot)
     {
         ArgumentNullException.ThrowIfNull(priceSnapshot);
@@ -74,6 +80,7 @@ public sealed class Booking : AggregateRoot
             rentableUnit,
             stayPeriod,
             guestCount,
+            guestDetails,
             priceSnapshot);
     }
 
@@ -88,8 +95,7 @@ public sealed class Booking : AggregateRoot
             return result;
         }
 
-        RaiseDomainEvent(
-            new BookingApprovedDomainEvent(Id));
+        RaiseDomainEvent(new BookingApprovedDomainEvent(Id));
 
         return Result.Success();
     }
@@ -157,11 +163,13 @@ public sealed class Booking : AggregateRoot
         RentableUnit rentableUnit,
         StayPeriod stayPeriod,
         GuestCount guestCount,
+        GuestDetails guestDetails,
         PriceSnapshot? priceSnapshot)
     {
         ArgumentNullException.ThrowIfNull(rentableUnit);
         ArgumentNullException.ThrowIfNull(stayPeriod);
         ArgumentNullException.ThrowIfNull(guestCount);
+        ArgumentNullException.ThrowIfNull(guestDetails);
 
         if (!rentableUnit.IsActive)
         {
@@ -181,6 +189,7 @@ public sealed class Booking : AggregateRoot
             rentableUnit.Id,
             stayPeriod,
             guestCount,
+            guestDetails,
             priceSnapshot,
             BookingStatus.PendingApproval);
 
