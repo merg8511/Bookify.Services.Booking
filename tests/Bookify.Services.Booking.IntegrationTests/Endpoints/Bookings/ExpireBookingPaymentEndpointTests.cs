@@ -270,7 +270,7 @@ public sealed class ExpireBookingPaymentEndpointTests
             DomainBooking.Create(
                     rentableUnit,
                     stayPeriod,
-                    GuestCount.Create(2).Value)
+                    GuestCount.Create(2).Value, GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value)
                 .Value;
 
         Result approvalResult =

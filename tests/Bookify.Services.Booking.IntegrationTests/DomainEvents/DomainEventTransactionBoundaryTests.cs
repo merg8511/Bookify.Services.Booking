@@ -303,7 +303,11 @@ public sealed class DomainEventTransactionBoundaryTests
             DomainBooking.Create(
                 rentableUnit,
                 stayPeriodResult.Value,
-                guestCountResult.Value);
+                guestCountResult.Value,
+                GuestDetails.Create(
+                "John Doe",
+                "john@example.com",
+                "+50377778888").Value);
 
         Assert.True(
             bookingResult.IsSuccess);

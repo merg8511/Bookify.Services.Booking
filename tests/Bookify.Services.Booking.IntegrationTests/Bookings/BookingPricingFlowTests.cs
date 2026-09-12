@@ -41,7 +41,12 @@ public sealed class BookingPricingFlowTests
                 data.RentableUnitId,
                 CheckInDate(),
                 CheckOutDate(),
-                GuestCount: 4);
+                GuestCount: 4,
+                new CreateBookingGuestRequest(
+                    "John Doe",
+                    "john@example.com",
+                    "+50377778888")
+               );
 
         // ACT
         HttpResponseMessage response =
@@ -170,7 +175,11 @@ public sealed class BookingPricingFlowTests
                 data.RentableUnitId,
                 CheckInDate(),
                 CheckOutDate(),
-                GuestCount: 4);
+                GuestCount: 4,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         HttpResponseMessage response =
             await PostBookingAsync(

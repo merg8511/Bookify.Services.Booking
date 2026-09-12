@@ -119,7 +119,10 @@ public sealed class CreateBookingPersistenceTests
                         2026,
                         8,
                         15),
-                    GuestCount: 2);
+                    GuestCount: 2,
+                    GuestFullName: "John Doe",
+                    GuestEmail: "john@example.com",
+                    GuestPhone: "+50377778888");
 
             // ACT
             creationResult = await executor.ExecuteAsync(command, cancellationToken);

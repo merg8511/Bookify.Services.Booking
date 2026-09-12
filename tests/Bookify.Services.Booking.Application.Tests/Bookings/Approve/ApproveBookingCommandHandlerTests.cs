@@ -203,7 +203,8 @@ public sealed class ApproveBookingCommandHandlerTests
         return DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                GuestCount.Create(2).Value)
+                GuestCount.Create(2).Value,
+               CreateGuestDetails())
             .Value;
     }
 
@@ -260,5 +261,13 @@ public sealed class ApproveBookingCommandHandlerTests
 
             return Task.CompletedTask;
         }
+    }
+
+    private static GuestDetails CreateGuestDetails()
+    {
+        return GuestDetails.Create(
+            "John Doe",
+            "john@example.com",
+            "+50377778888").Value;
     }
 }

@@ -506,7 +506,7 @@ public sealed class CancelBookingEndpointTests
                 stayPeriod,
                 GuestCount.Create(
                     2)
-                .Value)
+                .Value, GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value)
             .Value;
 
         if (targetStatus is

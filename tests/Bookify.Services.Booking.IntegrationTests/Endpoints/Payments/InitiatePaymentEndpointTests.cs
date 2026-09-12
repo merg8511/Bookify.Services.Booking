@@ -780,6 +780,10 @@ public sealed class InitiatePaymentEndpointTests
                 rentableUnit,
                 stayPeriod,
                 guestCount,
+                GuestDetails.Create(
+    "John Doe",
+    "john@example.com",
+    "+50377778888").Value,
                 priceSnapshot);
 
         Assert.True(

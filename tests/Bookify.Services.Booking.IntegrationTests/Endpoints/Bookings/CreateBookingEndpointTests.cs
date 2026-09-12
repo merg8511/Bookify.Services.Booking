@@ -40,7 +40,11 @@ public sealed class CreateBookingEndpointTests
                 data.RentableUnitId,
                 Date(10),
                 Date(15),
-                GuestCount: 2);
+                GuestCount: 2,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         // ACT
         HttpResponseMessage response = await PostBookingAsync(request, cancellationToken);
@@ -192,7 +196,11 @@ public sealed class CreateBookingEndpointTests
                 data.RentableUnitId,
                 Date(10),
                 Date(15),
-                GuestCount: 0);
+                GuestCount: 0,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         // ACT
         HttpResponseMessage response = await PostBookingAsync(request, TestContext.Current.CancellationToken);
@@ -222,7 +230,11 @@ public sealed class CreateBookingEndpointTests
                 Guid.NewGuid(),
                 Date(10),
                 Date(15),
-                GuestCount: 2);
+                GuestCount: 2,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         // ACT
         HttpResponseMessage response = await PostBookingAsync(request, TestContext.Current.CancellationToken);
@@ -256,7 +268,11 @@ public sealed class CreateBookingEndpointTests
                 data.RentableUnitId,
                 Date(10),
                 Date(15),
-                GuestCount: 2);
+                GuestCount: 2,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         HttpResponseMessage firstResponse = await PostBookingAsync(request, cancellationToken);
 

@@ -34,7 +34,8 @@ public sealed class BookingDomainEventTests
             DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                guestCount);
+                guestCount,
+                CreateGuestDetails());
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -412,7 +413,8 @@ public sealed class BookingDomainEventTests
             DomainBooking.Create(
                 CreateRentableUnit(),
                 CreateStayPeriod(),
-                GuestCount.Create(2).Value);
+                GuestCount.Create(2).Value,
+                CreateGuestDetails());
 
         Assert.True(result.IsSuccess);
 
@@ -444,5 +446,13 @@ public sealed class BookingDomainEventTests
         Assert.True(result.IsSuccess);
 
         return result.Value;
+    }
+
+    private static GuestDetails CreateGuestDetails()
+    {
+        return GuestDetails.Create(
+            "John Doe",
+            "john@example.com",
+            "+50377778888").Value;
     }
 }

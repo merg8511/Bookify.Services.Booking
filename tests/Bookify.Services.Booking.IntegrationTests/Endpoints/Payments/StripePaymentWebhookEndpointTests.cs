@@ -578,7 +578,7 @@ public sealed class StripePaymentWebhookEndpointTests
                 stayPeriod,
                 GuestCount.Create(
                     2)
-                .Value)
+                .Value, GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value)
             .Value;
 
         Assert.True(

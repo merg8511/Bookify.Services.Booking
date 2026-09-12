@@ -55,7 +55,10 @@ public sealed class IdempotencyEndpointTests
                 data.RoomAId,
                 Date(10),
                 Date(15),
-                GuestCount: 2);
+                GuestCount: 2, new CreateBookingGuestRequest(
+    "John Doe",
+    "john@example.com",
+    "+50377778888"));
 
         string requestBody = Serialize(request);
 
@@ -188,7 +191,10 @@ public sealed class IdempotencyEndpointTests
                 data.RoomAId,
                 Date(10),
                 Date(15),
-                GuestCount: 2);
+                GuestCount: 2, new CreateBookingGuestRequest(
+    "John Doe",
+    "john@example.com",
+    "+50377778888"));
 
         var secondRequest =
             new CreateBookingRequest(
@@ -196,7 +202,10 @@ public sealed class IdempotencyEndpointTests
                 roomBId,
                 Date(10),
                 Date(15),
-                GuestCount: 2);
+                GuestCount: 2, new CreateBookingGuestRequest(
+    "John Doe",
+    "john@example.com",
+    "+50377778888"));
 
         // Act
         HttpAttempt first =
@@ -295,7 +304,10 @@ public sealed class IdempotencyEndpointTests
                 data.RoomAId,
                 Date(16),
                 Date(20),
-                GuestCount: 2);
+                GuestCount: 2, new CreateBookingGuestRequest(
+    "John Doe",
+    "john@example.com",
+    "+50377778888"));
 
         string requestBody = Serialize(request);
         string key = NewKey();
@@ -473,7 +485,10 @@ public sealed class IdempotencyEndpointTests
                 data.RoomAId,
                 Date(21),
                 Date(26),
-                GuestCount: 2);
+                GuestCount: 2, new CreateBookingGuestRequest(
+    "John Doe",
+    "john@example.com",
+    "+50377778888"));
 
         HttpAttempt blockingResponse =
             await SendBookingAsync(
@@ -495,7 +510,10 @@ public sealed class IdempotencyEndpointTests
                 data.RoomAId,
                 Date(22),
                 Date(25),
-                GuestCount: 2);
+                GuestCount: 2, new CreateBookingGuestRequest(
+    "John Doe",
+    "john@example.com",
+    "+50377778888"));
 
         string requestBody = Serialize(conflictingRequest);
 

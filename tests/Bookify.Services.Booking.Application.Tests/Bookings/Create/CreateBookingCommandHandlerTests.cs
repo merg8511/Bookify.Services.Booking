@@ -750,7 +750,10 @@ public sealed class CreateBookingCommandHandlerTests
                 rentableUnit.Id,
                 Date(10),
                 Date(11),
-                GuestCount: 1);
+                GuestCount: 1,
+                GuestFullName: "John Doe",
+                GuestEmail: "john@example.com",
+                GuestPhone: "+50377778888");
 
         // ACT
         Result<CreateBookingResult> result =
@@ -798,7 +801,10 @@ public sealed class CreateBookingCommandHandlerTests
             rentableUnitId,
             Date(10),
             Date(15),
-            guestCount);
+            guestCount,
+            GuestFullName: "John Doe",
+            GuestEmail: "john@example.com",
+            GuestPhone: "+50377778888");
     }
 
     private static Property CreateProperty()

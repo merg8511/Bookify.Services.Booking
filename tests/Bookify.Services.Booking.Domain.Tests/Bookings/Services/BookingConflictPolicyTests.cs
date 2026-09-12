@@ -71,7 +71,8 @@ public sealed class BookingConflictPolicyTests
         var existingBooking = DomainBooking.Create(
             room,
             existingPeriod,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         existingBooking.Reject();
@@ -109,7 +110,8 @@ public sealed class BookingConflictPolicyTests
         var existingBooking = DomainBooking.Create(
             room,
             existingPeriod,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         // ACT
@@ -150,7 +152,8 @@ public sealed class BookingConflictPolicyTests
         var existingBooking = DomainBooking.Create(
             firstRoom,
             existingPeriod,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         // ACT
@@ -191,7 +194,8 @@ public sealed class BookingConflictPolicyTests
         var existingBooking = DomainBooking.Create(
             entireProperty,
             existingPeriod,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         // ACT
@@ -232,7 +236,8 @@ public sealed class BookingConflictPolicyTests
         var existingBooking = DomainBooking.Create(
             room,
             existingPeriod,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         // ACT
@@ -268,7 +273,8 @@ public sealed class BookingConflictPolicyTests
         var existingBooking = DomainBooking.Create(
             entireProperty,
             existingPeriod,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         // ACT
@@ -307,7 +313,8 @@ public sealed class BookingConflictPolicyTests
         var existingBooking = DomainBooking.Create(
             firstPropertyRoom,
             existingPeriod,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         // ACT
@@ -348,7 +355,8 @@ public sealed class BookingConflictPolicyTests
         var existingBooking = DomainBooking.Create(
             firstRoom,
             existingPeriod,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         // ACT
@@ -397,7 +405,8 @@ public sealed class BookingConflictPolicyTests
         var booking = DomainBooking.Create(
             unit,
             period,
-            GuestCount.Create(2).Value)
+            GuestCount.Create(2).Value,
+            CreateGuestDetails())
             .Value;
 
         switch (status)
@@ -432,5 +441,13 @@ public sealed class BookingConflictPolicyTests
         }
 
         return booking;
+    }
+
+    private static GuestDetails CreateGuestDetails()
+    {
+        return GuestDetails.Create(
+            "John Doe",
+            "john@example.com",
+            "+50377778888").Value;
     }
 }

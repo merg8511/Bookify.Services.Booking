@@ -213,7 +213,10 @@ public sealed class CreateBookingCommandValidatorTests
                 Guid.Empty,
                 CheckInDate: null,
                 CheckOutDate: null,
-                GuestCount: 0);
+                GuestCount: 0,
+                null,
+                null,
+                null);
 
         // ACT
         Result result =
@@ -256,7 +259,10 @@ public sealed class CreateBookingCommandValidatorTests
                 2026,
                 8,
                 15),
-            GuestCount: 2);
+            GuestCount: 2,
+                        GuestFullName: "John Doe",
+GuestEmail: "john@example.com",
+GuestPhone: "+50377778888");
     }
 
 }
