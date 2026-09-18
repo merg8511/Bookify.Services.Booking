@@ -88,7 +88,7 @@ public sealed class ExpireBookingPaymentCommandHandler
                     booking,
                     cancellationToken);
 
-            if(paymentCancellationResult.IsFailure)
+            if (paymentCancellationResult.IsFailure)
             {
                 return await RollbackFailureAsync(transaction, paymentCancellationResult.Error, cancellationToken);
             }

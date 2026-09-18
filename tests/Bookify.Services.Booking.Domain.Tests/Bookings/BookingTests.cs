@@ -839,7 +839,7 @@ public sealed class BookingTests
     {
         return DomainBooking.Create(
             CreateRentableUnit(),
-            CreateStayPeriod(),            
+            CreateStayPeriod(),
             GuestCount.Create(2).Value,
             CreateGuestDetails()).Value;
     }
