@@ -5,6 +5,7 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.Initiate;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Payments;
@@ -95,6 +96,10 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
         Assert.Equal(
             0,
             transactionManager.Transaction.RollbackCallCount);
+
+        Assert.Equal(
+    UtcNow,
+    booking.CancelledAtUtc);
     }
 
     [Fact]
@@ -403,7 +408,7 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
             CreatePendingPaymentBooking();
 
         Assert.True(
-            booking.MarkAsPaid().IsSuccess);
+            booking.MarkAsPaid(BookingTestTime.PaidAtUtc).IsSuccess);
 
         var unitOfWork =
             new SpyUnitOfWork();
@@ -496,8 +501,8 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
             coordinator,
             unitOfWork,
             transactionManager,
-            paymentInitiationLock ??
-                new StubPaymentInitiationLock());
+            paymentInitiationLock ?? new StubPaymentInitiationLock(),
+            new StubClock(UtcNow));
     }
 
     private static DomainBooking
@@ -507,7 +512,7 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
             CreateBooking();
 
         Result approvalResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approvalResult.IsSuccess);
@@ -548,7 +553,8 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
             GuestDetails.Create(
             "John Doe",
             "john@example.com",
-            "+50377778888").Value)
+            "+50377778888").Value,
+            BookingTestTime.CreatedAtUtc)
             .Value;
     }
 

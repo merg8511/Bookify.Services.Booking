@@ -5,6 +5,7 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.Initiate;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Payments;
@@ -175,7 +176,7 @@ public sealed class CancelBookingCommandHandlerTests
             CreatePendingPaymentBooking();
 
         Result paidResult =
-            booking.MarkAsPaid();
+            booking.MarkAsPaid(BookingTestTime.CancelledAtUtc);
 
         Assert.True(
             paidResult.IsSuccess);
@@ -822,7 +823,8 @@ public sealed class CancelBookingCommandHandlerTests
             paymentCancellationCoordinator,
             unitOfWork,
             transactionManager,
-            new StubPaymentInitiationLock());
+            new StubPaymentInitiationLock(),
+            new FixedClock(BookingTestTime.CancelledAtUtc));
     }
 
     private static DomainBooking
@@ -832,7 +834,7 @@ public sealed class CancelBookingCommandHandlerTests
             CreateBooking();
 
         Result approveResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approveResult.IsSuccess);
@@ -877,7 +879,8 @@ public sealed class CancelBookingCommandHandlerTests
             GuestDetails.Create(
                 "John Doe",
                 "john@example.com",
-                "+50377778888").Value)
+                "+50377778888").Value,
+            BookingTestTime.CreatedAtUtc)
             .Value;
     }
 

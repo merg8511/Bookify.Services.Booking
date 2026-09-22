@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Payments.Reconciliation;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
@@ -75,8 +76,12 @@ public sealed class PaymentReconcilerTests
             attempt.CompletedAtUtc);
 
         Assert.Equal(
-            observedAtUtc,
-            payment.CompletedAtUtc);
+    observedAtUtc,
+    booking.PaidAtUtc);
+
+        Assert.Equal(
+            payment.CompletedAtUtc,
+            booking.PaidAtUtc);
     }
 
     [Fact]
@@ -344,7 +349,7 @@ public sealed class PaymentReconcilerTests
             booking.Status);
 
         Result completeResult =
-            booking.Complete();
+            booking.Complete(BookingTestTime.CompletedAtUtc);
 
         Assert.True(
             completeResult.IsSuccess);
@@ -395,7 +400,7 @@ public sealed class PaymentReconcilerTests
             CreatePendingPaymentBooking();
 
         Result cancelBookingResult =
-            booking.Cancel();
+            booking.Cancel(BookingTestTime.CancelledAtUtc);
 
         Assert.True(
             cancelBookingResult.IsSuccess);
@@ -488,7 +493,8 @@ public sealed class PaymentReconcilerTests
                 "John Doe",
                 "john@example.com",
                 "+50377778888").Value,
-                priceSnapshot);
+                priceSnapshot,
+                BookingTestTime.CreatedAtUtc);
 
         Assert.True(
             bookingResult.IsSuccess);
@@ -497,7 +503,7 @@ public sealed class PaymentReconcilerTests
             bookingResult.Value;
 
         Result approveResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approveResult.IsSuccess);
