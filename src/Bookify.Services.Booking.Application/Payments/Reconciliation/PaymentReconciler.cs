@@ -108,7 +108,7 @@ public static class PaymentReconciler
                     "A succeeded payment attempt requires the payment to be succeeded.");
             }
 
-            return ReconcileBookingAsPaid(booking);
+            return ReconcileBookingAsPaid(booking, GetSucceededAtUtc(payment));
         }
 
         if (payment.Status == PaymentStatus.Succeeded)
@@ -125,7 +125,7 @@ public static class PaymentReconciler
             return paymentResult;
         }
 
-        return ReconcileBookingAsPaid(booking);
+        return ReconcileBookingAsPaid(booking, GetSucceededAtUtc(payment));
     }
 
     private static Result ReconcileFailed(
@@ -186,19 +186,29 @@ public static class PaymentReconciler
             throw new InvalidOperationException("A succeeded payment requires at least one succeeded payment attempt.");
         }
 
-        return ReconcileBookingAsPaid(booking);
+        return ReconcileBookingAsPaid(booking, GetSucceededAtUtc(payment));
     }
 
-    private static Result ReconcileBookingAsPaid(DomainBooking booking)
+    private static Result ReconcileBookingAsPaid(DomainBooking booking, DateTimeOffset paidAtUtc)
     {
         return booking.Status switch
         {
-            BookingStatus.PendingPayment => booking.MarkAsPaid(),
+            BookingStatus.PendingPayment => booking.MarkAsPaid(paidAtUtc),
             BookingStatus.Paid => Result.Success(),
             BookingStatus.Completed => Result.Success(),
 
             _ =>
                 Result.Failure(PaymentReconciliationErrors.BookingStateConflict(booking.Id, booking.Status))
         };
+    }
+
+    private static DateTimeOffset GetSucceededAtUtc(Payment payment)
+    {
+        if (payment.CompletedAtUtc is null)
+        {
+            throw new InvalidOperationException("A succeded payment must contain its completion timestamp.");
+        }
+
+        return payment.CompletedAtUtc.Value;
     }
 }

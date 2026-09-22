@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
+using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Domain.Bookings;
@@ -20,13 +21,15 @@ public sealed class CancelBookingCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITransactionManager _transactionManager;
     private readonly IPaymentInitiationLock _paymentInitiationLock;
+    private readonly IClock _clock;
     public CancelBookingCommandHandler(
         IBookingRepository bookingRepository,
         IPaymentRepository paymentRepository,
         PaymentCancellationCoordinator paymentCancellationCoordinator,
         IUnitOfWork unitOfWork,
         ITransactionManager transactionManager,
-        IPaymentInitiationLock paymentInitiationLock)
+        IPaymentInitiationLock paymentInitiationLock,
+        IClock clock)
     {
         _bookingRepository = bookingRepository;
         _paymentRepository = paymentRepository;
@@ -34,6 +37,7 @@ public sealed class CancelBookingCommandHandler
         _unitOfWork = unitOfWork;
         _transactionManager = transactionManager;
         _paymentInitiationLock = paymentInitiationLock;
+        _clock = clock;
     }
 
     public async Task<Result> HandleAsync(
@@ -124,26 +128,6 @@ public sealed class CancelBookingCommandHandler
             await transaction.RollbackAsync(CancellationToken.None);
             throw;
         }
-
-        //DomainBooking? booking = await _bookingRepository
-        //    .GetByIdAsync(command.BookingId, cancellationToken);
-
-        //if (booking is null)
-        //{
-        //    return Result.Failure(
-        //        CancelBookingErrors.NotFound(command.BookingId));
-        //}
-
-        //Result cancellationResult = booking.Cancel();
-
-        //if (cancellationResult.IsFailure)
-        //{
-        //    return cancellationResult;
-        //}
-
-        //await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        //return Result.Success();
     }
 
     private async Task<Result> CancelBookingAndCommitAsync(
@@ -151,7 +135,7 @@ public sealed class CancelBookingCommandHandler
         DomainBooking booking,
         CancellationToken cancellationToken)
     {
-        Result cancellationResult = booking.Cancel();
+        Result cancellationResult = booking.Cancel(_clock.UtcNow);
 
         if (cancellationResult.IsFailure)
         {

@@ -61,6 +61,8 @@ internal static class CreateBookingEndpoint
 
                 var response = new CreateBookingResponse(
                     booking.Id,
+                    booking.BookingReference,
+                    booking.CreatedAtUtc,
                     booking.Status.ToString(),
                     price);
 

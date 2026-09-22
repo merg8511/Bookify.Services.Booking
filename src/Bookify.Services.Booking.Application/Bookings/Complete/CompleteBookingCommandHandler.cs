@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
+using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Domain.Shared;
 
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
@@ -12,13 +13,16 @@ public sealed class CompleteBookingCommandHandler
 {
     private readonly IBookingRepository _bookingRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IClock _clock;
 
     public CompleteBookingCommandHandler(
         IBookingRepository bookingRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IClock clock)
     {
         _bookingRepository = bookingRepository;
         _unitOfWork = unitOfWork;
+        _clock = clock;
     }
 
     public async Task<Result> HandleAsync(
@@ -37,7 +41,7 @@ public sealed class CompleteBookingCommandHandler
                 .NotFound(command.BookingId));
         }
 
-        Result completionResult = booking.Complete();
+        Result completionResult = booking.Complete(_clock.UtcNow);
 
         if (completionResult.IsFailure)
         {

@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
+using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Domain.Shared;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 namespace Bookify.Services.Booking.Application.Bookings.Reject;
@@ -9,13 +10,16 @@ public sealed class RejectBookingCommandHandler : ICommandHandler<RejectBookingC
 {
     private readonly IBookingRepository _bookingRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IClock _clock;
 
     public RejectBookingCommandHandler(
         IBookingRepository bookingRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IClock clock)
     {
         _bookingRepository = bookingRepository;
         _unitOfWork = unitOfWork;
+        _clock = clock;
     }
 
     public async Task<Result> HandleAsync(
@@ -36,7 +40,7 @@ public sealed class RejectBookingCommandHandler : ICommandHandler<RejectBookingC
                 RejectBookingErrors.NotFound(command.BookingId));
         }
 
-        Result rejectionResult = booking.Reject();
+        Result rejectionResult = booking.Reject(_clock.UtcNow);
 
         if (rejectionResult.IsFailure)
         {
