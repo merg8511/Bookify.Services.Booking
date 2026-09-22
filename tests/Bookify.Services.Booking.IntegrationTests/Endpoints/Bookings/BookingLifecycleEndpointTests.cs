@@ -314,13 +314,13 @@ public sealed class BookingLifecycleEndpointTests
                 CreateBookingGraph();
 
         Assert.True(
-            booking.Approve().IsSuccess);
+            booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
 
         Assert.True(
-            booking.MarkAsPaid().IsSuccess);
+            booking.MarkAsPaid(BookingTestTime.PaidAtUtc).IsSuccess);
 
         Assert.True(
-            booking.Complete().IsSuccess);
+            booking.Complete(BookingTestTime.CompletedAtUtc).IsSuccess);
 
         Assert.Equal(
             BookingStatus.Completed,
@@ -384,7 +384,8 @@ public sealed class BookingLifecycleEndpointTests
                 GuestDetails.Create(
                 "John Doe",
                 "john@example.com",
-                "+50377778888").Value)
+                "+50377778888").Value,
+                BookingTestTime.CreatedAtUtc)
             .Value;
 
         return (

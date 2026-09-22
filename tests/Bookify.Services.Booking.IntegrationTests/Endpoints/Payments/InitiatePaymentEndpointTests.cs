@@ -781,10 +781,11 @@ public sealed class InitiatePaymentEndpointTests
                 stayPeriod,
                 guestCount,
                 GuestDetails.Create(
-    "John Doe",
-    "john@example.com",
-    "+50377778888").Value,
-                priceSnapshot);
+                "John Doe",
+                "john@example.com",
+                "+50377778888").Value,
+                priceSnapshot,
+                BookingTestTime.CreatedAtUtc);
 
         Assert.True(
             bookingResult.IsSuccess);
@@ -795,7 +796,7 @@ public sealed class InitiatePaymentEndpointTests
         if (approve)
         {
             Result approvalResult =
-                booking.Approve();
+                booking.Approve(BookingTestTime.ApprovedAtUtc);
 
             Assert.True(
                 approvalResult.IsSuccess);

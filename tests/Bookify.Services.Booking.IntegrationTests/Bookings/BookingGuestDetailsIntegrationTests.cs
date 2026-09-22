@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Data.Common;
 using System.Net;
 using System.Net.Http.Json;
+
 using DomainBooking =
     Bookify.Services.Booking.Domain.Bookings.Booking;
 
@@ -308,6 +309,14 @@ public sealed class
             Guid.Empty,
             body.Id);
 
+        Assert.Matches(
+    "^BK-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$",
+    body.BookingReference);
+
+        Assert.NotEqual(
+            default,
+            body.CreatedAtUtc);
+
         // ASSERT - POSTGRESQL / EF
         using IServiceScope scope =
             _factory.Services
@@ -325,6 +334,18 @@ public sealed class
 
         Assert.NotNull(
             booking);
+
+        Assert.Equal(
+    body.BookingReference,
+    booking.Reference.Value);
+
+        Assert.NotNull(
+            booking.CreatedAtUtc);
+
+        Assert.Equal(
+            body.CreatedAtUtc.ToUnixTimeMilliseconds(),
+            booking.CreatedAtUtc.Value
+                .ToUnixTimeMilliseconds());
 
         Assert.NotNull(
             booking.GuestDetails);
@@ -500,8 +521,7 @@ public sealed class
             cancellationToken);
     }
 
-    private async Task<
-        HttpResponseMessage>
+    private async Task<HttpResponseMessage>
         PostBookingAsync(
             CreateBookingRequest request,
             CancellationToken cancellationToken)
@@ -607,17 +627,15 @@ public sealed class
             rentableUnit.Id);
     }
 
-    private async Task
-        InsertLegacyBookingAsync(
-            Guid bookingId,
-            SeedData data,
-            CancellationToken cancellationToken)
+    private async Task InsertLegacyBookingAsync(
+        Guid bookingId,
+        SeedData data,
+        CancellationToken cancellationToken)
     {
-        IDbConnectionFactory
-            connectionFactory =
-                _factory.Services
-                    .GetRequiredService<
-                        IDbConnectionFactory>();
+        IDbConnectionFactory connectionFactory =
+            _factory.Services
+                .GetRequiredService<
+                    IDbConnectionFactory>();
 
         await using DbConnection connection =
             await connectionFactory
@@ -630,6 +648,7 @@ public sealed class
                 INSERT INTO bookings
                 (
                     id,
+                    booking_reference,
                     property_id,
                     rentable_unit_id,
                     check_in_date,
@@ -641,6 +660,7 @@ public sealed class
                 VALUES
                 (
                     @BookingId,
+                    @BookingReference,
                     @PropertyId,
                     @RentableUnitId,
                     @CheckInDate,
@@ -654,6 +674,10 @@ public sealed class
                 {
                     BookingId =
                         bookingId,
+
+                    BookingReference =
+                        BookingTestReference.From(
+                            bookingId),
 
                     data.PropertyId,
 
@@ -675,9 +699,8 @@ public sealed class
             command);
     }
 
-    private static DateOnly
-        Date(
-            int day)
+    private static DateOnly Date(
+        int day)
     {
         return new DateOnly(
             2026,
@@ -685,8 +708,7 @@ public sealed class
             day);
     }
 
-    private sealed record
-        SeedData(
-            Guid PropertyId,
-            Guid RentableUnitId);
+    private sealed record SeedData(
+        Guid PropertyId,
+        Guid RentableUnitId);
 }

@@ -270,11 +270,13 @@ public sealed class ExpireBookingPaymentEndpointTests
             DomainBooking.Create(
                     rentableUnit,
                     stayPeriod,
-                    GuestCount.Create(2).Value, GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value)
+                    GuestCount.Create(2).Value,
+                    GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
+                    BookingTestTime.CreatedAtUtc)
                 .Value;
 
         Result approvalResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approvalResult.IsSuccess);
@@ -282,7 +284,7 @@ public sealed class ExpireBookingPaymentEndpointTests
         if (markAsPaidBeforeSaving)
         {
             Result paidResult =
-                booking.MarkAsPaid();
+                booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
             Assert.True(
                 paidResult.IsSuccess);

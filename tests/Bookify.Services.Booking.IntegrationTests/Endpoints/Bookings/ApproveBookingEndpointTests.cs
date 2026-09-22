@@ -332,12 +332,12 @@ public sealed class ApproveBookingEndpointTests
                     GuestDetails.Create(
                     "John Doe",
                     "john@example.com",
-                    "+50377778888").Value)
+                    "+50377778888").Value, BookingTestTime.CreatedAtUtc)
                 .Value;
 
         if (approveBeforeSaving)
         {
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
         }
 
         using IServiceScope scope =

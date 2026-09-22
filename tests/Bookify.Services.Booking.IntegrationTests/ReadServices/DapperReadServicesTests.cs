@@ -118,6 +118,11 @@ public sealed class DapperReadServicesTests
             booking);
 
         Assert.Equal(
+    BookingTestReference.From(
+        data.VisibleBookingId),
+    booking.BookingReference);
+
+        Assert.Equal(
             data.PropertyId,
             booking.PropertyId);
 
@@ -278,6 +283,7 @@ public sealed class DapperReadServicesTests
                 INSERT INTO bookings
                 (
                     id,
+                    booking_reference,
                     property_id,
                     rentable_unit_id,
                     check_in_date,
@@ -289,6 +295,7 @@ public sealed class DapperReadServicesTests
                 VALUES
                 (
                     @VisibleBookingId,
+                    @VisibleBookingReference,
                     @PropertyId,
                     @RoomUnitId,
                     @VisibleCheckIn,
@@ -299,6 +306,7 @@ public sealed class DapperReadServicesTests
                 ),
                 (
                     @OutsideBookingId,
+                    @OutsideBookingReference,
                     @PropertyId,
                     @RoomUnitId,
                     @OutsideCheckIn,
@@ -311,7 +319,17 @@ public sealed class DapperReadServicesTests
                 new
                 {
                     data.VisibleBookingId,
+
+                    VisibleBookingReference =
+                        BookingTestReference.From(
+                            data.VisibleBookingId),
+
                     data.OutsideBookingId,
+
+                    OutsideBookingReference =
+                        BookingTestReference.From(
+                            data.OutsideBookingId),
+
                     data.PropertyId,
                     data.RoomUnitId,
 

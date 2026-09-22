@@ -268,11 +268,13 @@ public sealed class CompleteBookingEndpointTests
             DomainBooking.Create(
                     rentableUnit,
                     stayPeriod,
-                    GuestCount.Create(2).Value, GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value)
+                    GuestCount.Create(2).Value,
+                    GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
+                    BookingTestTime.CreatedAtUtc)
                 .Value;
 
         Result approvalResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approvalResult.IsSuccess);
@@ -280,7 +282,7 @@ public sealed class CompleteBookingEndpointTests
         if (markAsPaidBeforeSaving)
         {
             Result markAsPaidResult =
-                booking.MarkAsPaid();
+                booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
             Assert.True(
                 markAsPaidResult.IsSuccess);

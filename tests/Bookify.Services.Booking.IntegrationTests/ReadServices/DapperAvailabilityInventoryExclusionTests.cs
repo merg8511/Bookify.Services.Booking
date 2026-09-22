@@ -14,7 +14,8 @@ public sealed class DapperAvailabilityInventoryExclusionTests
 {
     private readonly BookingApiFactory _factory;
 
-    public DapperAvailabilityInventoryExclusionTests(BookingApiFactory factory)
+    public DapperAvailabilityInventoryExclusionTests(
+        BookingApiFactory factory)
     {
         _factory = factory;
     }
@@ -23,19 +24,26 @@ public sealed class DapperAvailabilityInventoryExclusionTests
     public async Task GetInventoryConclictCandidatesAsync_AppliesInventoryExclusionMatrix()
     {
         // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
-        TestData data = await SeedAsync(cancellationToken);
+        TestData data =
+            await SeedAsync(
+                cancellationToken);
 
         using IServiceScope scope =
             _factory.Services.CreateScope();
 
         IAvailabilityReadService readService =
             scope.ServiceProvider
-                .GetRequiredService<IAvailabilityReadService>();
+                .GetRequiredService<
+                    IAvailabilityReadService>();
 
-        DateOnly requestedCheckInDate = Date(10);
-        DateOnly requestedCheckOutDate = Date(15);
+        DateOnly requestedCheckInDate =
+            Date(10);
+
+        DateOnly requestedCheckOutDate =
+            Date(15);
 
         // ACT
         IReadOnlyList<OverlappingBookingReadModel>
@@ -116,27 +124,54 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 data.CancelledEntirePropertyBookingId);
     }
 
-    private async Task<TestData> SeedAsync(CancellationToken cancellationToken)
+    private async Task<TestData> SeedAsync(
+        CancellationToken cancellationToken)
     {
-        Guid propertyId = Guid.NewGuid();
-        Guid otherPropertyId = Guid.NewGuid();
-        Guid roomAId = Guid.NewGuid();
-        Guid roomBId = Guid.NewGuid();
-        Guid entirePropertyId = Guid.NewGuid();
-        Guid otherPropertyRoomId = Guid.NewGuid();
-        Guid roomABookingId = Guid.NewGuid();
-        Guid roomBBookingId = Guid.NewGuid();
-        Guid entirePropertyBookingId = Guid.NewGuid();
-        Guid cancelledEntirePropertyBookingId = Guid.NewGuid();
-        Guid adjacentBookingId = Guid.NewGuid();
-        Guid otherPropertyBookingId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        IDbConnectionFactory connectionFactory = _factory.Services
-            .GetRequiredService<IDbConnectionFactory>();
+        Guid otherPropertyId =
+            Guid.NewGuid();
+
+        Guid roomAId =
+            Guid.NewGuid();
+
+        Guid roomBId =
+            Guid.NewGuid();
+
+        Guid entirePropertyId =
+            Guid.NewGuid();
+
+        Guid otherPropertyRoomId =
+            Guid.NewGuid();
+
+        Guid roomABookingId =
+            Guid.NewGuid();
+
+        Guid roomBBookingId =
+            Guid.NewGuid();
+
+        Guid entirePropertyBookingId =
+            Guid.NewGuid();
+
+        Guid cancelledEntirePropertyBookingId =
+            Guid.NewGuid();
+
+        Guid adjacentBookingId =
+            Guid.NewGuid();
+
+        Guid otherPropertyBookingId =
+            Guid.NewGuid();
+
+        IDbConnectionFactory connectionFactory =
+            _factory.Services
+                .GetRequiredService<
+                    IDbConnectionFactory>();
 
         await using DbConnection connection =
             await connectionFactory
-                .OpenConnectionAsync(cancellationToken);
+                .OpenConnectionAsync(
+                    cancellationToken);
 
         var command =
             new CommandDefinition(
@@ -219,6 +254,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 INSERT INTO bookings
                 (
                     id,
+                    booking_reference,
                     property_id,
                     rentable_unit_id,
                     check_in_date,
@@ -230,6 +266,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 VALUES
                 (
                     @RoomABookingId,
+                    @RoomABookingReference,
                     @PropertyId,
                     @RoomAId,
                     @RequestedCheckInDate,
@@ -240,6 +277,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 ),
                 (
                     @RoomBBookingId,
+                    @RoomBBookingReference,
                     @PropertyId,
                     @RoomBId,
                     @ContainedCheckInDate,
@@ -250,6 +288,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 ),
                 (
                     @EntirePropertyBookingId,
+                    @EntirePropertyBookingReference,
                     @PropertyId,
                     @EntirePropertyId,
                     @EntireCheckInDate,
@@ -260,6 +299,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 ),
                 (
                     @CancelledEntirePropertyBookingId,
+                    @CancelledEntirePropertyBookingReference,
                     @PropertyId,
                     @EntirePropertyId,
                     @EntireCheckInDate,
@@ -270,6 +310,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 ),
                 (
                     @AdjacentBookingId,
+                    @AdjacentBookingReference,
                     @PropertyId,
                     @RoomAId,
                     @AdjacentCheckInDate,
@@ -280,6 +321,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 ),
                 (
                     @OtherPropertyBookingId,
+                    @OtherPropertyBookingReference,
                     @OtherPropertyId,
                     @OtherPropertyRoomId,
                     @ContainedCheckInDate,
@@ -291,26 +333,86 @@ public sealed class DapperAvailabilityInventoryExclusionTests
                 """,
                 new
                 {
-                    PropertyId = propertyId,
-                    OtherPropertyId = otherPropertyId,
-                    RoomAId = roomAId,
-                    RoomBId = roomBId,
-                    EntirePropertyId = entirePropertyId,
-                    OtherPropertyRoomId = otherPropertyRoomId,
-                    RoomABookingId = roomABookingId,
-                    RoomBBookingId = roomBBookingId,
-                    EntirePropertyBookingId = entirePropertyBookingId,
-                    CancelledEntirePropertyBookingId = cancelledEntirePropertyBookingId,
-                    AdjacentBookingId = adjacentBookingId,
-                    OtherPropertyBookingId = otherPropertyBookingId,
+                    PropertyId =
+                        propertyId,
 
-                    RequestedCheckInDate = Date(10),
-                    RequestedCheckOutDate = Date(15),
-                    ContainedCheckInDate = Date(11),
-                    ContainedCheckOutDate = Date(14),
-                    EntireCheckInDate = Date(12),
-                    EntireCheckOutDate = Date(13),
-                    AdjacentCheckInDate = Date(5)
+                    OtherPropertyId =
+                        otherPropertyId,
+
+                    RoomAId =
+                        roomAId,
+
+                    RoomBId =
+                        roomBId,
+
+                    EntirePropertyId =
+                        entirePropertyId,
+
+                    OtherPropertyRoomId =
+                        otherPropertyRoomId,
+
+                    RoomABookingId =
+                        roomABookingId,
+
+                    RoomABookingReference =
+                        BookingTestReference.From(
+                            roomABookingId),
+
+                    RoomBBookingId =
+                        roomBBookingId,
+
+                    RoomBBookingReference =
+                        BookingTestReference.From(
+                            roomBBookingId),
+
+                    EntirePropertyBookingId =
+                        entirePropertyBookingId,
+
+                    EntirePropertyBookingReference =
+                        BookingTestReference.From(
+                            entirePropertyBookingId),
+
+                    CancelledEntirePropertyBookingId =
+                        cancelledEntirePropertyBookingId,
+
+                    CancelledEntirePropertyBookingReference =
+                        BookingTestReference.From(
+                            cancelledEntirePropertyBookingId),
+
+                    AdjacentBookingId =
+                        adjacentBookingId,
+
+                    AdjacentBookingReference =
+                        BookingTestReference.From(
+                            adjacentBookingId),
+
+                    OtherPropertyBookingId =
+                        otherPropertyBookingId,
+
+                    OtherPropertyBookingReference =
+                        BookingTestReference.From(
+                            otherPropertyBookingId),
+
+                    RequestedCheckInDate =
+                        Date(10),
+
+                    RequestedCheckOutDate =
+                        Date(15),
+
+                    ContainedCheckInDate =
+                        Date(11),
+
+                    ContainedCheckOutDate =
+                        Date(14),
+
+                    EntireCheckInDate =
+                        Date(12),
+
+                    EntireCheckOutDate =
+                        Date(13),
+
+                    AdjacentCheckInDate =
+                        Date(5)
                 },
                 cancellationToken:
                     cancellationToken);
@@ -332,19 +434,32 @@ public sealed class DapperAvailabilityInventoryExclusionTests
     }
 
     private static void AssertBookingIds(
-         IReadOnlyList<OverlappingBookingReadModel> result,
-         params Guid[] expectedBookingsIds)
+        IReadOnlyList<OverlappingBookingReadModel> result,
+        params Guid[] expectedBookingsIds)
     {
-        HashSet<Guid> actualBookingIds = result.Select(booking => booking.BookingId).ToHashSet();
-        HashSet<Guid> expected = expectedBookingsIds.ToHashSet();
+        HashSet<Guid> actualBookingIds =
+            result
+                .Select(
+                    booking =>
+                        booking.BookingId)
+                .ToHashSet();
 
-        Assert.Equal(expected, actualBookingIds);
+        HashSet<Guid> expected =
+            expectedBookingsIds
+                .ToHashSet();
+
+        Assert.Equal(
+            expected,
+            actualBookingIds);
     }
 
-    private static DateOnly Date(int day)
+    private static DateOnly Date(
+        int day)
     {
         return new DateOnly(
-            2026, 08, day);
+            2026,
+            8,
+            day);
     }
 
     private sealed record TestData(
@@ -359,5 +474,3 @@ public sealed class DapperAvailabilityInventoryExclusionTests
         Guid AdjacentBookingId,
         Guid OtherPropertyBookingId);
 }
-
-

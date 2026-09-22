@@ -13,7 +13,8 @@ public sealed class DapperBookingAvailabilityReaderTests
 {
     private readonly BookingApiFactory _factory;
 
-    public DapperBookingAvailabilityReaderTests(BookingApiFactory factory)
+    public DapperBookingAvailabilityReaderTests(
+        BookingApiFactory factory)
     {
         _factory = factory;
     }
@@ -22,30 +23,44 @@ public sealed class DapperBookingAvailabilityReaderTests
     public async Task HasConflictAsync_AppliesCompleteInventoryConflictPolicy()
     {
         // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
-        TestData data = await SeedAsync(cancellationToken);
-
-        using IServiceScope scope = _factory.Services.CreateScope();
-
-        ITransactionManager transactionManager =
-            scope.ServiceProvider.GetRequiredService<ITransactionManager>();
-
-        IBookingInventoryLock inventoryLock =
-            scope.ServiceProvider.GetRequiredService<IBookingInventoryLock>();
-
-        IBookingAvailabilityReader reader =
-            scope.ServiceProvider.GetRequiredService<IBookingAvailabilityReader>();
-
-        await using ITransaction transaction =
-            await transactionManager.BeginAsync(cancellationToken);
-
-        bool acquired =
-            await inventoryLock.TryAcquireAsync(
-                data.PropertyId,
+        TestData data =
+            await SeedAsync(
                 cancellationToken);
 
-        Assert.True(acquired);
+        using IServiceScope scope =
+            _factory.Services.CreateScope();
+
+        ITransactionManager transactionManager =
+            scope.ServiceProvider
+                .GetRequiredService<
+                    ITransactionManager>();
+
+        IBookingInventoryLock inventoryLock =
+            scope.ServiceProvider
+                .GetRequiredService<
+                    IBookingInventoryLock>();
+
+        IBookingAvailabilityReader reader =
+            scope.ServiceProvider
+                .GetRequiredService<
+                    IBookingAvailabilityReader>();
+
+        await using ITransaction transaction =
+            await transactionManager
+                .BeginAsync(
+                    cancellationToken);
+
+        bool acquired =
+            await inventoryLock
+                .TryAcquireAsync(
+                    data.PropertyId,
+                    cancellationToken);
+
+        Assert.True(
+            acquired);
 
         // ACT
         bool sameRoomConflict =
@@ -89,32 +104,58 @@ public sealed class DapperBookingAvailabilityReaderTests
                 cancellationToken);
 
         // ASSERT
-        Assert.True(sameRoomConflict);
-        Assert.False(differentRoomConflict);
-        Assert.True(entirePropertyConflict);
-        Assert.False(adjacentPeriodConflict);
-        Assert.True(roomBlockedByEntireProperty);
+        Assert.True(
+            sameRoomConflict);
 
-        await transaction.RollbackAsync(cancellationToken);
+        Assert.False(
+            differentRoomConflict);
+
+        Assert.True(
+            entirePropertyConflict);
+
+        Assert.False(
+            adjacentPeriodConflict);
+
+        Assert.True(
+            roomBlockedByEntireProperty);
+
+        await transaction.RollbackAsync(
+            cancellationToken);
     }
 
     private async Task<TestData> SeedAsync(
         CancellationToken cancellationToken)
     {
-        Guid propertyId = Guid.NewGuid();
-        Guid roomAId = Guid.NewGuid();
-        Guid roomBId = Guid.NewGuid();
-        Guid entirePropertyId = Guid.NewGuid();
-        Guid roomABookingId = Guid.NewGuid();
-        Guid cancelledRoomBBookingId = Guid.NewGuid();
-        Guid entirePropertyBookingId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
+
+        Guid roomAId =
+            Guid.NewGuid();
+
+        Guid roomBId =
+            Guid.NewGuid();
+
+        Guid entirePropertyId =
+            Guid.NewGuid();
+
+        Guid roomABookingId =
+            Guid.NewGuid();
+
+        Guid cancelledRoomBBookingId =
+            Guid.NewGuid();
+
+        Guid entirePropertyBookingId =
+            Guid.NewGuid();
 
         IDbConnectionFactory connectionFactory =
             _factory.Services
                 .GetRequiredService<
                     IDbConnectionFactory>();
 
-        await using DbConnection connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
+        await using DbConnection connection =
+            await connectionFactory
+                .OpenConnectionAsync(
+                    cancellationToken);
 
         var command =
             new CommandDefinition(
@@ -180,6 +221,7 @@ public sealed class DapperBookingAvailabilityReaderTests
                 INSERT INTO bookings
                 (
                     id,
+                    booking_reference,
                     property_id,
                     rentable_unit_id,
                     check_in_date,
@@ -191,6 +233,7 @@ public sealed class DapperBookingAvailabilityReaderTests
                 VALUES
                 (
                     @RoomABookingId,
+                    @RoomABookingReference,
                     @PropertyId,
                     @RoomAId,
                     @FirstCheckInDate,
@@ -201,6 +244,7 @@ public sealed class DapperBookingAvailabilityReaderTests
                 ),
                 (
                     @CancelledRoomBBookingId,
+                    @CancelledRoomBBookingReference,
                     @PropertyId,
                     @RoomBId,
                     @FirstCheckInDate,
@@ -211,6 +255,7 @@ public sealed class DapperBookingAvailabilityReaderTests
                 ),
                 (
                     @EntirePropertyBookingId,
+                    @EntirePropertyBookingReference,
                     @PropertyId,
                     @EntirePropertyId,
                     @SecondCheckInDate,
@@ -222,23 +267,56 @@ public sealed class DapperBookingAvailabilityReaderTests
                 """,
                 new
                 {
-                    PropertyId = propertyId,
-                    RoomAId = roomAId,
-                    RoomBId = roomBId,
-                    EntirePropertyId = entirePropertyId,
-                    RoomABookingId = roomABookingId,
-                    CancelledRoomBBookingId = cancelledRoomBBookingId,
-                    EntirePropertyBookingId = entirePropertyBookingId,
+                    PropertyId =
+                        propertyId,
 
-                    FirstCheckInDate = Date(10),
-                    FirstCheckOutDate = Date(15),
-                    SecondCheckInDate = Date(20),
-                    SecondCheckOutDate = Date(25)
+                    RoomAId =
+                        roomAId,
+
+                    RoomBId =
+                        roomBId,
+
+                    EntirePropertyId =
+                        entirePropertyId,
+
+                    RoomABookingId =
+                        roomABookingId,
+
+                    RoomABookingReference =
+                        BookingTestReference.From(
+                            roomABookingId),
+
+                    CancelledRoomBBookingId =
+                        cancelledRoomBBookingId,
+
+                    CancelledRoomBBookingReference =
+                        BookingTestReference.From(
+                            cancelledRoomBBookingId),
+
+                    EntirePropertyBookingId =
+                        entirePropertyBookingId,
+
+                    EntirePropertyBookingReference =
+                        BookingTestReference.From(
+                            entirePropertyBookingId),
+
+                    FirstCheckInDate =
+                        Date(10),
+
+                    FirstCheckOutDate =
+                        Date(15),
+
+                    SecondCheckInDate =
+                        Date(20),
+
+                    SecondCheckOutDate =
+                        Date(25)
                 },
                 cancellationToken:
                     cancellationToken);
 
-        await connection.ExecuteAsync(command);
+        await connection.ExecuteAsync(
+            command);
 
         return new TestData(
             propertyId,

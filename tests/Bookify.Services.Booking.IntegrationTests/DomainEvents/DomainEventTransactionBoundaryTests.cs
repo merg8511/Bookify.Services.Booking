@@ -307,7 +307,8 @@ public sealed class DomainEventTransactionBoundaryTests
                 GuestDetails.Create(
                 "John Doe",
                 "john@example.com",
-                "+50377778888").Value);
+                "+50377778888").Value,
+                BookingTestTime.CreatedAtUtc);
 
         Assert.True(
             bookingResult.IsSuccess);

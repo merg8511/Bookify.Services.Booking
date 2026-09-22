@@ -86,7 +86,8 @@ public sealed class BookingPriceSnapshotPersistenceTests
                 "John Doe",
                 "john@example.com",
                 "+50377778888").Value,
-                priceSnapshot)
+                priceSnapshot,
+                BookingTestTime.CreatedAtUtc)
             .Value;
 
         using (
