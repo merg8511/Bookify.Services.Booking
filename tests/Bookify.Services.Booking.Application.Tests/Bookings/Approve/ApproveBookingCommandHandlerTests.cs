@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Bookings.Approve;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
@@ -16,7 +17,8 @@ public sealed class ApproveBookingCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsPendingApproval_ShouldApproveAndSave()
     {
         // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
         DomainBooking booking =
             CreateBooking();
@@ -31,7 +33,10 @@ public sealed class ApproveBookingCommandHandlerTests
         var handler =
             new ApproveBookingCommandHandler(
                 bookingRepository,
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(
+                    BookingTestTime.ApprovedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         var command =
             new ApproveBookingCommand(
@@ -44,7 +49,8 @@ public sealed class ApproveBookingCommandHandlerTests
                 cancellationToken);
 
         // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.PendingPayment,
@@ -56,13 +62,25 @@ public sealed class ApproveBookingCommandHandlerTests
         Assert.Equal(
             1,
             unitOfWork.SaveChangesCallCount);
+
+        Assert.Equal(
+            BookingTestTime.ApprovedAtUtc,
+            booking.ApprovedAtUtc);
+
+        Assert.Equal(
+            BookingTestTime.ApprovedAtUtc
+                .Add(
+                    BookingTestDeadlinePolicy
+                        .PaymentWindow),
+            booking.PaymentDueAtUtc);
     }
 
     [Fact]
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFoundWithoutSaving()
     {
         // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
         Guid bookingId =
             Guid.NewGuid();
@@ -77,7 +95,10 @@ public sealed class ApproveBookingCommandHandlerTests
         var handler =
             new ApproveBookingCommandHandler(
                 bookingRepository,
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(
+                    BookingTestTime.ApprovedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         var command =
             new ApproveBookingCommand(
@@ -90,7 +111,8 @@ public sealed class ApproveBookingCommandHandlerTests
                 cancellationToken);
 
         // ASSERT
-        Assert.True(result.IsFailure);
+        Assert.True(
+            result.IsFailure);
 
         Assert.Equal(
             ApproveBookingErrors.NotFound(
@@ -106,12 +128,14 @@ public sealed class ApproveBookingCommandHandlerTests
     public async Task HandleAsync_WhenBookingIsNotPendingApproval_ShouldReturnConflictWithoutSaving()
     {
         // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
         DomainBooking booking =
             CreateBooking();
 
-        booking.Approve();
+        booking.Approve(
+            BookingTestTime.ApprovedAtUtc);
 
         var bookingRepository =
             new StubBookingRepository(
@@ -123,7 +147,10 @@ public sealed class ApproveBookingCommandHandlerTests
         var handler =
             new ApproveBookingCommandHandler(
                 bookingRepository,
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(
+                    BookingTestTime.ApprovedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         var command =
             new ApproveBookingCommand(
@@ -136,7 +163,8 @@ public sealed class ApproveBookingCommandHandlerTests
                 cancellationToken);
 
         // ASSERT
-        Assert.True(result.IsFailure);
+        Assert.True(
+            result.IsFailure);
 
         Assert.Equal(
             "Booking.InvalidStatusTransition",
@@ -163,7 +191,10 @@ public sealed class ApproveBookingCommandHandlerTests
             new ApproveBookingCommandHandler(
                 new StubBookingRepository(
                     null),
-                new SpyUnitOfWork());
+                new SpyUnitOfWork(),
+                new FixedClock(
+                    BookingTestTime.ApprovedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         // ACT
         Task Action()
@@ -174,7 +205,8 @@ public sealed class ApproveBookingCommandHandlerTests
 
         // ASSERT
         await Assert.ThrowsAsync<
-            ArgumentNullException>(Action);
+            ArgumentNullException>(
+                Action);
     }
 
     private static DomainBooking CreateBooking()
@@ -204,7 +236,8 @@ public sealed class ApproveBookingCommandHandlerTests
                 rentableUnit,
                 stayPeriod,
                 GuestCount.Create(2).Value,
-               CreateGuestDetails())
+                CreateGuestDetails(),
+                BookingTestTime.CreatedAtUtc)
             .Value;
     }
 

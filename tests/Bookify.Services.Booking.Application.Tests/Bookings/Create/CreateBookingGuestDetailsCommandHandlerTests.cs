@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings.Errors;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Properties.Pricing;
@@ -60,7 +61,9 @@ public sealed class
                 availabilityReader,
                 inventoryLock,
                 unitOfWork,
-                transactionManager);
+                transactionManager,
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         var command =
             new CreateBookingCommand(
@@ -182,7 +185,9 @@ public sealed class
                 availabilityReader,
                 inventoryLock,
                 unitOfWork,
-                transactionManager);
+                transactionManager,
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         var command =
             new CreateBookingCommand(
