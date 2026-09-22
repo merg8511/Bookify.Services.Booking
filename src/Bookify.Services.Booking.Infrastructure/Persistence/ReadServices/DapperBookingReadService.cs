@@ -13,6 +13,7 @@ internal sealed class DapperBookingReadService : IBookingReadService
         """
         SELECT
             b.id AS "Id",
+            b.booking_reference AS "BookingReference",
             b.property_id AS "PropertyId",
             b.rentable_unit_id AS "RentableUnitId",
             ru.name AS "RentableUnitName",
@@ -27,6 +28,13 @@ internal sealed class DapperBookingReadService : IBookingReadService
             bgd.email AS "GuestEmail",
             bgd.phone AS "GuestPhone",
             b.status AS "Status",
+            b.created_at_utc AS "CreatedAtUtc",
+            b.approval_due_at_utc AS "ApprovalDueAtUtc",
+            b.approved_at_utc AS "ApprovedAtUtc",
+            b.payment_due_at_utc AS "PaymentDueAtUtc",
+            b.paid_at_utc AS "PaidAtUtc",
+            b.cancelled_at_utc AS "CancelledAtUtc",
+            b.completed_at_utc AS "CompletedAtUtc",
             b.cancellation_reason AS "CancellationReason",
             (
                 b.status IN
