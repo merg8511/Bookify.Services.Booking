@@ -1,9 +1,10 @@
-using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
-using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
-using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Services;
+using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
+using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
+using Bookify.Services.Booking.Domain.Tests.Infrastructure;
+using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services;
 
@@ -72,10 +73,11 @@ public sealed class BookingConflictPolicyTests
             room,
             existingPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
-        existingBooking.Reject();
+        existingBooking.Reject(BookingTestTime.CancelledAtUtc);
 
         // ACT
         bool result = BookingConflictPolicy.HasConflict(
@@ -111,7 +113,8 @@ public sealed class BookingConflictPolicyTests
             room,
             existingPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
         // ACT
@@ -153,7 +156,8 @@ public sealed class BookingConflictPolicyTests
             firstRoom,
             existingPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
         // ACT
@@ -195,7 +199,8 @@ public sealed class BookingConflictPolicyTests
             entireProperty,
             existingPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
         // ACT
@@ -237,7 +242,8 @@ public sealed class BookingConflictPolicyTests
             room,
             existingPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
         // ACT
@@ -274,7 +280,8 @@ public sealed class BookingConflictPolicyTests
             entireProperty,
             existingPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
         // ACT
@@ -314,7 +321,8 @@ public sealed class BookingConflictPolicyTests
             firstPropertyRoom,
             existingPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
         // ACT
@@ -356,7 +364,8 @@ public sealed class BookingConflictPolicyTests
             firstRoom,
             existingPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
         // ACT
@@ -406,7 +415,8 @@ public sealed class BookingConflictPolicyTests
             unit,
             period,
             GuestCount.Create(2).Value,
-            CreateGuestDetails())
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc)
             .Value;
 
         switch (status)
@@ -415,22 +425,22 @@ public sealed class BookingConflictPolicyTests
                 break;
 
             case BookingStatus.PendingPayment:
-                booking.Approve();
+                booking.Approve(BookingTestTime.ApprovedAtUtc);
                 break;
 
             case BookingStatus.Paid:
-                booking.Approve();
-                booking.MarkAsPaid();
+                booking.Approve(BookingTestTime.ApprovedAtUtc);
+                booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
                 break;
 
             case BookingStatus.Completed:
-                booking.Approve();
-                booking.MarkAsPaid();
-                booking.Complete();
+                booking.Approve(BookingTestTime.ApprovedAtUtc);
+                booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+                booking.Complete(BookingTestTime.CompletedAtUtc);
                 break;
 
             case BookingStatus.Cancelled:
-                booking.Reject();
+                booking.Reject(BookingTestTime.CancelledAtUtc);
                 break;
 
             default:

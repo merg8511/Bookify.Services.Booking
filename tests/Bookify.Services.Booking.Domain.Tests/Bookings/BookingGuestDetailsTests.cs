@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
+using Bookify.Services.Booking.Domain.Tests.Infrastructure;
 using DomainBooking =
     Bookify.Services.Booking.Domain.Bookings.Booking;
 
@@ -45,7 +46,8 @@ public sealed class BookingGuestDetailsTests
                 rentableUnit,
                 stayPeriod,
                 guestCount,
-                guestDetails);
+                guestDetails,
+                BookingTestTime.CreatedAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -102,7 +104,8 @@ public sealed class BookingGuestDetailsTests
                 rentableUnit,
                 stayPeriod,
                 guestCount,
-                null!);
+                null!,
+                BookingTestTime.CreatedAtUtc);
         }
 
         // ASSERT

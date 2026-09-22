@@ -6,6 +6,7 @@ using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.Errors;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
+using Bookify.Services.Booking.Domain.Tests.Infrastructure;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Domain.Tests.Bookings;
@@ -26,7 +27,8 @@ public sealed class BookingTests
             rentableUnit,
             stayPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails());
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -84,7 +86,8 @@ public sealed class BookingTests
             rentableUnit,
             stayPeriod,
             GuestCount.Create(5).Value,
-            CreateGuestDetails());
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -106,7 +109,8 @@ public sealed class BookingTests
            rentableUnit,
            stayPeriod,
            GuestCount.Create(4).Value,
-           CreateGuestDetails());
+           CreateGuestDetails(),
+           BookingTestTime.CreatedAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -129,7 +133,8 @@ public sealed class BookingTests
             rentableUnit,
             stayPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails());
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -150,13 +155,15 @@ public sealed class BookingTests
             rentableUnit,
             stayPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails());
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc);
 
         var secondResult = DomainBooking.Create(
             rentableUnit,
             stayPeriod,
             GuestCount.Create(2).Value,
-            CreateGuestDetails());
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc);
 
         // ASSERT
         Assert.True(firstResult.IsSuccess);
@@ -174,7 +181,7 @@ public sealed class BookingTests
         var booking = CreateBooking();
 
         // ACT
-        var result = booking.Approve();
+        var result = booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -192,10 +199,10 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreateBooking();
-        booking.Approve();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         // ACT
-        var result = booking.Approve();
+        var result = booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         // ASSERT
         AssertInvalidTransition(result);
@@ -212,7 +219,7 @@ public sealed class BookingTests
         var booking = CreateBooking();
 
         // ACT
-        var result = booking.Reject();
+        var result = booking.Reject(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -231,10 +238,10 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreateBooking();
-        booking.Approve();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         // ACT
-        var result = booking.Reject();
+        var result = booking.Reject(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         AssertInvalidTransition(result);
@@ -251,10 +258,10 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreateBooking();
-        booking.Approve();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         // ACT
-        var result = booking.MarkAsPaid();
+        var result = booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -274,7 +281,7 @@ public sealed class BookingTests
         var booking = CreateBooking();
 
         // ACT
-        var result = booking.MarkAsPaid();
+        var result = booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
         // ASSERT
         AssertInvalidTransition(result);
@@ -289,10 +296,10 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreateBooking();
-        booking.Approve();
+        booking.Approve(BookingTestTime.PaidAtUtc);
 
         // ACT
-        var result = booking.ExpirePayment();
+        var result = booking.ExpirePayment(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -313,7 +320,7 @@ public sealed class BookingTests
         var booking = CreateBooking();
 
         // ACT
-        var result = booking.ExpirePayment();
+        var result = booking.ExpirePayment(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         AssertInvalidTransition(result);
@@ -333,7 +340,7 @@ public sealed class BookingTests
         var booking = CreatePaidBooking();
 
         // ACT
-        var result = booking.Complete();
+        var result = booking.Complete(BookingTestTime.CompletedAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -348,10 +355,10 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreateBooking();
-        booking.Approve();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         // ACT
-        var result = booking.Complete();
+        var result = booking.Complete(BookingTestTime.CompletedAtUtc);
 
         // ASSERT
         AssertInvalidTransition(result);
@@ -368,9 +375,9 @@ public sealed class BookingTests
         var booking = CreateBooking();
 
         // ACT
-        var approvalResult = booking.Approve();
-        var paymentResult = booking.MarkAsPaid();
-        var completionResult = booking.Complete();
+        var approvalResult = booking.Approve(BookingTestTime.ApprovedAtUtc);
+        var paymentResult = booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+        var completionResult = booking.Complete(BookingTestTime.CompletedAtUtc);
 
         // ASSERT
         Assert.True(approvalResult.IsSuccess);
@@ -389,11 +396,11 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreateBooking();
-        booking.Approve();
-        booking.ExpirePayment();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        booking.ExpirePayment(BookingTestTime.CancelledAtUtc);
 
         // ACT
-        var result = booking.MarkAsPaid();
+        var result = booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
         // ASSERT
         AssertInvalidTransition(result);
@@ -412,10 +419,10 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreatePaidBooking();
-        booking.Complete();
+        booking.Complete(BookingTestTime.CompletedAtUtc);
 
         // ACT
-        var result = booking.Complete();
+        var result = booking.Complete(BookingTestTime.CompletedAtUtc);
 
         // ASSERT
         AssertInvalidTransition(result);
@@ -438,7 +445,8 @@ public sealed class BookingTests
                 null!,
                 stayPeriod,
                 GuestCount.Create(2).Value,
-                CreateGuestDetails());
+                CreateGuestDetails(),
+                BookingTestTime.CreatedAtUtc);
         }
 
         // ASSERT
@@ -458,7 +466,8 @@ public sealed class BookingTests
                 rentableUnit,
                 null!,
                 GuestCount.Create(2).Value,
-                CreateGuestDetails());
+                CreateGuestDetails(),
+                BookingTestTime.CreatedAtUtc);
         }
 
         // ASSERT
@@ -480,7 +489,7 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreateBooking();
-        booking.Approve();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         // ASSERT
         Assert.True(booking.BlocksInventory);
@@ -492,8 +501,8 @@ public sealed class BookingTests
         // ARRANGE
         var booking = CreateBooking();
 
-        booking.Approve();
-        booking.MarkAsPaid();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
         // ASSERT
         Assert.True(booking.BlocksInventory);
@@ -504,7 +513,7 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreatePaidBooking();
-        booking.Complete();
+        booking.Complete(BookingTestTime.CompletedAtUtc);
 
         // ASSERT
         Assert.True(booking.BlocksInventory);
@@ -515,7 +524,7 @@ public sealed class BookingTests
     {
         // ARRANGE
         var booking = CreateBooking();
-        booking.Reject();
+        booking.Reject(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         Assert.False(booking.BlocksInventory);
@@ -531,16 +540,16 @@ public sealed class BookingTests
         DomainBooking completed = CreateBooking();
         DomainBooking cancelled = CreateBooking();
 
-        pendingPayment.Approve();
+        pendingPayment.Approve(BookingTestTime.ApprovedAtUtc);
 
-        paid.Approve();
-        paid.MarkAsPaid();
+        paid.Approve(BookingTestTime.ApprovedAtUtc);
+        paid.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
-        completed.Approve();
-        completed.MarkAsPaid();
-        completed.Complete();
+        completed.Approve(BookingTestTime.ApprovedAtUtc);
+        completed.MarkAsPaid(BookingTestTime.PaidAtUtc);
+        completed.Complete(BookingTestTime.CompletedAtUtc);
 
-        cancelled.Reject();
+        cancelled.Reject(BookingTestTime.CancelledAtUtc);
 
         // Assert
         Assert.True(
@@ -573,7 +582,8 @@ public sealed class BookingTests
                 rentableUnit,
                 stayPeriod,
                 guestCount,
-                CreateGuestDetails());
+                CreateGuestDetails(),
+                BookingTestTime.CreatedAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -612,7 +622,8 @@ public sealed class BookingTests
                 stayPeriod,
                 guestCount,
                 CreateGuestDetails(),
-                priceSnapshot);
+                priceSnapshot,
+                BookingTestTime.CreatedAtUtc);
 
         // ASSERT
         Assert.True(
@@ -652,7 +663,8 @@ public sealed class BookingTests
                 rentableUnit,
                 stayPeriod,
                 guestCount,
-                null!);
+                null!,
+                BookingTestTime.CreatedAtUtc);
         }
 
         // ASSERT
@@ -671,13 +683,14 @@ public sealed class BookingTests
                 CreateStayPeriod(),
                 GuestCount.Create(2).Value,
                 CreateGuestDetails(),
-                priceSnapshot)
+                priceSnapshot,
+                BookingTestTime.CreatedAtUtc)
             .Value;
 
         // ACT
-        booking.Approve();
-        booking.MarkAsPaid();
-        booking.Complete();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+        booking.Complete(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         Assert.Equal(
@@ -705,7 +718,7 @@ public sealed class BookingTests
 
         // ACT
         Result result =
-            booking.Cancel();
+            booking.Cancel(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -730,14 +743,14 @@ public sealed class BookingTests
             CreateBooking();
 
         Result approvalResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approvalResult.IsSuccess);
 
         // ACT
         Result result =
-            booking.Cancel();
+            booking.Cancel(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         Assert.True(result.IsSuccess);
@@ -762,14 +775,14 @@ public sealed class BookingTests
             CreateBooking();
 
         Assert.True(
-            booking.Approve().IsSuccess);
+            booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
 
         Assert.True(
-            booking.MarkAsPaid().IsSuccess);
+            booking.MarkAsPaid(BookingTestTime.PaidAtUtc).IsSuccess);
 
         // ACT
         Result result =
-            booking.Cancel();
+            booking.Cancel(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -798,11 +811,11 @@ public sealed class BookingTests
             CreateBooking();
 
         Assert.True(
-            booking.Cancel().IsSuccess);
+            booking.Cancel(BookingTestTime.CancelledAtUtc).IsSuccess);
 
         // ACT
         Result result =
-            booking.Cancel();
+            booking.Cancel(BookingTestTime.CancelledAtUtc);
 
         // ASSERT
         Assert.True(result.IsFailure);
@@ -841,15 +854,16 @@ public sealed class BookingTests
             CreateRentableUnit(),
             CreateStayPeriod(),
             GuestCount.Create(2).Value,
-            CreateGuestDetails()).Value;
+            CreateGuestDetails(),
+            BookingTestTime.CreatedAtUtc).Value;
     }
 
     private static DomainBooking CreatePaidBooking()
     {
         var booking = CreateBooking();
 
-        booking.Approve();
-        booking.MarkAsPaid();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
         return booking;
     }
