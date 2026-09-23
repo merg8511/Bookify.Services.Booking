@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Api.Endpoints.Bookings.Cancel;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Complete;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.ExpirePayment;
+using Bookify.Services.Booking.Api.Endpoints.Bookings.Get;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Reject;
 
 namespace Bookify.Services.Booking.Api.Endpoints.Bookings;
@@ -19,6 +20,7 @@ internal static class BookingsEndpoints
                 .WithTags("Bookings");
 
         CreateBookingEndpoint.Map(bookingsGroup);
+        GetBookingEndpoint.Map(bookingsGroup);
         ApproveBookingEndpoint.Map(bookingsGroup);
         RejectBookingEndpoint.Map(bookingsGroup);
         ExpireBookingPaymentEndpoint.Map(bookingsGroup);
