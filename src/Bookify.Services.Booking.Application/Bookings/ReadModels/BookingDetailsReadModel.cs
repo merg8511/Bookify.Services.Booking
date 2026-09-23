@@ -15,8 +15,13 @@ public sealed class BookingDetailsReadModel
     public string? GuestFullName { get; set; }
     public string? GuestEmail { get; set; }
     public string? GuestPhone { get; set; }
+    public decimal? AccommodationPrice { get; set; }
+    public decimal? ExtraGuestPrice { get; set; }
+    public decimal? TotalPrice { get; set; }
+    public string? Currency { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? CancellationReason { get; set; }
+    public string? PaymentStatus { get; set; }
     public DateTimeOffset? CreatedAtUtc { get; set; }
     public DateTimeOffset? ApprovalDueAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }
