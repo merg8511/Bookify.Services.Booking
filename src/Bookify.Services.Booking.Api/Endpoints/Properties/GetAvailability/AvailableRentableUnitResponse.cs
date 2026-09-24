@@ -4,5 +4,6 @@ public sealed record AvailableRentableUnitResponse(
     Guid Id,
     string Name,
     string Type,
-    int maximumCapacity,
-    bool isEntireProperty);
+    int MaximumCapacity,
+    bool IsEntireProperty,
+    AvailabilityQuoteResponse Quote);

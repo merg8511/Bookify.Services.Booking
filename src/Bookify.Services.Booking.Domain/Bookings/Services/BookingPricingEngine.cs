@@ -24,22 +24,37 @@ public static class BookingPricingEngine
         GuestCount guestCount,
         StayPeriod stayPeriod)
     {
-        ArgumentNullException.ThrowIfNull(extraGuestNightlyRate);
         ArgumentNullException.ThrowIfNull(rentableUnit);
+
+        return CalculateExtraGuestPrice(
+            extraGuestNightlyRate,
+            rentableUnit.MaxBaseGuests,
+            guestCount,
+            stayPeriod);
+    }
+
+    public static Result<Money> CalculateExtraGuestPrice(
+        Money extraGuestNightlyRate,
+        int maxBaseGuests,
+        GuestCount guestCount,
+        StayPeriod stayPeriod)
+    {
+        ArgumentNullException.ThrowIfNull(extraGuestNightlyRate);
         ArgumentNullException.ThrowIfNull(guestCount);
         ArgumentNullException.ThrowIfNull(stayPeriod);
 
-        int extraGuestCount =
-            Math.Max(
-                0,
-                guestCount.Value - rentableUnit.MaxBaseGuests);
+        if (maxBaseGuests <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxBaseGuests),
+                "Maximum base guests must be greater than zero.");
+        }
 
+        int extraGuestCount = Math.Max(0, guestCount.Value - maxBaseGuests);
         int extraGuestNights = extraGuestCount * stayPeriod.NumberOfNights;
 
         return extraGuestNightlyRate.Multiply(extraGuestNights);
     }
-
-
 
     public static Result<Money> CalculateAccommodationPrice(
         Money regularNightlyRate,
@@ -66,35 +81,28 @@ public static class BookingPricingEngine
 
         Money total = regularNightlyRate.Multiply(0).Value;
 
-        for (
-            DateOnly night = stayPeriod.CheckInDate;
+        for (DateOnly night = stayPeriod.CheckInDate;
             night < stayPeriod.CheckOutDate;
             night = night.AddDays(1))
         {
-            Money fallbackRate =
-                WeekendPricingPolicy.IsWeekendNight(night)
-                    ? weekendNightlyRate
-                    : regularNightlyRate;
+            Money fallbackRate = WeekendPricingPolicy.IsWeekendNight(night)
+                ? weekendNightlyRate
+                : regularNightlyRate;
 
-            Result<Money> nightlyRateResult =
-                SeasonPricingPolicy.ResolveNightlyRate(
-                    night,
-                    fallbackRate,
-                    seasons);
+            Result<Money> nightlyRateResult = SeasonPricingPolicy.ResolveNightlyRate(
+                night,
+                fallbackRate,
+                seasons);
 
             if (nightlyRateResult.IsFailure)
             {
-                return Result<Money>.Failure(
-                    nightlyRateResult.Error);
+                return Result<Money>.Failure(nightlyRateResult.Error);
             }
-
-            Result<Money> totalResult =
-                total.Add(nightlyRateResult.Value);
+            Result<Money> totalResult = total.Add(nightlyRateResult.Value);
 
             if (totalResult.IsFailure)
             {
-                return Result<Money>
-                    .Failure(totalResult.Error);
+                return Result<Money>.Failure(totalResult.Error);
             }
 
             total = totalResult.Value;
@@ -111,11 +119,32 @@ public static class BookingPricingEngine
         GuestCount guestCount,
         StayPeriod stayPeriod)
     {
+        ArgumentNullException.ThrowIfNull(
+            rentableUnit);
+
         return CalculatePrice(
             regularNightlyRate,
             weekendNightlyRate,
             extraGuestNightlyRate,
-            rentableUnit,
+            rentableUnit.MaxBaseGuests,
+            guestCount,
+            stayPeriod,
+            Array.Empty<PricingSeason>());
+    }
+
+    public static Result<PriceBreakdown> CalculatePrice(
+        Money regularNightlyRate,
+        Money weekendNightlyRate,
+        Money extraGuestNightlyRate,
+        int maxBaseGuests,
+        GuestCount guestCount,
+        StayPeriod stayPeriod)
+    {
+        return CalculatePrice(
+            regularNightlyRate,
+            weekendNightlyRate,
+            extraGuestNightlyRate,
+            maxBaseGuests,
             guestCount,
             stayPeriod,
             Array.Empty<PricingSeason>());
@@ -130,42 +159,63 @@ public static class BookingPricingEngine
         StayPeriod stayPeriod,
         IReadOnlyCollection<PricingSeason> seasons)
     {
+        ArgumentNullException.ThrowIfNull(rentableUnit);
+
+        return CalculatePrice(
+            regularNightlyRate,
+            weekendNightlyRate,
+            extraGuestNightlyRate,
+            rentableUnit.MaxBaseGuests,
+            guestCount,
+            stayPeriod,
+            seasons);
+    }
+
+    public static Result<PriceBreakdown> CalculatePrice(
+        Money regularNightlyRate,
+        Money weekendNightlyRate,
+        Money extraGuestNightlyRate,
+        int maxBaseGuests,
+        GuestCount guestCount,
+        StayPeriod stayPeriod,
+        IReadOnlyCollection<PricingSeason> seasons)
+    {
         ArgumentNullException.ThrowIfNull(regularNightlyRate);
         ArgumentNullException.ThrowIfNull(weekendNightlyRate);
         ArgumentNullException.ThrowIfNull(extraGuestNightlyRate);
-        ArgumentNullException.ThrowIfNull(rentableUnit);
         ArgumentNullException.ThrowIfNull(guestCount);
         ArgumentNullException.ThrowIfNull(stayPeriod);
         ArgumentNullException.ThrowIfNull(seasons);
 
-        Result<Money> accommodationPriceResult =
-            CalculateAccommodationPrice(
-                regularNightlyRate,
-                weekendNightlyRate,
-                stayPeriod,
-                seasons);
+        if (maxBaseGuests <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxBaseGuests),
+                "Maximum base guests must be greater than zero.");
+        }
+
+        Result<Money> accommodationPriceResult = CalculateAccommodationPrice(
+            regularNightlyRate,
+            weekendNightlyRate,
+            stayPeriod,
+            seasons);
 
         if (accommodationPriceResult.IsFailure)
         {
-            return Result<PriceBreakdown>.Failure(
-                accommodationPriceResult.Error);
+            return Result<PriceBreakdown>.Failure(accommodationPriceResult.Error);
         }
 
-        Result<Money> extraGuestPriceResult =
-            CalculateExtraGuestPrice(
-                extraGuestNightlyRate,
-                rentableUnit,
-                guestCount,
-                stayPeriod);
+        Result<Money> extraGuestPriceResult = CalculateExtraGuestPrice(
+            extraGuestNightlyRate,
+            maxBaseGuests,
+            guestCount,
+            stayPeriod);
 
         if (extraGuestPriceResult.IsFailure)
         {
-            return Result<PriceBreakdown>.Failure(
-                extraGuestPriceResult.Error);
+            return Result<PriceBreakdown>.Failure(extraGuestPriceResult.Error);
         }
 
-        return PriceBreakdown.Create(
-            accommodationPriceResult.Value,
-            extraGuestPriceResult.Value);
+        return PriceBreakdown.Create(accommodationPriceResult.Value, extraGuestPriceResult.Value);
     }
 }
