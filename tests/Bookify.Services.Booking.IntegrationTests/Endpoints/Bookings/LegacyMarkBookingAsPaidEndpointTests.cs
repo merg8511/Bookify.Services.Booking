@@ -124,11 +124,13 @@ public sealed class LegacyMarkBookingAsPaidEndpointTests
                 stayPeriod,
                 GuestCount.Create(
                     2)
-                .Value)
+                .Value,
+                GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
+                BookingTestTime.CreatedAtUtc)
             .Value;
 
         Result approvalResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approvalResult.IsSuccess);

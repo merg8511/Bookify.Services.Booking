@@ -506,7 +506,8 @@ public sealed class CancelBookingEndpointTests
                 stayPeriod,
                 GuestCount.Create(
                     2)
-                .Value)
+                .Value, GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
+                BookingTestTime.CreatedAtUtc)
             .Value;
 
         if (targetStatus is
@@ -514,14 +515,14 @@ public sealed class CancelBookingEndpointTests
             BookingStatus.Paid)
         {
             Assert.True(
-                booking.Approve().IsSuccess);
+                booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
         }
 
         if (targetStatus ==
             BookingStatus.Paid)
         {
             Assert.True(
-                booking.MarkAsPaid().IsSuccess);
+                booking.MarkAsPaid(BookingTestTime.PaidAtUtc).IsSuccess);
         }
 
         using IServiceScope scope =

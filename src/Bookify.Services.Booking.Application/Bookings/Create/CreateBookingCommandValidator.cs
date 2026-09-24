@@ -14,53 +14,53 @@ public class CreateBookingCommandValidator :
 
         if (request.PropertyId == Guid.Empty)
         {
-            return Result.Failure(
-                CreateBookingErrors.InvalidPropertyId);
+            return Result.Failure(CreateBookingErrors.InvalidPropertyId);
         }
 
         if (request.RentableUnitId == Guid.Empty)
         {
-            return Result.Failure(
-                CreateBookingErrors.InvalidRentableUnitId);
+            return Result.Failure(CreateBookingErrors.InvalidRentableUnitId);
         }
 
         if (request.CheckInDate is null)
         {
-            return Result.Failure(
-                CreateBookingErrors.CheckInDateRequired);
+            return Result.Failure(CreateBookingErrors.CheckInDateRequired);
         }
 
         if (request.CheckOutDate is null)
         {
-            return Result.Failure(
-                CreateBookingErrors.CheckOutDateRequired);
+            return Result.Failure(CreateBookingErrors.CheckOutDateRequired);
         }
 
         if (request.GuestCount is null)
         {
-            return Result.Failure(
-                CreateBookingErrors.GuestCountRequired);
+            return Result.Failure(CreateBookingErrors.GuestCountRequired);
         }
 
-        Result<StayPeriod> stayPeriodResult =
-            StayPeriod.Create(
-                request.CheckInDate.Value,
-                request.CheckOutDate.Value);
+        Result<StayPeriod> stayPeriodResult = StayPeriod.Create(
+            request.CheckInDate.Value,
+            request.CheckOutDate.Value);
 
         if (stayPeriodResult.IsFailure)
         {
-            return Result.Failure(
-                stayPeriodResult.Error);
+            return Result.Failure(stayPeriodResult.Error);
         }
 
-        Result<GuestCount> guestCountResult =
-            GuestCount.Create(
-                request.GuestCount.Value);
+        Result<GuestCount> guestCountResult = GuestCount.Create(request.GuestCount.Value);
 
         if (guestCountResult.IsFailure)
         {
-            return Result.Failure(
-                guestCountResult.Error);
+            return Result.Failure(guestCountResult.Error);
+        }
+
+        Result<GuestDetails> guestDetailsResult = GuestDetails.Create(
+            request.GuestFullName,
+            request.GuestEmail,
+            request.GuestPhone);
+
+        if (guestDetailsResult.IsFailure)
+        {
+            return Result.Failure(guestDetailsResult.Error);
         }
 
         return Result.Success();

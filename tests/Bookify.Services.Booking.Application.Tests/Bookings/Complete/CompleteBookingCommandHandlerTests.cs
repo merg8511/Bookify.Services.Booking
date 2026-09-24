@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Bookings.Complete;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
@@ -28,7 +29,8 @@ public sealed class CompleteBookingCommandHandlerTests
             new CompleteBookingCommandHandler(
                 new StubBookingRepository(
                     booking),
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(BookingTestTime.CompletedAtUtc));
 
         var command =
             new CompleteBookingCommand(
@@ -54,6 +56,10 @@ public sealed class CompleteBookingCommandHandlerTests
             booking.BlocksInventory);
 
         Assert.Equal(
+    BookingTestTime.CompletedAtUtc,
+    booking.CompletedAtUtc);
+
+        Assert.Equal(
             1,
             unitOfWork.SaveChangesCallCount);
     }
@@ -74,7 +80,8 @@ public sealed class CompleteBookingCommandHandlerTests
             new CompleteBookingCommandHandler(
                 new StubBookingRepository(
                     null),
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(BookingTestTime.CompletedAtUtc));
 
         var command =
             new CompleteBookingCommand(
@@ -115,7 +122,8 @@ public sealed class CompleteBookingCommandHandlerTests
             new CompleteBookingCommandHandler(
                 new StubBookingRepository(
                     booking),
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(BookingTestTime.CompletedAtUtc));
 
         var command =
             new CompleteBookingCommand(
@@ -157,7 +165,8 @@ public sealed class CompleteBookingCommandHandlerTests
             new CompleteBookingCommandHandler(
                 new StubBookingRepository(
                     null),
-                new SpyUnitOfWork());
+                new SpyUnitOfWork(),
+                new FixedClock(BookingTestTime.CompletedAtUtc));
 
         Task Action()
         {
@@ -175,7 +184,7 @@ public sealed class CompleteBookingCommandHandlerTests
             CreatePendingPaymentBooking();
 
         Result markAsPaidResult =
-            booking.MarkAsPaid();
+            booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
 
         Assert.True(
             markAsPaidResult.IsSuccess);
@@ -189,7 +198,7 @@ public sealed class CompleteBookingCommandHandlerTests
             CreateBooking();
 
         Result approvalResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approvalResult.IsSuccess);
@@ -223,7 +232,12 @@ public sealed class CompleteBookingCommandHandlerTests
         return DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                GuestCount.Create(2).Value)
+                GuestCount.Create(2).Value,
+                GuestDetails.Create(
+                "John Doe",
+                "john@example.com",
+                "+50377778888").Value,
+                BookingTestTime.CreatedAtUtc)
             .Value;
     }
 

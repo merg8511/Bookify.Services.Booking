@@ -7,6 +7,7 @@ using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Application.Bookings.Complete;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
+using Bookify.Services.Booking.Application.Bookings.Get;
 using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.DomainEvents;
@@ -21,6 +22,8 @@ using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
+using Bookify.Services.Booking.Application.RentableUnits.GetByProperty;
+using Bookify.Services.Booking.Application.RentableUnits.ReadModels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bookify.Services.Booking.Application;
@@ -73,6 +76,16 @@ public static class DependencyInjection
             IQueryHandler<GetPropertiesQuery, PagedResult<PropertyListItemReadModel>>,
             GetPropertiesQueryHandler>();
 
+        // ==========================================
+        // Module: Rentable Units
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<GetPropertyUnitsQuery>,
+            GetPropertyUnitsQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetPropertyUnitsQuery, IReadOnlyList<RentableUnitListItemReadModel>>,
+            GetPropertyUnitsQueryHandler>();
 
         // ==========================================
         //  Module: Bookings
@@ -84,6 +97,14 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<CreateBookingCommand, CreateBookingResult>,
             CreateBookingCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetBookingQuery>,
+            GetBookingQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetBookingQuery, BookingDetailsReadModel>,
+            GetBookingQueryHandler>();
 
         services.AddScoped<
             IRequestValidator<ApproveBookingCommand>,

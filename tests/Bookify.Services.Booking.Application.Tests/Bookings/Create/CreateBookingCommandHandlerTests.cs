@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Errors;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
@@ -41,7 +42,9 @@ public sealed class CreateBookingCommandHandlerTests
                 availabilityReader,
                 inventoryLock,
                 unitOfWork,
-                transactionManager);
+                transactionManager,
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -62,6 +65,18 @@ public sealed class CreateBookingCommandHandlerTests
         Assert.NotNull(bookingRepository.AddedBooking);
 
         DomainBooking booking = bookingRepository.AddedBooking;
+
+        Assert.False(
+    string.IsNullOrWhiteSpace(
+        booking.Reference.Value));
+
+        Assert.Equal(
+            booking.Reference.Value,
+            result.Value.BookingReference);
+
+        Assert.Equal(
+            BookingTestTime.CreatedAtUtc,
+            result.Value.CreatedAtUtc);
 
         Assert.Equal(
             result.Value.Id,
@@ -169,6 +184,16 @@ public sealed class CreateBookingCommandHandlerTests
         Assert.Equal(
             1,
             unitOfWork.SaveChangesCallCount);
+
+        Assert.Equal(
+            BookingTestTime.CreatedAtUtc
+                .Add(
+                    BookingTestDeadlinePolicy
+                        .ApprovalWindow),
+            booking.ApprovalDueAtUtc);
+
+                Assert.Null(
+                    booking.PaymentDueAtUtc);
     }
 
     [Fact]
@@ -197,7 +222,9 @@ public sealed class CreateBookingCommandHandlerTests
                 availabilityReader,
                 new StubBookingInventoryLock(),
                 unitOfWork,
-                new StubTransactionManager());
+                new StubTransactionManager(),
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -256,7 +283,9 @@ public sealed class CreateBookingCommandHandlerTests
                 availabilityReader,
                 new StubBookingInventoryLock(),
                 unitOfWork,
-                new StubTransactionManager());
+                new StubTransactionManager(),
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -307,7 +336,9 @@ public sealed class CreateBookingCommandHandlerTests
                 availabilityReader,
                 new StubBookingInventoryLock(),
                 unitOfWork,
-                new StubTransactionManager());
+                new StubTransactionManager(),
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -364,7 +395,9 @@ public sealed class CreateBookingCommandHandlerTests
                 availabilityReader,
                 new StubBookingInventoryLock(),
                 unitOfWork,
-                new StubTransactionManager());
+                new StubTransactionManager(),
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         CreateBookingCommand command =
             CreateValidCommand(
@@ -421,7 +454,9 @@ public sealed class CreateBookingCommandHandlerTests
                 availabilityReader,
                 new StubBookingInventoryLock(),
                 unitOfWork,
-                new StubTransactionManager());
+                new StubTransactionManager(),
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         // ACT
         Result<CreateBookingResult> result =
@@ -475,7 +510,9 @@ public sealed class CreateBookingCommandHandlerTests
                 availabilityReader,
                 new StubBookingInventoryLock(),
                 unitOfWork,
-                new StubTransactionManager());
+                new StubTransactionManager(),
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         // ACT
         Result<CreateBookingResult> result =
@@ -529,7 +566,9 @@ public sealed class CreateBookingCommandHandlerTests
                 availabilityReader,
                 inventoryLock,
                 unitOfWork,
-                transactionManager);
+                transactionManager,
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         // ACT
         Result<CreateBookingResult> result =
@@ -578,7 +617,9 @@ public sealed class CreateBookingCommandHandlerTests
                     hasConflict: false),
                 new StubBookingInventoryLock(),
                 new SpyUnitOfWork(),
-                new StubTransactionManager());
+                new StubTransactionManager(),
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         // ACT
         Task Action()
@@ -631,7 +672,9 @@ public sealed class CreateBookingCommandHandlerTests
                 new StubBookingInventoryLock(
                     acquired: true),
                 unitOfWork,
-                transactionManager);
+                transactionManager,
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         // ACT
         Result<CreateBookingResult> result =
@@ -742,7 +785,9 @@ public sealed class CreateBookingCommandHandlerTests
                 new StubBookingInventoryLock(
                     acquired: true),
                 unitOfWork,
-                transactionManager);
+                transactionManager,
+                new FixedClock(BookingTestTime.CreatedAtUtc),
+                BookingTestDeadlinePolicy.Create());
 
         var command =
             new CreateBookingCommand(
@@ -750,7 +795,10 @@ public sealed class CreateBookingCommandHandlerTests
                 rentableUnit.Id,
                 Date(10),
                 Date(11),
-                GuestCount: 1);
+                GuestCount: 1,
+                GuestFullName: "John Doe",
+                GuestEmail: "john@example.com",
+                GuestPhone: "+50377778888");
 
         // ACT
         Result<CreateBookingResult> result =
@@ -798,7 +846,10 @@ public sealed class CreateBookingCommandHandlerTests
             rentableUnitId,
             Date(10),
             Date(15),
-            guestCount);
+            guestCount,
+            GuestFullName: "John Doe",
+            GuestEmail: "john@example.com",
+            GuestPhone: "+50377778888");
     }
 
     private static Property CreateProperty()

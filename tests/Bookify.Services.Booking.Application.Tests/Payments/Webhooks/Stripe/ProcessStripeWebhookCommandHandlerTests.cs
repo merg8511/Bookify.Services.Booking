@@ -6,6 +6,7 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Payments.Webhooks.Stripe;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Payments;
@@ -787,13 +788,13 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
             DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                GuestCount.Create(
-                    2)
-                .Value)
-            .Value;
+                GuestCount.Create(2)
+                .Value,
+                GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
+                BookingTestTime.CreatedAtUtc).Value;
 
         Assert.True(
-            booking.Approve().IsSuccess);
+            booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
 
         return booking;
     }

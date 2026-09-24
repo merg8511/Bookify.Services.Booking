@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Payments;
@@ -708,7 +709,7 @@ public sealed class PaymentCancellationCoordinatorTests
             CreateBooking();
 
         Result approveResult =
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         Assert.True(
             approveResult.IsSuccess);
@@ -745,8 +746,9 @@ public sealed class PaymentCancellationCoordinatorTests
             stayPeriod,
             GuestCount.Create(
                 2)
-            .Value)
-            .Value;
+            .Value,
+            GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
+            BookingTestTime.CreatedAtUtc)            .Value;
     }
 
     private static Payment CreatePayment(

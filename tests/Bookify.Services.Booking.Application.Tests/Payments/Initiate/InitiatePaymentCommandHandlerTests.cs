@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Payments.Reconciliation;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
@@ -1006,7 +1007,12 @@ public sealed class InitiatePaymentCommandHandlerTests
                 rentableUnit,
                 stayPeriod,
                 guestCount,
-                priceSnapshot);
+                GuestDetails.Create(
+                "John Doe",
+                "john@example.com",
+                "+50377778888").Value,
+                priceSnapshot,
+                BookingTestTime.CreatedAtUtc);
 
         Assert.True(
             bookingResult.IsSuccess);
@@ -1017,7 +1023,7 @@ public sealed class InitiatePaymentCommandHandlerTests
         if (approve)
         {
             Result approveResult =
-                booking.Approve();
+                booking.Approve(BookingTestTime.ApprovedAtUtc);
 
             Assert.True(
                 approveResult.IsSuccess);

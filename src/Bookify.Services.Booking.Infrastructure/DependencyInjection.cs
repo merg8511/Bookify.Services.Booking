@@ -10,6 +10,7 @@ using Bookify.Services.Booking.Application.Payments;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
+using Bookify.Services.Booking.Infrastructure.Bookings;
 using Bookify.Services.Booking.Infrastructure.Payments;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
@@ -162,5 +163,10 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentReadService,
             DapperPaymentReadService>();
+
+        // ==========================================
+        //  Bookings
+        // ==========================================
+        services.AddBookingDeadlines(configuration);
     }
 }

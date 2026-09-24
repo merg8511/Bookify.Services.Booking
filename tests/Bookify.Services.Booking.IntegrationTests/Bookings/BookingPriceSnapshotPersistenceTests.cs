@@ -82,7 +82,12 @@ public sealed class BookingPriceSnapshotPersistenceTests
                 rentableUnit,
                 stayPeriod,
                 guestCount,
-                priceSnapshot)
+                GuestDetails.Create(
+                "John Doe",
+                "john@example.com",
+                "+50377778888").Value,
+                priceSnapshot,
+                BookingTestTime.CreatedAtUtc)
             .Value;
 
         using (

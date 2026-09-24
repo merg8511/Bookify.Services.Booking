@@ -211,7 +211,7 @@ public sealed class PaymentWebhookEventStoreTests
         string eventId =
             $"evt_{Guid.NewGuid():N}";
 
-        DateTimeOffset firstReceivedAtUtc =    TruncateToMicroseconds(            DateTimeOffset.UtcNow);
+        DateTimeOffset firstReceivedAtUtc = TruncateToMicroseconds(DateTimeOffset.UtcNow);
 
         Guid originalRecordId;
 

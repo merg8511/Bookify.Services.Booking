@@ -20,14 +20,23 @@ namespace Bookify.Services.Booking.IntegrationTests.Endpoints.Properties;
 [Trait("Category", "Integration")]
 public sealed class PropertyEndpointsTests
 {
-    private const string PropertiesEndpoint = "/api/v1/properties";
+    private const string PropertiesEndpoint =
+        "/api/v1/properties";
+
     private readonly HttpClient _client;
     private readonly BookingApiFactory _factory;
-    private static CancellationToken CancellationToken => TestContext.Current.CancellationToken;
-    public PropertyEndpointsTests(BookingApiFactory factory)
+
+    private static CancellationToken CancellationToken =>
+        TestContext.Current.CancellationToken;
+
+    public PropertyEndpointsTests(
+        BookingApiFactory factory)
     {
-        _client = factory.Client;
-        _factory = factory;
+        _client =
+            factory.Client;
+
+        _factory =
+            factory;
     }
 
     [Fact]
@@ -49,10 +58,13 @@ public sealed class PropertyEndpointsTests
     [Fact]
     public async Task GetPropertyById_ReturnsPersistedProperty()
     {
-        CreatedProperty created = await CreatePropertyAsync();
+        CreatedProperty created =
+            await CreatePropertyAsync();
 
-        using HttpResponseMessage response = await _client
-            .GetAsync(created.Location, CancellationToken);
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                created.Location,
+                CancellationToken);
 
         Assert.Equal(
             HttpStatusCode.OK,
@@ -68,7 +80,8 @@ public sealed class PropertyEndpointsTests
             Assert.IsType<GetPropertyByIdResponse>(
                 await response.Content
                     .ReadFromJsonAsync<
-                        GetPropertyByIdResponse>(CancellationToken));
+                        GetPropertyByIdResponse>(
+                            CancellationToken));
 
         Assert.Equal(
             created.Response.Id,
@@ -90,7 +103,8 @@ public sealed class PropertyEndpointsTests
             created.Request.CheckOutTime,
             body.CheckOutTime);
 
-        Assert.True(body.IsActive);
+        Assert.True(
+            body.IsActive);
     }
 
     [Fact]
@@ -100,21 +114,26 @@ public sealed class PropertyEndpointsTests
             new CreatePropertyRequest(
                 "  ",
                 "America/El_Salvador",
-                new TimeOnly(15, 0),
-                new TimeOnly(11, 0));
+                new TimeOnly(
+                    15,
+                    0),
+                new TimeOnly(
+                    11,
+                    0));
 
         using HttpResponseMessage response =
             await _client.PostAsJsonAsync(
-            PropertiesEndpoint,
-            request,
-            CancellationToken);
+                PropertiesEndpoint,
+                request,
+                CancellationToken);
 
         Assert.Equal(
             HttpStatusCode.BadRequest,
             response.StatusCode);
 
         ProblemDetailsResponse problem =
-            await ReadProblemAsync(response);
+            await ReadProblemAsync(
+                response);
 
         Assert.Equal(
             "urn:bookify:problem-type:validation",
@@ -144,20 +163,25 @@ public sealed class PropertyEndpointsTests
     [Fact]
     public async Task GetPropertyById_WhenMissing_ReturnsNotFoundProblem()
     {
-        Guid missingPropertyId = Guid.NewGuid();
+        Guid missingPropertyId =
+            Guid.NewGuid();
 
-        string endpoint = $"{PropertiesEndpoint}/" +
+        string endpoint =
+            $"{PropertiesEndpoint}/" +
             $"{missingPropertyId}";
 
         using HttpResponseMessage response =
-            await _client.GetAsync(endpoint, CancellationToken);
+            await _client.GetAsync(
+                endpoint,
+                CancellationToken);
 
         Assert.Equal(
             HttpStatusCode.NotFound,
             response.StatusCode);
 
         ProblemDetailsResponse problem =
-            await ReadProblemAsync(response);
+            await ReadProblemAsync(
+                response);
 
         Assert.Equal(
             "urn:bookify:problem-type:not-found",
@@ -180,13 +204,15 @@ public sealed class PropertyEndpointsTests
             problem.Code);
 
         Assert.False(
-            string.IsNullOrWhiteSpace(problem.TraceId));
+            string.IsNullOrWhiteSpace(
+                problem.TraceId));
     }
 
     [Fact]
     public async Task GetPropertyById_WithEmptyId_ReturnsValidationProblem()
     {
-        string endpoint = $"{PropertiesEndpoint}/" +
+        string endpoint =
+            $"{PropertiesEndpoint}/" +
             $"{Guid.Empty}";
 
         using HttpResponseMessage response =
@@ -199,7 +225,8 @@ public sealed class PropertyEndpointsTests
             response.StatusCode);
 
         ProblemDetailsResponse problem =
-            await ReadProblemAsync(response);
+            await ReadProblemAsync(
+                response);
 
         Assert.Equal(
             "urn:bookify:problem-type:validation",
@@ -262,7 +289,7 @@ public sealed class PropertyEndpointsTests
         using HttpResponseMessage response =
             await _client.GetAsync(
                 $"{PropertiesEndpoint}" +
-                $"?pageNumber=1&pageSize=2",
+                "?pageNumber=1&pageSize=2",
                 CancellationToken);
 
         Assert.Equal(
@@ -270,14 +297,15 @@ public sealed class PropertyEndpointsTests
             response.StatusCode);
 
         PagedResponse<
-        PropertyListItemResponse> body =
-        Assert.IsType<
-            PagedResponse<
-                PropertyListItemResponse>>(
-            await response.Content
-                .ReadFromJsonAsync<
+            PropertyListItemResponse> body =
+                Assert.IsType<
                     PagedResponse<
-                        PropertyListItemResponse>>(CancellationToken));
+                        PropertyListItemResponse>>(
+                    await response.Content
+                        .ReadFromJsonAsync<
+                            PagedResponse<
+                                PropertyListItemResponse>>(
+                                    CancellationToken));
 
         Assert.Equal(
             1,
@@ -304,7 +332,7 @@ public sealed class PropertyEndpointsTests
         using HttpResponseMessage response =
             await _client.GetAsync(
                 $"{PropertiesEndpoint}" +
-                $"?pageNumber=0&pageSize=20",
+                "?pageNumber=0&pageSize=20",
                 CancellationToken);
 
         Assert.Equal(
@@ -312,7 +340,8 @@ public sealed class PropertyEndpointsTests
             response.StatusCode);
 
         ProblemDetailsResponse problem =
-            await ReadProblemAsync(response);
+            await ReadProblemAsync(
+                response);
 
         Assert.Equal(
             "Pagination.InvalidPageNumber",
@@ -325,14 +354,16 @@ public sealed class PropertyEndpointsTests
         using HttpResponseMessage response =
             await _client.GetAsync(
                 $"{PropertiesEndpoint}" +
-                $"?pageNumber=1&pageSize=101",
+                "?pageNumber=1&pageSize=101",
                 CancellationToken);
 
         Assert.Equal(
             HttpStatusCode.BadRequest,
             response.StatusCode);
 
-        ProblemDetailsResponse problem = await ReadProblemAsync(response);
+        ProblemDetailsResponse problem =
+            await ReadProblemAsync(
+                response);
 
         Assert.Equal(
             "Pagination.PageSizeExceeded",
@@ -342,10 +373,15 @@ public sealed class PropertyEndpointsTests
     [Fact]
     public async Task GetProperties_WithNameFilter_ReturnsMatchingProperties()
     {
-        string uniqueToken = Guid.NewGuid().ToString("N");
-        string propertyName = $"Rancho {uniqueToken}";
+        string uniqueToken =
+            Guid.NewGuid()
+                .ToString("N");
 
-        await CreatePropertyAsync(propertyName);
+        string propertyName =
+            $"Rancho {uniqueToken}";
+
+        await CreatePropertyAsync(
+            propertyName);
 
         string encodedName =
             Uri.EscapeDataString(
@@ -355,9 +391,10 @@ public sealed class PropertyEndpointsTests
             await _client.GetAsync(
                 $"{PropertiesEndpoint}" +
                 $"?name={encodedName}" +
-                $"&isActive=true" +
-                $"&pageNumber=1" +
-                $"&pageSize=20", CancellationToken);
+                "&isActive=true" +
+                "&pageNumber=1" +
+                "&pageSize=20",
+                CancellationToken);
 
         Assert.Equal(
             HttpStatusCode.OK,
@@ -365,22 +402,25 @@ public sealed class PropertyEndpointsTests
 
         PagedResponse<
             PropertyListItemResponse> body =
-            Assert.IsType<
-                PagedResponse<
-                    PropertyListItemResponse>>(
-                await response.Content
-                    .ReadFromJsonAsync<
-                        PagedResponse<
-                            PropertyListItemResponse>>(CancellationToken));
+                Assert.IsType<
+                    PagedResponse<
+                        PropertyListItemResponse>>(
+                    await response.Content
+                        .ReadFromJsonAsync<
+                            PagedResponse<
+                                PropertyListItemResponse>>(
+                                    CancellationToken));
 
         PropertyListItemResponse item =
-            Assert.Single(body.Items);
+            Assert.Single(
+                body.Items);
 
         Assert.Equal(
             propertyName,
             item.Name);
 
-        Assert.True(item.IsActive);
+        Assert.True(
+            item.IsActive);
 
         Assert.Equal(
             1,
@@ -397,7 +437,7 @@ public sealed class PropertyEndpointsTests
         using HttpResponseMessage response =
             await _client.GetAsync(
                 $"{PropertiesEndpoint}" +
-                $"?isActive=not-a-boolean",
+                "?isActive=not-a-boolean",
                 CancellationToken);
 
         Assert.Equal(
@@ -410,8 +450,7 @@ public sealed class PropertyEndpointsTests
     {
         string token =
             Guid.NewGuid()
-                .ToString(
-                    "N");
+                .ToString("N");
 
         await CreatePropertyAsync(
             $"{token} Alpha");
@@ -442,13 +481,14 @@ public sealed class PropertyEndpointsTests
 
         PagedResponse<
             PropertyListItemResponse> body =
-            Assert.IsType<
-                PagedResponse<
-                    PropertyListItemResponse>>(
-                await response.Content
-                    .ReadFromJsonAsync<
-                        PagedResponse<
-                            PropertyListItemResponse>>(CancellationToken));
+                Assert.IsType<
+                    PagedResponse<
+                        PropertyListItemResponse>>(
+                    await response.Content
+                        .ReadFromJsonAsync<
+                            PagedResponse<
+                                PropertyListItemResponse>>(
+                                    CancellationToken));
 
         Assert.Collection(
             body.Items,
@@ -517,8 +557,7 @@ public sealed class PropertyEndpointsTests
     {
         string token =
             Guid.NewGuid()
-                .ToString(
-                    "N");
+                .ToString("N");
 
         await CreatePropertyAsync(
             $"{token} Charlie");
@@ -544,13 +583,14 @@ public sealed class PropertyEndpointsTests
 
         PagedResponse<
             PropertyListItemResponse> body =
-            Assert.IsType<
-                PagedResponse<
-                    PropertyListItemResponse>>(
-                await response.Content
-                    .ReadFromJsonAsync<
-                        PagedResponse<
-                            PropertyListItemResponse>>(CancellationToken));
+                Assert.IsType<
+                    PagedResponse<
+                        PropertyListItemResponse>>(
+                    await response.Content
+                        .ReadFromJsonAsync<
+                            PagedResponse<
+                                PropertyListItemResponse>>(
+                                    CancellationToken));
 
         Assert.Equal(
             $"{token} Alpha",
@@ -563,7 +603,7 @@ public sealed class PropertyEndpointsTests
 
     [Fact]
     public async Task
-    GetAvailability_WithValidRequest_ReturnsAvailableUnits()
+        GetAvailability_WithValidRequest_ReturnsAvailableUnits()
     {
         // Arrange
         AvailabilityTestData data =
@@ -616,14 +656,21 @@ public sealed class PropertyEndpointsTests
             unit.Id);
     }
 
-    private async Task<CreatedProperty> CreatePropertyAsync(string? name = null)
+    private async Task<CreatedProperty>
+        CreatePropertyAsync(
+            string? name = null)
     {
         var request =
             new CreatePropertyRequest(
-                name ?? $"Rancho {Guid.NewGuid():N}",
+                name ??
+                    $"Rancho {Guid.NewGuid():N}",
                 "America/El_Salvador",
-                new TimeOnly(15, 0),
-                new TimeOnly(11, 0));
+                new TimeOnly(
+                    15,
+                    0),
+                new TimeOnly(
+                    11,
+                    0));
 
         using HttpResponseMessage response =
             await _client.PostAsJsonAsync(
@@ -647,13 +694,18 @@ public sealed class PropertyEndpointsTests
                         CreatePropertyResponse>());
 
         Uri location =
-            Assert.IsType<Uri>(response.Headers.Location);
+            Assert.IsType<Uri>(
+                response.Headers.Location);
 
-        return new CreatedProperty(request, body, location);
+        return new CreatedProperty(
+            request,
+            body,
+            location);
     }
 
     private static async Task<ProblemDetailsResponse>
-        ReadProblemAsync(HttpResponseMessage response)
+        ReadProblemAsync(
+            HttpResponseMessage response)
     {
         Assert.Equal(
             "application/problem+json",
@@ -661,94 +713,231 @@ public sealed class PropertyEndpointsTests
                 .ContentType?
                 .MediaType);
 
-        return Assert.IsType<ProblemDetailsResponse>(
-            await response.Content
-                .ReadFromJsonAsync<ProblemDetailsResponse>());
+        return Assert.IsType<
+            ProblemDetailsResponse>(
+                await response.Content
+                    .ReadFromJsonAsync<
+                        ProblemDetailsResponse>());
     }
 
     private sealed record CreatedProperty(
         CreatePropertyRequest Request,
         CreatePropertyResponse Response,
-        Uri Location)
-    {
-    }
+        Uri Location);
 
-    private async Task<AvailabilityTestData> SeedAvailabilityScenarioAsync(
-        CancellationToken cancellationToken)
+    private async Task<AvailabilityTestData>
+        SeedAvailabilityScenarioAsync(
+            CancellationToken cancellationToken)
     {
-        Guid propertyId = Guid.NewGuid();
-        Guid roomAId = Guid.NewGuid();
-        Guid roomBId = Guid.NewGuid();
-        Guid entirePropertyId = Guid.NewGuid();
-        Guid inactiveRoomId = Guid.NewGuid();
-        Guid lowCapacityRoomId = Guid.NewGuid();
-        Guid roomABookingId = Guid.NewGuid();
-        Guid roomBCancelledBookingId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
+
+        Guid roomAId =
+            Guid.NewGuid();
+
+        Guid roomBId =
+            Guid.NewGuid();
+
+        Guid entirePropertyId =
+            Guid.NewGuid();
+
+        Guid inactiveRoomId =
+            Guid.NewGuid();
+
+        Guid lowCapacityRoomId =
+            Guid.NewGuid();
+
+        Guid roomABookingId =
+            Guid.NewGuid();
+
+        Guid roomBCancelledBookingId =
+            Guid.NewGuid();
 
         IDbConnectionFactory connectionFactory =
-            _factory.Services.GetRequiredService<IDbConnectionFactory>();
+            _factory.Services
+                .GetRequiredService<
+                    IDbConnectionFactory>();
 
         await using DbConnection connection =
-            await connectionFactory.OpenConnectionAsync(cancellationToken);
+            await connectionFactory
+                .OpenConnectionAsync(
+                    cancellationToken);
 
-        var command = new CommandDefinition(
-            """
-            INSERT INTO properties
-            (
-                id, name, time_zone_id, check_in_time, check_out_time, is_active
-            )
-            VALUES
-            (
-                @PropertyId, 'Availability Property', 'America/El_Salvador', '15:00', '11:00', TRUE
-            );
+        var command =
+            new CommandDefinition(
+                """
+                INSERT INTO properties
+                (
+                    id,
+                    name,
+                    time_zone_id,
+                    check_in_time,
+                    check_out_time,
+                    is_active
+                )
+                VALUES
+                (
+                    @PropertyId,
+                    'Availability Property',
+                    'America/El_Salvador',
+                    '15:00',
+                    '11:00',
+                    TRUE
+                );
 
-            INSERT INTO rentable_units
-            (
-                id, property_id, name, type, maximum_capacity, max_base_guests, is_active
-            )
-            VALUES
-            (
-                @RoomAId, @PropertyId, 'Room A', 'Room', 4, 2, TRUE
-            ),
-            (
-                @RoomBId, @PropertyId, 'Room B', 'Room', 2, 2, TRUE
-            ),
-            (
-                @EntirePropertyId, @PropertyId, 'Entire Property', 'EntireProperty', 10, 6, TRUE
-            ),
-            (
-                @InactiveRoomId, @PropertyId, 'Inactive Room', 'Room', 10, 4, FALSE
-            ),
-            (
-                @LowCapacityRoomId, @PropertyId, 'Small Room', 'Room', 1, 1, TRUE
-            );
+                INSERT INTO rentable_units
+                (
+                    id,
+                    property_id,
+                    name,
+                    type,
+                    maximum_capacity,
+                    max_base_guests,
+                    is_active
+                )
+                VALUES
+                (
+                    @RoomAId,
+                    @PropertyId,
+                    'Room A',
+                    'Room',
+                    4,
+                    2,
+                    TRUE
+                ),
+                (
+                    @RoomBId,
+                    @PropertyId,
+                    'Room B',
+                    'Room',
+                    2,
+                    2,
+                    TRUE
+                ),
+                (
+                    @EntirePropertyId,
+                    @PropertyId,
+                    'Entire Property',
+                    'EntireProperty',
+                    10,
+                    6,
+                    TRUE
+                ),
+                (
+                    @InactiveRoomId,
+                    @PropertyId,
+                    'Inactive Room',
+                    'Room',
+                    10,
+                    4,
+                    FALSE
+                ),
+                (
+                    @LowCapacityRoomId,
+                    @PropertyId,
+                    'Small Room',
+                    'Room',
+                    1,
+                    1,
+                    TRUE
+                );
 
-            INSERT INTO bookings
-            (
-                id, property_id, rentable_unit_id, check_in_date, check_out_date, guest_count, status, cancellation_reason
-            )
-            VALUES
-            (
-                @RoomABookingId, @PropertyId, @RoomAId, '2026-08-10', '2026-08-15', 2, 'Paid', NULL
-            ),
-            (
-                @RoomBCancelledBookingId, @PropertyId, @RoomBId, '2026-08-10', '2026-08-15', 2, 'Cancelled', 'PaymentExpired'
-            );
-            """,
-            new
-            {
-                PropertyId = propertyId,
-                RoomAId = roomAId,
-                RoomBId = roomBId,
-                EntirePropertyId = entirePropertyId,
-                InactiveRoomId = inactiveRoomId,
-                LowCapacityRoomId = lowCapacityRoomId,
-                RoomABookingId = roomABookingId,
-                RoomBCancelledBookingId = roomBCancelledBookingId
-            },
-            cancellationToken: cancellationToken);
+                INSERT INTO rentable_unit_pricing
+                (
+                    rentable_unit_id,
+                    regular_nightly_rate_amount,
+                    regular_nightly_rate_currency,
+                    weekend_nightly_rate_amount,
+                    weekend_nightly_rate_currency,
+                    extra_guest_nightly_rate_amount,
+                    extra_guest_nightly_rate_currency
+                )
+                VALUES
+                (
+                    @RoomBId,
+                    100.000,
+                    'USD',
+                    140.000,
+                    'USD',
+                    25.000,
+                    'USD'
+                );
 
-        await connection.ExecuteAsync(command);
+                INSERT INTO bookings
+                (
+                    id,
+                    booking_reference,
+                    property_id,
+                    rentable_unit_id,
+                    check_in_date,
+                    check_out_date,
+                    guest_count,
+                    status,
+                    cancellation_reason
+                )
+                VALUES
+                (
+                    @RoomABookingId,
+                    @RoomABookingReference,
+                    @PropertyId,
+                    @RoomAId,
+                    '2026-08-10',
+                    '2026-08-15',
+                    2,
+                    'Paid',
+                    NULL
+                ),
+                (
+                    @RoomBCancelledBookingId,
+                    @RoomBCancelledBookingReference,
+                    @PropertyId,
+                    @RoomBId,
+                    '2026-08-10',
+                    '2026-08-15',
+                    2,
+                    'Cancelled',
+                    'PaymentExpired'
+                );
+                """,
+                new
+                {
+                    PropertyId =
+                        propertyId,
+
+                    RoomAId =
+                        roomAId,
+
+                    RoomBId =
+                        roomBId,
+
+                    EntirePropertyId =
+                        entirePropertyId,
+
+                    InactiveRoomId =
+                        inactiveRoomId,
+
+                    LowCapacityRoomId =
+                        lowCapacityRoomId,
+
+                    RoomABookingId =
+                        roomABookingId,
+
+                    RoomABookingReference =
+                        BookingTestReference.From(
+                            roomABookingId),
+
+                    RoomBCancelledBookingId =
+                        roomBCancelledBookingId,
+
+                    RoomBCancelledBookingReference =
+                        BookingTestReference.From(
+                            roomBCancelledBookingId)
+                },
+                cancellationToken:
+                    cancellationToken);
+
+        await connection.ExecuteAsync(
+            command);
 
         return new AvailabilityTestData(
             propertyId,

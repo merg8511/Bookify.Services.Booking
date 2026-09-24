@@ -394,12 +394,13 @@ public sealed class StripePaymentWebhookConcurrencyTests
                 rentableUnit,
                 stayPeriod,
                 GuestCount.Create(
-                    2)
-                .Value)
+                    2)                .Value,
+                GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
+                BookingTestTime.CreatedAtUtc)
             .Value;
 
         Assert.True(
-            booking.Approve().IsSuccess);
+            booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
 
         DateTimeOffset paymentCreatedAtUtc =
             DateTimeOffset.UtcNow

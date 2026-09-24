@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Bookings.Reject;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
@@ -27,7 +28,8 @@ public sealed class RejectBookingCommandHandlerTests
         var handler =
             new RejectBookingCommandHandler(
                 bookingRepository,
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(BookingTestTime.CancelledAtUtc));
 
         var command = new RejectBookingCommand(booking.Id);
 
@@ -50,6 +52,10 @@ public sealed class RejectBookingCommandHandlerTests
         Assert.Equal(
             1,
             unitOfWork.SaveChangesCallCount);
+
+        Assert.Equal(
+    BookingTestTime.CancelledAtUtc,
+    booking.CancelledAtUtc);
     }
 
     [Fact]
@@ -66,7 +72,8 @@ public sealed class RejectBookingCommandHandlerTests
             new RejectBookingCommandHandler(
                 new StubBookingRepository(
                     null),
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(BookingTestTime.CancelledAtUtc));
 
         var command = new RejectBookingCommand(bookingId);
 
@@ -94,7 +101,7 @@ public sealed class RejectBookingCommandHandlerTests
 
         DomainBooking booking = CreateBooking();
 
-        booking.Approve();
+        booking.Approve(BookingTestTime.ApprovedAtUtc);
 
         var unitOfWork = new SpyUnitOfWork();
 
@@ -102,7 +109,8 @@ public sealed class RejectBookingCommandHandlerTests
             new RejectBookingCommandHandler(
                 new StubBookingRepository(
                     booking),
-                unitOfWork);
+                unitOfWork,
+                new FixedClock(BookingTestTime.CancelledAtUtc));
 
         var command = new RejectBookingCommand(booking.Id);
 
@@ -139,7 +147,8 @@ public sealed class RejectBookingCommandHandlerTests
             new RejectBookingCommandHandler(
                 new StubBookingRepository(
                     null),
-                new SpyUnitOfWork());
+                new SpyUnitOfWork(),
+                new FixedClock(BookingTestTime.CancelledAtUtc));
 
         // ACT
         Task Action()
@@ -178,7 +187,9 @@ public sealed class RejectBookingCommandHandlerTests
         return DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
-                GuestCount.Create(2).Value)
+                GuestCount.Create(2).Value,
+                GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
+                BookingTestTime.CreatedAtUtc)
             .Value;
     }
 

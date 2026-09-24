@@ -28,10 +28,38 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("ApprovalDueAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approval_due_at_utc");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at_utc");
+
                     b.Property<string>("CancellationReason")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at_utc");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<DateTimeOffset?>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTimeOffset?>("PaidAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at_utc");
+
+                    b.Property<DateTimeOffset?>("PaymentDueAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("payment_due_at_utc");
 
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid")
@@ -515,6 +543,63 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                 .IsRequired();
                         });
 
+                    b.OwnsOne("Bookify.Services.Booking.Domain.Bookings.ValueObjects.BookingReference", "Reference", b1 =>
+                        {
+                            b1.Property<Guid>("BookingId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasMaxLength(27)
+                                .HasColumnType("character varying(27)")
+                                .HasColumnName("booking_reference");
+
+                            b1.HasKey("BookingId");
+
+                            b1.HasIndex("Value")
+                                .IsUnique()
+                                .HasDatabaseName("ux_bookings_booking_reference");
+
+                            b1.ToTable("bookings");
+
+                            b1.WithOwner()
+                                .HasForeignKey("BookingId");
+                        });
+
+                    b.OwnsOne("Bookify.Services.Booking.Domain.Bookings.ValueObjects.GuestDetails", "GuestDetails", b1 =>
+                        {
+                            b1.Property<Guid>("BookingId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("booking_id");
+
+                            b1.Property<string>("Email")
+                                .IsRequired()
+                                .HasMaxLength(254)
+                                .HasColumnType("character varying(254)")
+                                .HasColumnName("email");
+
+                            b1.Property<string>("FullName")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("full_name");
+
+                            b1.Property<string>("Phone")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)")
+                                .HasColumnName("phone");
+
+                            b1.HasKey("BookingId")
+                                .HasName("pk_booking_guest_details");
+
+                            b1.ToTable("booking_guest_details", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("BookingId")
+                                .HasConstraintName("fk_booking_guest_details_bookings_booking_id");
+                        });
+
                     b.OwnsOne("Bookify.Services.Booking.Domain.Bookings.ValueObjects.StayPeriod", "StayPeriod", b1 =>
                         {
                             b1.Property<Guid>("BookingId")
@@ -559,7 +644,12 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                     b.Navigation("GuestCount")
                         .IsRequired();
 
+                    b.Navigation("GuestDetails");
+
                     b.Navigation("PriceSnapshot");
+
+                    b.Navigation("Reference")
+                        .IsRequired();
 
                     b.Navigation("StayPeriod")
                         .IsRequired();

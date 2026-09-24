@@ -46,7 +46,11 @@ public sealed class BookingConcurrencyTests
                 data.RoomAId,
                 Date(10),
                 Date(15),
-                GuestCount: 2);
+                GuestCount: 2,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         // ACT
         BookingAttempt[] attempts =
@@ -129,7 +133,11 @@ public sealed class BookingConcurrencyTests
                 data.RoomAId,
                 Date(20),
                 Date(25),
-                GuestCount: 2);
+                GuestCount: 2,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         var entirePropertyRequest =
             new CreateBookingRequest(
@@ -137,7 +145,11 @@ public sealed class BookingConcurrencyTests
                 data.EntirePropertyId,
                 Date(20),
                 Date(25),
-                GuestCount: 2);
+                GuestCount: 2,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         // ACT
         BookingAttempt[] attempts =
@@ -203,7 +215,11 @@ public sealed class BookingConcurrencyTests
                 data.RoomAId,
                 Date(26),
                 Date(30),
-                GuestCount: 2);
+                GuestCount: 2,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         var roomBRequest =
             new CreateBookingRequest(
@@ -211,7 +227,11 @@ public sealed class BookingConcurrencyTests
                 roomBId,
                 Date(26),
                 Date(30),
-                GuestCount: 2);
+                GuestCount: 2,
+                new CreateBookingGuestRequest(
+                "John Doe",
+                "john@example.com",
+                "+50377778888"));
 
         // ACT
         BookingAttempt[] attempts =
@@ -291,7 +311,11 @@ public sealed class BookingConcurrencyTests
             data.RoomAId,
             Date(10),
             Date(15),
-            GuestCount: 2);
+            GuestCount: 2,
+            new CreateBookingGuestRequest(
+            "John Doe",
+            "john@example.com",
+            "+50377778888"));
 
         using var message = new HttpRequestMessage(HttpMethod.Post, BookingsEndpoint);
         message.Content = JsonContent.Create(request);

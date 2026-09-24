@@ -25,11 +25,15 @@ public sealed class
     public async Task GetInventoryConflictsAsync_ReturnsOnlyBookingsThatBlockInventory()
     {
         // Arrange
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
-        TestData data = await SeedAsync(cancellationToken);
+        TestData data =
+            await SeedAsync(
+                cancellationToken);
 
-        using IServiceScope scope = _factory.Services.CreateScope();
+        using IServiceScope scope =
+            _factory.Services.CreateScope();
 
         IAvailabilityReadService readService =
             scope.ServiceProvider
@@ -55,7 +59,9 @@ public sealed class
                         booking.BookingId)
                 .ToHashSet();
 
-        Assert.Equal(data.ExpectedConflictIds, actualBookingIds);
+        Assert.Equal(
+            data.ExpectedConflictIds,
+            actualBookingIds);
 
         Assert.DoesNotContain(
             data.CancelledBookingId,
@@ -63,23 +69,46 @@ public sealed class
 
         HashSet<string> returnedStatuses =
             result
-                .Select(booking => booking.Status)
-                .ToHashSet(StringComparer.Ordinal);
+                .Select(
+                    booking =>
+                        booking.Status)
+                .ToHashSet(
+                    StringComparer.Ordinal);
 
         Assert.Equal(
-            new HashSet<string> { "PendingApproval", "PendingPayment", "Paid", "Completed" },
+            new HashSet<string>
+            {
+                "PendingApproval",
+                "PendingPayment",
+                "Paid",
+                "Completed"
+            },
             returnedStatuses);
     }
 
-    private async Task<TestData> SeedAsync(CancellationToken cancellationToken)
+    private async Task<TestData> SeedAsync(
+        CancellationToken cancellationToken)
     {
-        Guid propertyId = Guid.NewGuid();
-        Guid rentableUnitId = Guid.NewGuid();
-        Guid pendingApprovalBookingId = Guid.NewGuid();
-        Guid pendingPaymentBookingId = Guid.NewGuid();
-        Guid paidBookingId = Guid.NewGuid();
-        Guid completedBookingId = Guid.NewGuid();
-        Guid cancelledBookingId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
+
+        Guid rentableUnitId =
+            Guid.NewGuid();
+
+        Guid pendingApprovalBookingId =
+            Guid.NewGuid();
+
+        Guid pendingPaymentBookingId =
+            Guid.NewGuid();
+
+        Guid paidBookingId =
+            Guid.NewGuid();
+
+        Guid completedBookingId =
+            Guid.NewGuid();
+
+        Guid cancelledBookingId =
+            Guid.NewGuid();
 
         IDbConnectionFactory connectionFactory =
             _factory.Services
@@ -137,6 +166,7 @@ public sealed class
                 INSERT INTO bookings
                 (
                     id,
+                    booking_reference,
                     property_id,
                     rentable_unit_id,
                     check_in_date,
@@ -148,6 +178,7 @@ public sealed class
                 VALUES
                 (
                     @PendingApprovalBookingId,
+                    @PendingApprovalBookingReference,
                     @PropertyId,
                     @RentableUnitId,
                     @CheckInDate,
@@ -158,6 +189,7 @@ public sealed class
                 ),
                 (
                     @PendingPaymentBookingId,
+                    @PendingPaymentBookingReference,
                     @PropertyId,
                     @RentableUnitId,
                     @CheckInDate,
@@ -168,6 +200,7 @@ public sealed class
                 ),
                 (
                     @PaidBookingId,
+                    @PaidBookingReference,
                     @PropertyId,
                     @RentableUnitId,
                     @CheckInDate,
@@ -178,6 +211,7 @@ public sealed class
                 ),
                 (
                     @CompletedBookingId,
+                    @CompletedBookingReference,
                     @PropertyId,
                     @RentableUnitId,
                     @CheckInDate,
@@ -188,6 +222,7 @@ public sealed class
                 ),
                 (
                     @CancelledBookingId,
+                    @CancelledBookingReference,
                     @PropertyId,
                     @RentableUnitId,
                     @CheckInDate,
@@ -199,19 +234,58 @@ public sealed class
                 """,
                 new
                 {
-                    PropertyId = propertyId,
-                    RentableUnitId = rentableUnitId,
-                    PendingApprovalBookingId = pendingApprovalBookingId,
-                    PendingPaymentBookingId = pendingPaymentBookingId,
-                    PaidBookingId = paidBookingId,
-                    CompletedBookingId = completedBookingId,
-                    CancelledBookingId = cancelledBookingId,
-                    CheckInDate = Date(11),
-                    CheckOutDate = Date(14)
-                },
-                cancellationToken: cancellationToken);
+                    PropertyId =
+                        propertyId,
 
-        await connection.ExecuteAsync(command);
+                    RentableUnitId =
+                        rentableUnitId,
+
+                    PendingApprovalBookingId =
+                        pendingApprovalBookingId,
+
+                    PendingApprovalBookingReference =
+                        BookingTestReference.From(
+                            pendingApprovalBookingId),
+
+                    PendingPaymentBookingId =
+                        pendingPaymentBookingId,
+
+                    PendingPaymentBookingReference =
+                        BookingTestReference.From(
+                            pendingPaymentBookingId),
+
+                    PaidBookingId =
+                        paidBookingId,
+
+                    PaidBookingReference =
+                        BookingTestReference.From(
+                            paidBookingId),
+
+                    CompletedBookingId =
+                        completedBookingId,
+
+                    CompletedBookingReference =
+                        BookingTestReference.From(
+                            completedBookingId),
+
+                    CancelledBookingId =
+                        cancelledBookingId,
+
+                    CancelledBookingReference =
+                        BookingTestReference.From(
+                            cancelledBookingId),
+
+                    CheckInDate =
+                        Date(11),
+
+                    CheckOutDate =
+                        Date(14)
+                },
+                cancellationToken:
+                    cancellationToken);
+
+        await connection.ExecuteAsync(
+            command);
 
         return new TestData(
             propertyId,
@@ -226,7 +300,8 @@ public sealed class
             cancelledBookingId);
     }
 
-    private static DateOnly Date(int day)
+    private static DateOnly Date(
+        int day)
     {
         return new DateOnly(
             2026,

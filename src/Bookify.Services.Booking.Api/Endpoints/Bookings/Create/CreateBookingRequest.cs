@@ -5,4 +5,10 @@ public sealed record CreateBookingRequest(
     Guid RentableUnitId,
     DateOnly? CheckInDate,
     DateOnly? CheckOutDate,
-    int? GuestCount);
+    int? GuestCount,
+    CreateBookingGuestRequest? Guest);
+
+public sealed record CreateBookingGuestRequest(
+    string? FullName,
+    string? Email,
+    string? Phone);

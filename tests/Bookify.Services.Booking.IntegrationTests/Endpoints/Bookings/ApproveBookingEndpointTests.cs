@@ -328,12 +328,16 @@ public sealed class ApproveBookingEndpointTests
             DomainBooking.Create(
                     rentableUnit,
                     stayPeriod,
-                    GuestCount.Create(2).Value)
+                    GuestCount.Create(2).Value,
+                    GuestDetails.Create(
+                    "John Doe",
+                    "john@example.com",
+                    "+50377778888").Value, BookingTestTime.CreatedAtUtc)
                 .Value;
 
         if (approveBeforeSaving)
         {
-            booking.Approve();
+            booking.Approve(BookingTestTime.ApprovedAtUtc);
         }
 
         using IServiceScope scope =

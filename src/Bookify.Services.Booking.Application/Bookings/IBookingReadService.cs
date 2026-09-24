@@ -8,12 +8,13 @@ public interface IBookingReadService
         Guid bookingId,
         CancellationToken cancellationToken = default);
 
-    Task<
-        IReadOnlyList<
-            BookingCalendarItemReadModel>>
-        GetCalendarAsync(
-            Guid propertyId,
-            DateOnly rangeStart,
-            DateOnly rangeEnd,
-            CancellationToken cancellationToken = default);
+    Task<BookingDetailsReadModel?> GetByReferenceAsync(
+        string bookingReference,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<BookingCalendarItemReadModel>> GetCalendarAsync(
+        Guid propertyId,
+        DateOnly rangeStart,
+        DateOnly rangeEnd,
+        CancellationToken cancellationToken = default);
 }

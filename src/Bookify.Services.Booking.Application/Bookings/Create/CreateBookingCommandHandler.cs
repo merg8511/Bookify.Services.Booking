@@ -1,6 +1,8 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
+using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Bookings.Policies;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.Services;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
@@ -22,6 +24,8 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
     private readonly IBookingInventoryLock _bookingInventoryLock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITransactionManager _transactionManager;
+    private readonly IClock _clock;
+    private readonly IBookingDeadlinePolicy _deadlinePolicy;
 
     public CreateBookingCommandHandler(
         IPropertyRepository propertyRepository,
@@ -30,7 +34,9 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
         IBookingAvailabilityReader bookingAvailabilityReader,
         IBookingInventoryLock bookingInventoryLock,
         IUnitOfWork unitOfWork,
-        ITransactionManager transactionManager)
+        ITransactionManager transactionManager,
+        IClock clock,
+        IBookingDeadlinePolicy deadlinePolicy)
     {
         _propertyRepository = propertyRepository
             ?? throw new ArgumentNullException(nameof(propertyRepository));
@@ -52,6 +58,12 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
         _transactionManager = transactionManager ??
             throw new ArgumentNullException(nameof(transactionManager));
+
+        _clock = clock ??
+            throw new ArgumentNullException(nameof(clock));
+
+        _deadlinePolicy = deadlinePolicy ??
+            throw new ArgumentNullException(nameof(deadlinePolicy));
     }
 
     public async Task<Result<CreateBookingResult>> HandleAsync(
@@ -81,8 +93,19 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                 guestCountResult.Error);
         }
 
+        Result<GuestDetails> guestDetailsResult = GuestDetails.Create(
+            command.GuestFullName,
+            command.GuestEmail,
+            command.GuestPhone);
+
+        if (guestDetailsResult.IsFailure)
+        {
+            return Result<CreateBookingResult>.Failure(guestDetailsResult.Error);
+        }
+
         StayPeriod stayPeriod = stayPeriodResult.Value;
         GuestCount guestCount = guestCountResult.Value;
+        GuestDetails guestDetails = guestDetailsResult.Value;
 
         await using ITransaction transaction =
             await _transactionManager.BeginAsync(cancellationToken);
@@ -106,9 +129,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
             Property? property =
                 await _propertyRepository
-                    .GetByIdAsync(
-                        command.PropertyId,
-                        cancellationToken);
+                    .GetByIdAsync(command.PropertyId, cancellationToken);
 
             if (property is null)
             {
@@ -131,9 +152,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
             RentableUnit? rentableUnit =
                 await _rentableUnitRepository
-                    .GetByIdAsync(
-                        command.RentableUnitId,
-                        cancellationToken);
+                    .GetByIdAsync(command.RentableUnitId, cancellationToken);
 
             if (rentableUnit is null)
             {
@@ -184,15 +203,18 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                     cancellationToken);
             }
 
-            PriceSnapshot priceSnapshot =
-                    PriceSnapshot.Create(priceResult.Value);
+            PriceSnapshot priceSnapshot = PriceSnapshot.Create(priceResult.Value);
+            DateTimeOffset createdAtUtc = _clock.UtcNow;
+            DateTimeOffset approvalDueAtUtc = _deadlinePolicy.GetApprovalDueAtUtc(createdAtUtc);
 
             Result<DomainBooking> bookingResult =
                 DomainBooking.Create(
                     rentableUnit,
                     stayPeriod,
                     guestCount,
-                    priceSnapshot);
+                    guestDetails,
+                    priceSnapshot,
+                    createdAtUtc);
 
             if (bookingResult.IsFailure)
             {
@@ -222,6 +244,15 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
             DomainBooking booking = bookingResult.Value;
 
+            Result approvalDeadlineResult = booking.ScheduleApprovalDeadline(approvalDueAtUtc);
+
+            if(approvalDeadlineResult.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+
+                return Result<CreateBookingResult>.Failure(approvalDeadlineResult.Error);
+            }
+
             _bookingRepository.Add(booking);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -230,6 +261,8 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
             var result = new CreateBookingResult(
                 booking.Id,
+                booking.Reference.Value,
+                createdAtUtc,
                 booking.Status,
                 priceSnapshot.AccommodationPrice.Amount,
                 priceSnapshot.ExtraGuestPrice.Amount,

@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
+using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Domain.Bookings;
@@ -20,6 +21,7 @@ public sealed class ExpireBookingPaymentCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITransactionManager _transactionManager;
     private readonly IPaymentInitiationLock _paymentInitiationLock;
+    private readonly IClock _clock;
 
     public ExpireBookingPaymentCommandHandler(
         IBookingRepository bookingRepository,
@@ -27,7 +29,8 @@ public sealed class ExpireBookingPaymentCommandHandler
         PaymentCancellationCoordinator paymentCancellationCoordinator,
         IUnitOfWork unitOfWork,
         ITransactionManager transactionManager,
-        IPaymentInitiationLock paymentInitiationLock)
+        IPaymentInitiationLock paymentInitiationLock,
+        IClock clock)
     {
         _bookingRepository = bookingRepository;
         _paymentRepository = paymentRepository;
@@ -35,6 +38,7 @@ public sealed class ExpireBookingPaymentCommandHandler
         _unitOfWork = unitOfWork;
         _transactionManager = transactionManager;
         _paymentInitiationLock = paymentInitiationLock;
+        _clock = clock;
     }
 
     public async Task<Result> HandleAsync(
@@ -88,7 +92,7 @@ public sealed class ExpireBookingPaymentCommandHandler
                     booking,
                     cancellationToken);
 
-            if(paymentCancellationResult.IsFailure)
+            if (paymentCancellationResult.IsFailure)
             {
                 return await RollbackFailureAsync(transaction, paymentCancellationResult.Error, cancellationToken);
             }
@@ -117,7 +121,7 @@ public sealed class ExpireBookingPaymentCommandHandler
         DomainBooking booking,
         CancellationToken cancellationToken)
     {
-        Result expirationResult = booking.ExpirePayment();
+        Result expirationResult = booking.ExpirePayment(_clock.UtcNow);
 
         if (expirationResult.IsFailure)
         {
