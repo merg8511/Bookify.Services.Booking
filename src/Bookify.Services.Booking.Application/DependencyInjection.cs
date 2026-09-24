@@ -22,6 +22,8 @@ using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
+using Bookify.Services.Booking.Application.RentableUnits.GetByProperty;
+using Bookify.Services.Booking.Application.RentableUnits.ReadModels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bookify.Services.Booking.Application;
@@ -74,6 +76,16 @@ public static class DependencyInjection
             IQueryHandler<GetPropertiesQuery, PagedResult<PropertyListItemReadModel>>,
             GetPropertiesQueryHandler>();
 
+        // ==========================================
+        // Module: Rentable Units
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<GetPropertyUnitsQuery>,
+            GetPropertyUnitsQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetPropertyUnitsQuery, IReadOnlyList<RentableUnitListItemReadModel>>,
+            GetPropertyUnitsQueryHandler>();
 
         // ==========================================
         //  Module: Bookings

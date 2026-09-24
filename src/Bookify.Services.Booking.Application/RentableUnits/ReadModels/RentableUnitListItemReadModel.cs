@@ -7,6 +7,7 @@ public sealed class RentableUnitListItemReadModel
     public string Name { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public int MaximumCapacity { get; set; }
+    public int MaxBaseGuests { get; set; }
     public bool IsActive { get; set; }
     public bool IsEntireProperty { get; set; }
 }
