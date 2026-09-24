@@ -639,6 +639,27 @@ public sealed class DapperAvailabilityReadServiceTests
                     TRUE
                 );
 
+                INSERT INTO rentable_unit_pricing
+                (
+                    rentable_unit_id,
+                    regular_nightly_rate_amount,
+                    regular_nightly_rate_currency,
+                    weekend_nightly_rate_amount,
+                    weekend_nightly_rate_currency,
+                    extra_guest_nightly_rate_amount,
+                    extra_guest_nightly_rate_currency
+                )
+                VALUES
+                (
+                    @RoomBId,
+                    100.000,
+                    'USD',
+                    140.000,
+                    'USD',
+                    25.000,
+                    'USD'
+                );
+
                 INSERT INTO bookings
                 (
                     id,
