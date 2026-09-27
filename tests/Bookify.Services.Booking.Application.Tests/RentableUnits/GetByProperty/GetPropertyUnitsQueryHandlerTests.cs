@@ -50,34 +50,17 @@ public sealed class GetPropertyUnitsQueryHandlerTests
             };
 
         RentableUnitListItemReadModel[] expectedUnits =
-        [
-            new()
-            {
-                Id =
-                    Guid.NewGuid(),
-
-                PropertyId =
-                    propertyId,
-
-                Name =
-                    "Room A",
-
-                Type =
-                    "Room",
-
-                MaximumCapacity =
-                    4,
-
-                MaxBaseGuests =
-                    2,
-
-                IsActive =
-                    true,
-
-                IsEntireProperty =
-                    false
-            }
-        ];
+            [
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Room A",
+                    Type = "Room",
+                    MaximumCapacity = 4,
+                    MaxBaseGuests = 2,
+                    IsEntireProperty = false
+                }
+            ];
 
         var unitReadService =
             new StubRentableUnitReadService(
@@ -245,16 +228,6 @@ public sealed class GetPropertyUnitsQueryHandlerTests
         {
             get;
             private set;
-        }
-
-        public Task<
-            IReadOnlyList<
-                RentableUnitListItemReadModel>>
-            GetByPropertyIdAsync(
-                Guid propertyId,
-                CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
         }
 
         public Task<

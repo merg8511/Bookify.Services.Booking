@@ -4,10 +4,6 @@ namespace Bookify.Services.Booking.Application.RentableUnits;
 
 public interface IRentableUnitReadService
 {
-    Task<IReadOnlyList<RentableUnitListItemReadModel>> GetByPropertyIdAsync(
-        Guid propertyId,
-        CancellationToken cancellationToken = default);
-
     Task<IReadOnlyList<RentableUnitListItemReadModel>> GetActiveByPropertyIdAsync(
         Guid propertyId,
         CancellationToken cancellationToken = default);

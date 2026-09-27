@@ -1,4 +1,3 @@
-using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Get;
 using Bookify.Services.Booking.Application.Bookings.ReadModels;

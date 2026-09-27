@@ -12,6 +12,7 @@ using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Bookify.Services.Booking.IntegrationTests.Endpoints.Bookings;
 
@@ -22,6 +23,8 @@ namespace Bookify.Services.Booking.IntegrationTests.Endpoints.Bookings;
     "Integration")]
 public sealed class GetBookingEndpointTests
 {
+    private static readonly JsonSerializerOptions SerializerOptions =
+        new(JsonSerializerDefaults.Web);
     private readonly HttpClient _client;
     private readonly BookingApiFactory _factory;
 
@@ -35,18 +38,17 @@ public sealed class GetBookingEndpointTests
             factory.Client;
     }
 
+
     [Fact]
     public async Task
         GetById_ShouldReturnCompleteBookingContract()
     {
         // ARRANGE
         CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+            TestContext.Current.CancellationToken;
 
         CreatedBooking created =
-            await CreateBookingAsync(
-                cancellationToken);
+            await CreateBookingAsync(cancellationToken);
 
         await ApproveBookingAsync(
             created.Response.Id,
@@ -69,17 +71,29 @@ public sealed class GetBookingEndpointTests
 
         Assert.Equal(
             "application/json",
-            response.Content.Headers
-                .ContentType?
-                .MediaType);
+            response.Content.Headers.ContentType?.MediaType);
 
-        GetBookingResponse body =
-            Assert.IsType<
-                GetBookingResponse>(
-                    await response.Content
-                        .ReadFromJsonAsync<
-                            GetBookingResponse>(
-                                cancellationToken));
+        string responseJson =
+            await response.Content.ReadAsStringAsync(
+                cancellationToken);
+
+        using JsonDocument document =
+            JsonDocument.Parse(responseJson);
+
+        Assert.True(
+            document.RootElement.TryGetProperty(
+                "rentableUnit",
+                out _));
+
+        Assert.False(
+            document.RootElement.TryGetProperty(
+                "rentableUnitResponse",
+                out _));
+
+        GetBookingResponse body = Assert.IsType<GetBookingResponse>(
+        JsonSerializer.Deserialize<GetBookingResponse>(
+            responseJson,
+            SerializerOptions));
 
         Assert.Equal(
             created.Response.Id,
@@ -99,11 +113,11 @@ public sealed class GetBookingEndpointTests
 
         Assert.Equal(
             created.Seed.RentableUnitId,
-            body.RentableUnitResponse.Id);
+            body.RentableUnit.Id);
 
         Assert.Equal(
             created.Seed.RentableUnitName,
-            body.RentableUnitResponse.Name);
+            body.RentableUnit.Name);
 
         Assert.Equal(
             Date(10),
@@ -121,8 +135,7 @@ public sealed class GetBookingEndpointTests
             2,
             body.GuestCount);
 
-        Assert.NotNull(
-            body.Guest);
+        Assert.NotNull(body.Guest);
 
         Assert.Equal(
             "John Doe",
@@ -136,8 +149,7 @@ public sealed class GetBookingEndpointTests
             "+50377778888",
             body.Guest.Phone);
 
-        Assert.NotNull(
-            body.Price);
+        Assert.NotNull(body.Price);
 
         Assert.Equal(
             200m,
@@ -159,24 +171,16 @@ public sealed class GetBookingEndpointTests
             "PendingPayment",
             body.Status);
 
-        Assert.Null(
-            body.CancellationReason);
+        Assert.Null(body.CancellationReason);
 
         Assert.Equal(
             "Pending",
             body.PaymentStatus);
 
-        Assert.NotNull(
-            body.CreatedAtUtc);
-
-        Assert.NotNull(
-            body.ApprovalDueAtUtc);
-
-        Assert.NotNull(
-            body.ApprovedAtUtc);
-
-        Assert.NotNull(
-            body.PaymentDueAtUtc);
+        Assert.NotNull(body.CreatedAtUtc);
+        Assert.NotNull(body.ApprovalDueAtUtc);
+        Assert.NotNull(body.ApprovedAtUtc);
+        Assert.NotNull(body.PaymentDueAtUtc);
 
         Assert.Equal(
             TimeSpan.FromHours(24),
@@ -188,22 +192,15 @@ public sealed class GetBookingEndpointTests
             body.PaymentDueAtUtc.Value -
             body.ApprovedAtUtc.Value);
 
-        Assert.Null(
-            body.PaidAtUtc);
-
-        Assert.Null(
-            body.CancelledAtUtc);
-
-        Assert.Null(
-            body.CompletedAtUtc);
+        Assert.Null(body.PaidAtUtc);
+        Assert.Null(body.CancelledAtUtc);
+        Assert.Null(body.CompletedAtUtc);
 
         Assert.Equal(
-            created.Response
-                .CreatedAtUtc
-                .ToUnixTimeMilliseconds(),
-            body.CreatedAtUtc.Value
-                .ToUnixTimeMilliseconds());
+            created.Response.CreatedAtUtc.ToUnixTimeMilliseconds(),
+            body.CreatedAtUtc.Value.ToUnixTimeMilliseconds());
     }
+
 
     [Fact]
     public async Task

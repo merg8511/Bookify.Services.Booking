@@ -13,161 +13,101 @@ using System.Data.Common;
 
 namespace Bookify.Services.Booking.IntegrationTests.ReadServices;
 
-[Collection(
-    BookingApiTestFixture.Name)]
-[Trait(
-    "Category",
-    "Integration")]
+[Collection(BookingApiTestFixture.Name)]
+[Trait("Category", "Integration")]
 public sealed class DapperReadServicesTests
 {
     private readonly BookingApiFactory _factory;
 
-    public DapperReadServicesTests(
-        BookingApiFactory factory)
+    public DapperReadServicesTests(BookingApiFactory factory)
     {
-        _factory =
-            factory;
+        _factory = factory;
     }
 
     [Fact]
     public async Task ReadServices_ReturnExpectedProjections()
     {
         CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+            TestContext.Current.CancellationToken;
 
-        TestData data =
-            TestData.Create();
+        TestData data = TestData.Create();
 
-        await SeedAsync(
-            data,
-            cancellationToken);
+        await SeedAsync(data, cancellationToken);
 
         using IServiceScope scope =
             _factory.Services.CreateScope();
 
         IPropertyReadService propertyReadService =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IPropertyReadService>();
+            scope.ServiceProvider.GetRequiredService<IPropertyReadService>();
 
         IRentableUnitReadService unitReadService =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IRentableUnitReadService>();
+            scope.ServiceProvider.GetRequiredService<IRentableUnitReadService>();
 
         IBookingReadService bookingReadService =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IBookingReadService>();
+            scope.ServiceProvider.GetRequiredService<IBookingReadService>();
 
         PropertyDetailsReadModel? property =
             await propertyReadService.GetByIdAsync(
                 data.PropertyId,
                 cancellationToken);
 
-        Assert.NotNull(
-            property);
+        Assert.NotNull(property);
+        Assert.Equal(data.PropertyId, property.Id);
+        Assert.Equal("Rancho Costa Azul", property.Name);
 
-        Assert.Equal(
-            data.PropertyId,
-            property.Id);
+        IReadOnlyList<RentableUnitListItemReadModel> units =
+            await unitReadService.GetActiveByPropertyIdAsync(
+                data.PropertyId,
+                cancellationToken);
 
-        Assert.Equal(
-            "Rancho Costa Azul",
-            property.Name);
+        Assert.Equal(2, units.Count);
 
-        IReadOnlyList<
-            RentableUnitListItemReadModel> units =
-            await unitReadService
-                .GetByPropertyIdAsync(
-                    data.PropertyId,
-                    cancellationToken);
+        RentableUnitListItemReadModel entireProperty =
+            Assert.Single(
+                units,
+                unit => unit.Id == data.EntirePropertyUnitId);
 
-        Assert.Equal(
-            2,
-            units.Count);
-
-        RentableUnitListItemReadModel
-            entireProperty =
-                Assert.Single(
-                    units,
-                    unit =>
-                        unit.Id ==
-                        data.EntirePropertyUnitId);
-
-        Assert.True(
-            entireProperty.IsEntireProperty);
+        Assert.True(entireProperty.IsEntireProperty);
 
         RentableUnitListItemReadModel room =
             Assert.Single(
                 units,
-                unit =>
-                    unit.Id ==
-                    data.RoomUnitId);
+                unit => unit.Id == data.RoomUnitId);
 
-        Assert.False(
-            room.IsEntireProperty);
+        Assert.False(room.IsEntireProperty);
 
         BookingDetailsReadModel? booking =
             await bookingReadService.GetByIdAsync(
                 data.VisibleBookingId,
                 cancellationToken);
 
-        Assert.NotNull(
-            booking);
+        Assert.NotNull(booking);
 
         Assert.Equal(
-    BookingTestReference.From(
-        data.VisibleBookingId),
-    booking.BookingReference);
+            BookingTestReference.From(data.VisibleBookingId),
+            booking.BookingReference);
 
-        Assert.Equal(
-            data.PropertyId,
-            booking.PropertyId);
+        Assert.Equal(data.PropertyId, booking.PropertyId);
+        Assert.Equal(data.RoomUnitId, booking.RentableUnitId);
+        Assert.Equal(3, booking.NumberOfNights);
+        Assert.Equal(2, booking.GuestCount);
+        Assert.Equal("PendingApproval", booking.Status);
 
-        Assert.Equal(
-            data.RoomUnitId,
-            booking.RentableUnitId);
+        IReadOnlyList<BookingCalendarItemReadModel> calendar =
+            await bookingReadService.GetCalendarAsync(
+                data.PropertyId,
+                new DateOnly(2026, 8, 10),
+                new DateOnly(2026, 8, 20),
+                cancellationToken);
 
-        Assert.Equal(
-            3,
-            booking.NumberOfNights);
-
-        Assert.Equal(
-            2,
-            booking.GuestCount);
-
-        Assert.Equal(
-            "PendingApproval",
-            booking.Status);
-
-        Assert.True(
-            booking.BlocksInventory);
-
-        IReadOnlyList<
-            BookingCalendarItemReadModel> calendar =
-            await bookingReadService
-                .GetCalendarAsync(
-                    data.PropertyId,
-                    new DateOnly(
-                        2026,
-                        8,
-                        10),
-                    new DateOnly(
-                        2026,
-                        8,
-                        20),
-                    cancellationToken);
-
-        BookingCalendarItemReadModel
-            calendarBooking =
-                Assert.Single(
-                    calendar);
+        BookingCalendarItemReadModel calendarBooking =
+            Assert.Single(calendar);
 
         Assert.Equal(
             data.VisibleBookingId,
             calendarBooking.BookingId);
+
+        Assert.True(calendarBooking.BlocksInventory);
     }
 
     private async Task SeedAsync(
@@ -175,193 +115,148 @@ public sealed class DapperReadServicesTests
         CancellationToken cancellationToken)
     {
         IDbConnectionFactory connectionFactory =
-            _factory.Services
-                .GetRequiredService<
-                    IDbConnectionFactory>();
+            _factory.Services.GetRequiredService<IDbConnectionFactory>();
 
         await using DbConnection connection =
-            await connectionFactory
-                .OpenConnectionAsync(
-                    cancellationToken);
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
 
-        var insertProperty =
-            new CommandDefinition(
-                """
-                INSERT INTO properties
-                (
-                    id,
-                    name,
-                    time_zone_id,
-                    check_in_time,
-                    check_out_time,
-                    is_active
-                )
-                VALUES
-                (
-                    @PropertyId,
-                    @PropertyName,
-                    @TimeZoneId,
-                    @CheckInTime,
-                    @CheckOutTime,
-                    TRUE
-                );
-                """,
-                new
-                {
-                    data.PropertyId,
+        var insertProperty = new CommandDefinition(
+            """
+            INSERT INTO properties
+            (
+                id,
+                name,
+                time_zone_id,
+                check_in_time,
+                check_out_time,
+                is_active
+            )
+            VALUES
+            (
+                @PropertyId,
+                @PropertyName,
+                @TimeZoneId,
+                @CheckInTime,
+                @CheckOutTime,
+                TRUE
+            );
+            """,
+            new
+            {
+                data.PropertyId,
+                PropertyName = "Rancho Costa Azul",
+                TimeZoneId = "America/El_Salvador",
+                CheckInTime = new TimeOnly(15, 0),
+                CheckOutTime = new TimeOnly(11, 0)
+            },
+            cancellationToken: cancellationToken);
 
-                    PropertyName =
-                        "Rancho Costa Azul",
+        await connection.ExecuteAsync(insertProperty);
 
-                    TimeZoneId =
-                        "America/El_Salvador",
+        var insertUnits = new CommandDefinition(
+            """
+            INSERT INTO rentable_units
+            (
+                id,
+                property_id,
+                name,
+                type,
+                maximum_capacity,
+                max_base_guests,
+                is_active
+            )
+            VALUES
+            (
+                @EntirePropertyUnitId,
+                @PropertyId,
+                'Propiedad completa',
+                'EntireProperty',
+                12,
+                8,
+                TRUE
+            ),
+            (
+                @RoomUnitId,
+                @PropertyId,
+                'Habitación principal',
+                'Room',
+                4,
+                2,
+                TRUE
+            );
+            """,
+            new
+            {
+                data.EntirePropertyUnitId,
+                data.RoomUnitId,
+                data.PropertyId
+            },
+            cancellationToken: cancellationToken);
 
-                    CheckInTime =
-                        new TimeOnly(
-                            15,
-                            0),
+        await connection.ExecuteAsync(insertUnits);
 
-                    CheckOutTime =
-                        new TimeOnly(
-                            11,
-                            0)
-                },
-                cancellationToken:
-                    cancellationToken);
+        var insertBookings = new CommandDefinition(
+            """
+            INSERT INTO bookings
+            (
+                id,
+                booking_reference,
+                property_id,
+                rentable_unit_id,
+                check_in_date,
+                check_out_date,
+                guest_count,
+                status,
+                cancellation_reason
+            )
+            VALUES
+            (
+                @VisibleBookingId,
+                @VisibleBookingReference,
+                @PropertyId,
+                @RoomUnitId,
+                @VisibleCheckIn,
+                @VisibleCheckOut,
+                2,
+                'PendingApproval',
+                NULL
+            ),
+            (
+                @OutsideBookingId,
+                @OutsideBookingReference,
+                @PropertyId,
+                @RoomUnitId,
+                @OutsideCheckIn,
+                @OutsideCheckOut,
+                2,
+                'PendingApproval',
+                NULL
+            );
+            """,
+            new
+            {
+                data.VisibleBookingId,
 
-        await connection.ExecuteAsync(
-            insertProperty);
+                VisibleBookingReference =
+                    BookingTestReference.From(data.VisibleBookingId),
 
-        var insertUnits =
-            new CommandDefinition(
-                """
-                INSERT INTO rentable_units
-                (
-                    id,
-                    property_id,
-                    name,
-                    type,
-                    maximum_capacity,
-                    max_base_guests,
-                    is_active
-                )
-                VALUES
-                (
-                    @EntirePropertyUnitId,
-                    @PropertyId,
-                    'Propiedad completa',
-                    'EntireProperty',
-                    12,
-                    8,
-                    TRUE
-                ),
-                (
-                    @RoomUnitId,
-                    @PropertyId,
-                    'Habitación principal',
-                    'Room',
-                    4,
-                    2,
-                    TRUE
-                );
-                """,
-                new
-                {
-                    data.EntirePropertyUnitId,
-                    data.RoomUnitId,
-                    data.PropertyId
-                },
-                cancellationToken:
-                    cancellationToken);
+                data.OutsideBookingId,
 
-        await connection.ExecuteAsync(
-            insertUnits);
+                OutsideBookingReference =
+                    BookingTestReference.From(data.OutsideBookingId),
 
-        var insertBookings =
-            new CommandDefinition(
-                """
-                INSERT INTO bookings
-                (
-                    id,
-                    booking_reference,
-                    property_id,
-                    rentable_unit_id,
-                    check_in_date,
-                    check_out_date,
-                    guest_count,
-                    status,
-                    cancellation_reason
-                )
-                VALUES
-                (
-                    @VisibleBookingId,
-                    @VisibleBookingReference,
-                    @PropertyId,
-                    @RoomUnitId,
-                    @VisibleCheckIn,
-                    @VisibleCheckOut,
-                    2,
-                    'PendingApproval',
-                    NULL
-                ),
-                (
-                    @OutsideBookingId,
-                    @OutsideBookingReference,
-                    @PropertyId,
-                    @RoomUnitId,
-                    @OutsideCheckIn,
-                    @OutsideCheckOut,
-                    2,
-                    'PendingApproval',
-                    NULL
-                );
-                """,
-                new
-                {
-                    data.VisibleBookingId,
+                data.PropertyId,
+                data.RoomUnitId,
 
-                    VisibleBookingReference =
-                        BookingTestReference.From(
-                            data.VisibleBookingId),
+                VisibleCheckIn = new DateOnly(2026, 8, 12),
+                VisibleCheckOut = new DateOnly(2026, 8, 15),
+                OutsideCheckIn = new DateOnly(2026, 9, 1),
+                OutsideCheckOut = new DateOnly(2026, 9, 3)
+            },
+            cancellationToken: cancellationToken);
 
-                    data.OutsideBookingId,
-
-                    OutsideBookingReference =
-                        BookingTestReference.From(
-                            data.OutsideBookingId),
-
-                    data.PropertyId,
-                    data.RoomUnitId,
-
-                    VisibleCheckIn =
-                        new DateOnly(
-                            2026,
-                            8,
-                            12),
-
-                    VisibleCheckOut =
-                        new DateOnly(
-                            2026,
-                            8,
-                            15),
-
-                    OutsideCheckIn =
-                        new DateOnly(
-                            2026,
-                            9,
-                            1),
-
-                    OutsideCheckOut =
-                        new DateOnly(
-                            2026,
-                            9,
-                            3)
-                },
-                cancellationToken:
-                    cancellationToken);
-
-        await connection.ExecuteAsync(
-            insertBookings);
+        await connection.ExecuteAsync(insertBookings);
     }
 
     private sealed record TestData(
@@ -371,14 +266,12 @@ public sealed class DapperReadServicesTests
         Guid VisibleBookingId,
         Guid OutsideBookingId)
     {
-        public static TestData Create()
-        {
-            return new TestData(
+        public static TestData Create() =>
+            new(
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 Guid.NewGuid());
-        }
     }
 }

@@ -1,10 +1,12 @@
+
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Bookings.Get;
 using Bookify.Services.Booking.Domain.Shared;
 using Microsoft.AspNetCore.Http.HttpResults;
 
-using ApplicationBooking = Bookify.Services.Booking.Application.BookingDetailsReadModel;
+using ApplicationBooking =
+    Bookify.Services.Booking.Application.Bookings.ReadModels.BookingDetailsReadModel;
 
 namespace Bookify.Services.Booking.Api.Endpoints.Bookings.Get;
 
