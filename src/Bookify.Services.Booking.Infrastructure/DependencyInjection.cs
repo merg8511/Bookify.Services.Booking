@@ -41,14 +41,14 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(configuration);
 
         // ==========================================
-        //  Time & System Utilities
+        // Time & System Utilities
         // ==========================================
         services.AddSingleton<IClock, SystemClock>();
+
         DapperTypeHandlers.Register();
 
-
         // ==========================================
-        //  Database Core Setup (EF Core & Npgsql)
+        // Database Core Setup
         // ==========================================
         services.AddSingleton<NpgsqlDataSource>(
             _ => NpgsqlDataSource.Create(connectionString));
@@ -66,29 +66,36 @@ public static class DependencyInjection
             IDbConnectionFactory,
             NpgsqlConnectionFactory>();
 
+        // ==========================================
+        // Persistence
+        // ==========================================
+        AddPersistence(services);
 
-        // Llamada a la persistencia (sin parámetro extra)
-        AddPersistence(services, configuration);
+        // ==========================================
+        // Module Configuration
+        // ==========================================
+        services.AddBookings(configuration);
+        services.AddPayments(configuration);
 
         return services;
     }
 
-    private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
+    private static void AddPersistence(
+        IServiceCollection services)
     {
         // ==========================================
-        //  Transactions & Unit of Work
+        // Transactions & Unit of Work
         // ==========================================
         services.AddScoped<IUnitOfWork>(
-            serviceProvider => serviceProvider
-                .GetRequiredService<BookingDbContext>());
+            serviceProvider =>
+                serviceProvider.GetRequiredService<BookingDbContext>());
 
         services.AddScoped<
             ITransactionManager,
             EfCoreTransactionManager>();
 
-
         // ==========================================
-        //  Concurrency & Locks
+        // Concurrency & Locks
         // ==========================================
         services.AddScoped<
             IBookingInventoryLock,
@@ -99,21 +106,18 @@ public static class DependencyInjection
             PostgreSqlPaymentInitiationLock>();
 
         // ==========================================
-        //  Module: Idempotency
+        // Idempotency & Webhook Persistence
         // ==========================================
         services.AddScoped<
             IIdempotencyStore,
             EfCoreIdempotencyStore>();
 
-        // ==========================================
-        //  Module: Payment Webhooks
-        // ==========================================
         services.AddScoped<
             IPaymentWebhookEventStore,
             EfCorePaymentWebhookEventStore>();
 
         // ==========================================
-        //  Repositories (Write Side / Domain)
+        // Repositories (Write Side)
         // ==========================================
         services.AddScoped<
             IPropertyRepository,
@@ -127,9 +131,12 @@ public static class DependencyInjection
             IBookingRepository,
             BookingRepository>();
 
+        services.AddScoped<
+            IPaymentRepository,
+            PaymentRepository>();
 
         // ==========================================
-        //  Read Services (Read Side / Dapper)
+        // Read Services (Dapper)
         // ==========================================
         services.AddScoped<
             IPropertyReadService,
@@ -151,22 +158,8 @@ public static class DependencyInjection
             IBookingAvailabilityReader,
             DapperBookingAvailabilityReader>();
 
-        // ==========================================
-        //  Payments
-        // ==========================================
-        services.AddPayments(configuration);
-
-        services.AddScoped<
-            IPaymentRepository,
-            PaymentRepository>();
-
         services.AddScoped<
             IPaymentReadService,
             DapperPaymentReadService>();
-
-        // ==========================================
-        //  Bookings
-        // ==========================================
-        services.AddBookingDeadlines(configuration);
     }
 }
