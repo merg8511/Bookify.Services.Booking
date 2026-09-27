@@ -40,31 +40,11 @@ public static class PaymentReconciler
 
         return observedStatus switch
         {
-            PaymentGatewayStatus.Pending =>
-                    ReconcilePending(
-                        payment,
-                        attempt),
-
-            PaymentGatewayStatus.Succeeded =>
-                    ReconcileSucceeded(
-                    payment,
-                    attempt,
-                    booking,
-                    observedAtUtc),
-
-            PaymentGatewayStatus.Failed =>
-                ReconcileFailed(
-                    payment,
-                    attempt,
-                    observedAtUtc),
-
-            PaymentGatewayStatus.Cancelled =>
-                ReconcileCancelled(
-                    payment,
-                    attempt,
-                    observedAtUtc),
-            _ =>
-                throw new InvalidOperationException($"Unsupported payment gateway status '{observedStatus}'.")
+            PaymentGatewayStatus.Pending => ReconcilePending(payment, attempt),
+            PaymentGatewayStatus.Succeeded => ReconcileSucceeded(payment, attempt, booking, observedAtUtc),
+            PaymentGatewayStatus.Failed => ReconcileFailed(payment, attempt, observedAtUtc),
+            PaymentGatewayStatus.Cancelled => ReconcileCancelled(payment, attempt, observedAtUtc),
+            _ => throw new InvalidOperationException($"Unsupported payment gateway status '{observedStatus}'.")
         };
     }
 
@@ -86,14 +66,6 @@ public static class PaymentReconciler
         DomainBooking booking,
         DateTimeOffset observedAtUtc)
     {
-        if (booking.Status is BookingStatus.PendingApproval or
-            BookingStatus.Cancelled)
-        {
-            return Result.Failure(
-                PaymentReconciliationErrors
-                    .BookingStateConflict(booking.Id, booking.Status));
-        }
-
         if (booking.Status is BookingStatus.PendingApproval or
             BookingStatus.Cancelled)
         {
