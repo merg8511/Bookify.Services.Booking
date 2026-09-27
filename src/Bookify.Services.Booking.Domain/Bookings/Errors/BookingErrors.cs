@@ -10,12 +10,12 @@ public static class BookingErrors
 
     public static readonly Error RentableUnitInactive = Error.Conflict(
         "Booking.RentableUnitInactive",
-        "The selected rentable unit is not active and cannot be booked");
+        "The selected rentable unit is not active and cannot be booked.");
 
     public static Error InvalidStatusTransition(
         BookingStatus currentStatus,
-        BookingStatus targeStatus) =>
+        BookingStatus targetStatus) =>
         Error.Conflict(
             "Booking.InvalidStatusTransition",
-            $"A booking in status '{currentStatus}' cannot transition to '{targeStatus}'");
+            $"A booking in status '{currentStatus}' cannot transition to '{targetStatus}'.");
 }
