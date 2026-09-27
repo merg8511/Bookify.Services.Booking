@@ -4,7 +4,9 @@ using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.Domain.Tests.Infrastructure;
-using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
+
+using DomainBooking =
+    Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Domain.Tests.Bookings.Services;
 
@@ -15,360 +17,370 @@ public sealed class BookingConflictPolicyTests
     [InlineData(BookingStatus.PendingPayment)]
     [InlineData(BookingStatus.Paid)]
     [InlineData(BookingStatus.Completed)]
-    public void HasConflict_WhenSsameUnitAndPeriodsOverlap_ShouldReturnTrue(
+    public void HasConflict_WhenSameUnitAndPeriodsOverlap_ShouldReturnTrue(
         BookingStatus status)
     {
-        // ARRANGE
-        Guid propertyId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        var room = CreateUnit(
-            propertyId,
-            "Habitación A",
-            RentableUnitType.Room);
+        RentableUnit room =
+            CreateUnit(
+                propertyId,
+                "Habitación A",
+                RentableUnitType.Room);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 15);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 15);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 18);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 18);
 
-        var existingBooking = CreateBookingWithStatus(
-            room,
-            existingPeriod,
-            status);
+        DomainBooking existingBooking =
+            CreateBookingWithStatus(
+                room,
+                existingPeriod,
+                status);
 
-        // ACT
-        bool result = BookingConflictPolicy.HasConflict(
-            room,
-            requestedPeriod,
-            existingBooking,
-            room);
+        bool result =
+            BookingConflictPolicy.HasConflict(
+                room,
+                requestedPeriod,
+                existingBooking,
+                room);
 
-        // ASSERT
-        Assert.True(result);
+        Assert.True(
+            result);
     }
 
     [Fact]
     public void HasConflict_WhenExistingBookingIsCancelled_ShouldReturnFalse()
     {
-        // ARRANGE
-        Guid propertyId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        var room = CreateUnit(
-            propertyId,
-            "Habitación A",
-            RentableUnitType.Room);
+        RentableUnit room =
+            CreateUnit(
+                propertyId,
+                "Habitación A",
+                RentableUnitType.Room);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 15);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 15);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 18);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 18);
 
-        var existingBooking = DomainBooking.Create(
-            room,
-            existingPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking existingBooking =
+            CreateBooking(
+                room,
+                existingPeriod);
 
-        existingBooking.Reject(BookingTestTime.CancelledAtUtc);
+        Assert.True(
+            existingBooking.Reject(
+                    BookingTestTime.CancelledAtUtc)
+                .IsSuccess);
 
-        // ACT
-        bool result = BookingConflictPolicy.HasConflict(
-            room,
-            requestedPeriod,
-            existingBooking,
-            room);
+        bool result =
+            BookingConflictPolicy.HasConflict(
+                room,
+                requestedPeriod,
+                existingBooking,
+                room);
 
-        // ASSERT
-        Assert.False(result);
+        Assert.False(
+            result);
     }
 
     [Fact]
     public void HasConflict_WhenSameUnitAndPeriodsAreAdjacent_ShouldReturnFalse()
     {
-        // ARRANGE
-        Guid propertyId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        var room = CreateUnit(
-            propertyId,
-            "Habitación A",
-            RentableUnitType.Room);
+        RentableUnit room =
+            CreateUnit(
+                propertyId,
+                "Habitación A",
+                RentableUnitType.Room);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 12);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 12);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 15);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 15);
 
-        var existingBooking = DomainBooking.Create(
-            room,
-            existingPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking existingBooking =
+            CreateBooking(
+                room,
+                existingPeriod);
 
-        // ACT
-        bool result = BookingConflictPolicy.HasConflict(
-            room,
-            requestedPeriod,
-            existingBooking,
-            room);
+        bool result =
+            BookingConflictPolicy.HasConflict(
+                room,
+                requestedPeriod,
+                existingBooking,
+                room);
 
-        // ASSERT
-        Assert.False(result);
+        Assert.False(
+            result);
     }
 
     [Fact]
-    public void HasConflict_WhenDifferentRoomOverlap_ShouldReturnFalse()
+    public void HasConflict_WhenDifferentRoomsOverlap_ShouldReturnFalse()
     {
-        // ARRANGE
-        Guid propertyId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        var firstRoom = CreateUnit(
-            propertyId,
-            "Habitación A",
-            RentableUnitType.Room);
+        RentableUnit firstRoom =
+            CreateUnit(
+                propertyId,
+                "Habitación A",
+                RentableUnitType.Room);
 
-        var secondRoom = CreateUnit(
-            propertyId,
-            "Habitación B",
-            RentableUnitType.Room);
+        RentableUnit secondRoom =
+            CreateUnit(
+                propertyId,
+                "Habitación B",
+                RentableUnitType.Room);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 15);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 15);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 18);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 18);
 
-        var existingBooking = DomainBooking.Create(
-            firstRoom,
-            existingPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking existingBooking =
+            CreateBooking(
+                firstRoom,
+                existingPeriod);
 
-        // ACT
-        bool result = BookingConflictPolicy.HasConflict(
-            secondRoom,
-            requestedPeriod,
-            existingBooking,
-            firstRoom);
+        bool result =
+            BookingConflictPolicy.HasConflict(
+                secondRoom,
+                requestedPeriod,
+                existingBooking,
+                firstRoom);
 
-        // ASSERT
-        Assert.False(result);
+        Assert.False(
+            result);
     }
 
     [Fact]
     public void HasConflict_WhenExistingEntirePropertyAndRoomRequested_ShouldReturnTrue()
     {
-        // ARRANGE
-        Guid propertyId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        var entireProperty = CreateUnit(
-            propertyId,
-            "Rancho completo",
-            RentableUnitType.EntireProperty);
+        RentableUnit entireProperty =
+            CreateUnit(
+                propertyId,
+                "Rancho completo",
+                RentableUnitType.EntireProperty);
 
-        var room = CreateUnit(
-            propertyId,
-            "Habitación A",
-            RentableUnitType.Room);
+        RentableUnit room =
+            CreateUnit(
+                propertyId,
+                "Habitación A",
+                RentableUnitType.Room);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 15);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 15);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 18);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 18);
 
-        var existingBooking = DomainBooking.Create(
-            entireProperty,
-            existingPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking existingBooking =
+            CreateBooking(
+                entireProperty,
+                existingPeriod);
 
-        // ACT
-        bool result = BookingConflictPolicy.HasConflict(
-            room,
-            requestedPeriod,
-            existingBooking,
-            entireProperty);
+        bool result =
+            BookingConflictPolicy.HasConflict(
+                room,
+                requestedPeriod,
+                existingBooking,
+                entireProperty);
 
-        // ASSERT
-        Assert.True(result);
+        Assert.True(
+            result);
     }
 
     [Fact]
     public void HasConflict_WhenExistingRoomAndEntirePropertyRequested_ShouldReturnTrue()
     {
-        // ARRANGE
-        Guid propertyId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        var room = CreateUnit(
-            propertyId,
-            "Habitación A",
-            RentableUnitType.Room);
+        RentableUnit room =
+            CreateUnit(
+                propertyId,
+                "Habitación A",
+                RentableUnitType.Room);
 
-        var entireProperty = CreateUnit(
-            propertyId,
-            "Rancho completo",
-            RentableUnitType.EntireProperty);
+        RentableUnit entireProperty =
+            CreateUnit(
+                propertyId,
+                "Rancho completo",
+                RentableUnitType.EntireProperty);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 15);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 15);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 18);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 18);
 
-        var existingBooking = DomainBooking.Create(
-            room,
-            existingPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking existingBooking =
+            CreateBooking(
+                room,
+                existingPeriod);
 
-        // ACT
-        bool result = BookingConflictPolicy.HasConflict(
-            entireProperty,
-            requestedPeriod,
-            existingBooking,
-            room);
+        bool result =
+            BookingConflictPolicy.HasConflict(
+                entireProperty,
+                requestedPeriod,
+                existingBooking,
+                room);
 
-        // ASSERT
-        Assert.True(result);
+        Assert.True(
+            result);
     }
 
     [Fact]
     public void HasConflict_WhenEntirePropertyBookingsOverlap_ShouldReturnTrue()
     {
-        // ARRANGE
-        Guid propertyId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        var entireProperty = CreateUnit(
-            propertyId,
-            "Rancho completo",
-            RentableUnitType.EntireProperty);
+        RentableUnit entireProperty =
+            CreateUnit(
+                propertyId,
+                "Rancho completo",
+                RentableUnitType.EntireProperty);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 15);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 15);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 18);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 18);
 
-        var existingBooking = DomainBooking.Create(
-            entireProperty,
-            existingPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking existingBooking =
+            CreateBooking(
+                entireProperty,
+                existingPeriod);
 
-        // ACT
-        bool result = BookingConflictPolicy.HasConflict(
-            entireProperty,
-            requestedPeriod,
-            existingBooking,
-            entireProperty);
+        bool result =
+            BookingConflictPolicy.HasConflict(
+                entireProperty,
+                requestedPeriod,
+                existingBooking,
+                entireProperty);
 
-        // ASSERT
-        Assert.True(result);
+        Assert.True(
+            result);
     }
 
     [Fact]
     public void HasConflict_WhenUnitsBelongToDifferentProperties_ShouldReturnFalse()
     {
-        // ARRANGE
-        var firstPropertyRoom = CreateUnit(
-            Guid.NewGuid(),
-            "Habitación propiedad A",
-            RentableUnitType.Room);
+        RentableUnit firstPropertyRoom =
+            CreateUnit(
+                Guid.NewGuid(),
+                "Habitación propiedad A",
+                RentableUnitType.Room);
 
-        var secondPropertyEntireUnit = CreateUnit(
-            Guid.NewGuid(),
-            "Propiedad completa B",
-            RentableUnitType.EntireProperty);
+        RentableUnit secondPropertyEntireUnit =
+            CreateUnit(
+                Guid.NewGuid(),
+                "Propiedad completa B",
+                RentableUnitType.EntireProperty);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 15);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 15);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 18);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 18);
 
-        var existingBooking = DomainBooking.Create(
-            firstPropertyRoom,
-            existingPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking existingBooking =
+            CreateBooking(
+                firstPropertyRoom,
+                existingPeriod);
 
-        // ACT
-        bool result = BookingConflictPolicy.HasConflict(
-            secondPropertyEntireUnit,
-            requestedPeriod,
-            existingBooking,
-            firstPropertyRoom);
+        bool result =
+            BookingConflictPolicy.HasConflict(
+                secondPropertyEntireUnit,
+                requestedPeriod,
+                existingBooking,
+                firstPropertyRoom);
 
-        // ASSERT
-        Assert.False(result);
+        Assert.False(
+            result);
     }
 
     [Fact]
     public void HasConflict_WhenExistingBookingDoesNotBelongToProvidedUnit_ShouldThrow()
     {
-        // ARRANGE
-        Guid propertyId = Guid.NewGuid();
+        Guid propertyId =
+            Guid.NewGuid();
 
-        var firstRoom = CreateUnit(
-            propertyId,
-            "Habitación A",
-            RentableUnitType.Room);
+        RentableUnit firstRoom =
+            CreateUnit(
+                propertyId,
+                "Habitación A",
+                RentableUnitType.Room);
 
-        var secondRoom = CreateUnit(
-            propertyId,
-            "Habitación B",
-            RentableUnitType.Room);
+        RentableUnit secondRoom =
+            CreateUnit(
+                propertyId,
+                "Habitación B",
+                RentableUnitType.Room);
 
-        var existingPeriod = CreatePeriod(
-            checkInDay: 10,
-            checkOutDay: 15);
+        StayPeriod existingPeriod =
+            CreatePeriod(
+                checkInDay: 10,
+                checkOutDay: 15);
 
-        var requestedPeriod = CreatePeriod(
-            checkInDay: 12,
-            checkOutDay: 18);
+        StayPeriod requestedPeriod =
+            CreatePeriod(
+                checkInDay: 12,
+                checkOutDay: 18);
 
-        var existingBooking = DomainBooking.Create(
-            firstRoom,
-            existingPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking existingBooking =
+            CreateBooking(
+                firstRoom,
+                existingPeriod);
 
-        // ACT
         void Action()
         {
             BookingConflictPolicy.HasConflict(
@@ -378,46 +390,18 @@ public sealed class BookingConflictPolicyTests
                 secondRoom);
         }
 
-        // ASSERT
-        Assert.Throws<InvalidOperationException>(Action);
-    }
-
-    private static RentableUnit CreateUnit(
-        Guid propertyId,
-        string name,
-        RentableUnitType type)
-    {
-        return RentableUnit.Create(
-            propertyId,
-            name,
-            type,
-            maximumCapacity: 20,
-            maxBaseGuests: 10)
-            .Value;
-    }
-
-    private static StayPeriod CreatePeriod(
-        int checkInDay,
-        int checkOutDay)
-    {
-        return StayPeriod.Create(
-            new DateOnly(2026, 7, checkInDay),
-            new DateOnly(2026, 7, checkOutDay))
-            .Value;
+        Assert.Throws<
+            InvalidOperationException>(
+                Action);
     }
 
     private static DomainBooking CreateBookingWithStatus(
-        RentableUnit unit,
-        StayPeriod period,
-        BookingStatus status)
+    RentableUnit unit,
+    StayPeriod period,
+    BookingStatus status)
     {
-        var booking = DomainBooking.Create(
-            unit,
-            period,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        DomainBooking booking =
+            CreateBooking(unit, period);
 
         switch (status)
         {
@@ -425,22 +409,49 @@ public sealed class BookingConflictPolicyTests
                 break;
 
             case BookingStatus.PendingPayment:
-                booking.Approve(BookingTestTime.ApprovedAtUtc);
+                Assert.True(
+                    booking.Approve(
+                        BookingTestTime.ApprovedAtUtc,
+                        BookingTestTime.PaymentDueAtUtc)
+                    .IsSuccess);
                 break;
 
             case BookingStatus.Paid:
-                booking.Approve(BookingTestTime.ApprovedAtUtc);
-                booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+                Assert.True(
+                    booking.Approve(
+                        BookingTestTime.ApprovedAtUtc,
+                        BookingTestTime.PaymentDueAtUtc)
+                    .IsSuccess);
+
+                Assert.True(
+                    booking.MarkAsPaid(
+                        BookingTestTime.PaidAtUtc)
+                    .IsSuccess);
                 break;
 
             case BookingStatus.Completed:
-                booking.Approve(BookingTestTime.ApprovedAtUtc);
-                booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
-                booking.Complete(BookingTestTime.CompletedAtUtc);
+                Assert.True(
+                    booking.Approve(
+                        BookingTestTime.ApprovedAtUtc,
+                        BookingTestTime.PaymentDueAtUtc)
+                    .IsSuccess);
+
+                Assert.True(
+                    booking.MarkAsPaid(
+                        BookingTestTime.PaidAtUtc)
+                    .IsSuccess);
+
+                Assert.True(
+                    booking.Complete(
+                        BookingTestTime.CompletedAtUtc)
+                    .IsSuccess);
                 break;
 
             case BookingStatus.Cancelled:
-                booking.Reject(BookingTestTime.CancelledAtUtc);
+                Assert.True(
+                    booking.Reject(
+                        BookingTestTime.CancelledAtUtc)
+                    .IsSuccess);
                 break;
 
             default:
@@ -453,11 +464,48 @@ public sealed class BookingConflictPolicyTests
         return booking;
     }
 
-    private static GuestDetails CreateGuestDetails()
+    private static DomainBooking CreateBooking(
+        RentableUnit unit,
+        StayPeriod period)
     {
-        return GuestDetails.Create(
-            "John Doe",
-            "john@example.com",
-            "+50377778888").Value;
+        return DomainBooking.Create(
+                unit,
+                period,
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc)
+            .Value;
+    }
+
+    private static RentableUnit CreateUnit(
+        Guid propertyId,
+        string name,
+        RentableUnitType type)
+    {
+        return RentableUnit.Create(
+                propertyId,
+                name,
+                type,
+                maximumCapacity: 20,
+                maxBaseGuests: 10)
+            .Value;
+    }
+
+    private static StayPeriod CreatePeriod(
+        int checkInDay,
+        int checkOutDay)
+    {
+        return StayPeriod.Create(
+                new DateOnly(
+                    2026,
+                    7,
+                    checkInDay),
+                new DateOnly(
+                    2026,
+                    7,
+                    checkOutDay))
+            .Value;
     }
 }

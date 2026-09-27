@@ -94,29 +94,22 @@ public sealed class DapperAvailabilityReadServiceTests
     }
 
     [Fact]
-    public async Task
-        GetAvailableUnitsAsync_AppliesCompleteAvailabilityPolicy()
+    public async Task GetAvailableUnitsAsync_AppliesCompleteAvailabilityPolicy()
     {
-        // Arrange
         CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+            TestContext.Current.CancellationToken;
 
         AvailabilityTestData data =
-            await SeedAvailabilityScenarioAsync(
-                cancellationToken);
+            await SeedAvailabilityScenarioAsync(cancellationToken);
 
         using IServiceScope scope =
             _factory.Services.CreateScope();
 
         IAvailabilityReadService service =
             scope.ServiceProvider
-                .GetRequiredService<
-                    IAvailabilityReadService>();
+                .GetRequiredService<IAvailabilityReadService>();
 
-        // Act
-        IReadOnlyList<
-            AvailableRentableUnitReadModel> result =
+        IReadOnlyList<AvailableRentableUnitCandidateReadModel> result =
             await service.GetAvailableUnitsAsync(
                 data.PropertyId,
                 Date(10),
@@ -124,45 +117,34 @@ public sealed class DapperAvailabilityReadServiceTests
                 guestCount: 2,
                 cancellationToken);
 
-        // Assert
-        AvailableRentableUnitReadModel availableUnit =
-            Assert.Single(
-                result);
+        AvailableRentableUnitCandidateReadModel availableUnit =
+            Assert.Single(result);
+
+        Assert.Equal(data.RoomBId, availableUnit.Id);
+        Assert.Equal(data.PropertyId, availableUnit.PropertyId);
+        Assert.Equal("Room B", availableUnit.Name);
+        Assert.Equal(2, availableUnit.MaximumCapacity);
+        Assert.Equal(2, availableUnit.MaxBaseGuests);
+        Assert.False(availableUnit.IsEntireProperty);
 
         Assert.Equal(
-            data.RoomBId,
-            availableUnit.Id);
+            100m,
+            availableUnit.RegularNightlyRateAmount);
 
         Assert.Equal(
-            "Room B",
-            availableUnit.Name);
+            140m,
+            availableUnit.WeekendNightlyRateAmount);
 
         Assert.Equal(
-            2,
-            availableUnit.MaximumCapacity);
+            25m,
+            availableUnit.ExtraGuestNightlyRateAmount);
 
-        Assert.False(
-            availableUnit.IsEntireProperty);
+        Assert.Equal("USD", availableUnit.PricingCurrency);
 
-        Assert.DoesNotContain(
-            result,
-            unit =>
-                unit.Id == data.RoomAId);
-
-        Assert.DoesNotContain(
-            result,
-            unit =>
-                unit.Id == data.EntirePropertyId);
-
-        Assert.DoesNotContain(
-            result,
-            unit =>
-                unit.Id == data.InactiveRoomId);
-
-        Assert.DoesNotContain(
-            result,
-            unit =>
-                unit.Id == data.LowCapacityRoomId);
+        Assert.DoesNotContain(result, unit => unit.Id == data.RoomAId);
+        Assert.DoesNotContain(result, unit => unit.Id == data.EntirePropertyId);
+        Assert.DoesNotContain(result, unit => unit.Id == data.InactiveRoomId);
+        Assert.DoesNotContain(result, unit => unit.Id == data.LowCapacityRoomId);
     }
 
     private async Task<OverlapTestData> SeedAsync(

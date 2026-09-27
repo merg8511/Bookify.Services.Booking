@@ -785,16 +785,17 @@ public sealed class ProcessStripeWebhookCommandHandlerTests
             .Value;
 
         DomainBooking booking =
-            DomainBooking.Create(
+            BookingTestData.CreateBooking(
                 rentableUnit,
                 stayPeriod,
-                GuestCount.Create(2)
-                .Value,
-                GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
-                BookingTestTime.CreatedAtUtc).Value;
+                GuestCount.Create(2).Value,
+                GuestDetails.Create(
+                    "John Doe",
+                    "john@example.com",
+                    "+50377778888").Value);
 
         Assert.True(
-            booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc).IsSuccess);
 
         return booking;
     }

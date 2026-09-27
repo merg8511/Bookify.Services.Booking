@@ -1012,7 +1012,8 @@ public sealed class InitiatePaymentCommandHandlerTests
                 "john@example.com",
                 "+50377778888").Value,
                 priceSnapshot,
-                BookingTestTime.CreatedAtUtc);
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
         Assert.True(
             bookingResult.IsSuccess);
@@ -1023,7 +1024,7 @@ public sealed class InitiatePaymentCommandHandlerTests
         if (approve)
         {
             Result approveResult =
-                booking.Approve(BookingTestTime.ApprovedAtUtc);
+                booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
 
             Assert.True(
                 approveResult.IsSuccess);
@@ -1065,10 +1066,11 @@ public sealed class InitiatePaymentCommandHandlerTests
                 "USD")
             .Value;
 
-        return PriceSnapshot.Create(
-            new PriceBreakdown(accommodationPrice,
-            extraGuestPrice,
-            totalPrice));
+        var result = PriceBreakdown.Create(
+                accommodationPrice,
+                extraGuestPrice).Value;
+
+        return PriceSnapshot.Create(result);
     }
 
     private static string

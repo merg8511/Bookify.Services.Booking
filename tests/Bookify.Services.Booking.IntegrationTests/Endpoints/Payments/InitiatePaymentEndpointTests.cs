@@ -700,10 +700,9 @@ public sealed class InitiatePaymentEndpointTests
             cancellationToken);
     }
 
-    private async Task<Guid>
-        CreateBookingAsync(
-        bool approve,
-        CancellationToken cancellationToken)
+    private async Task<Guid> CreateBookingAsync(
+    bool approve,
+    CancellationToken cancellationToken)
     {
         using IServiceScope scope =
             _factory.Services.CreateScope();
@@ -714,92 +713,61 @@ public sealed class InitiatePaymentEndpointTests
 
         IBookingRepository bookingRepository =
             scope.ServiceProvider
-                .GetRequiredService<
-                    IBookingRepository>();
+                .GetRequiredService<IBookingRepository>();
 
         IUnitOfWork unitOfWork =
             scope.ServiceProvider
-                .GetRequiredService<
-                    IUnitOfWork>();
+                .GetRequiredService<IUnitOfWork>();
 
         Property property =
             Property.Create(
-                    $"Payment HTTP Test {Guid.NewGuid():N}",
-                    "America/El_Salvador",
-                    new TimeOnly(
-                        15,
-                        0),
-                    new TimeOnly(
-                        11,
-                        0))
-                .Value;
+                $"Payment HTTP Test {Guid.NewGuid():N}",
+                "America/El_Salvador",
+                new TimeOnly(15, 0),
+                new TimeOnly(11, 0))
+            .Value;
 
-        dbContext.Properties.Add(
-            property);
+        dbContext.Properties.Add(property);
 
         await dbContext.SaveChangesAsync(
             cancellationToken);
 
         RentableUnit rentableUnit =
             RentableUnit.Create(
-                    property.Id,
-                    $"Payment HTTP Room {Guid.NewGuid():N}",
-                    RentableUnitType.Room,
-                    maximumCapacity: 4,
-                    maxBaseGuests: 2)
-                .Value;
+                property.Id,
+                $"Payment HTTP Room {Guid.NewGuid():N}",
+                RentableUnitType.Room,
+                maximumCapacity: 4,
+                maxBaseGuests: 2)
+            .Value;
 
-        dbContext.RentableUnits.Add(
-            rentableUnit);
+        dbContext.RentableUnits.Add(rentableUnit);
 
         await dbContext.SaveChangesAsync(
             cancellationToken);
 
         StayPeriod stayPeriod =
             StayPeriod.Create(
-                    new DateOnly(
-                        2026,
-                        10,
-                        10),
-                    new DateOnly(
-                        2026,
-                        10,
-                        12))
-                .Value;
+                new DateOnly(2026, 10, 10),
+                new DateOnly(2026, 10, 12))
+            .Value;
 
         GuestCount guestCount =
-            GuestCount.Create(
-                    2)
-                .Value;
+            GuestCount.Create(2).Value;
 
         PriceSnapshot priceSnapshot =
             CreatePriceSnapshot();
 
-        Result<DomainBooking> bookingResult =
-            DomainBooking.Create(
+        DomainBooking booking =
+            BookingTestData.CreateBooking(
                 rentableUnit,
                 stayPeriod,
                 guestCount,
-                GuestDetails.Create(
-                "John Doe",
-                "john@example.com",
-                "+50377778888").Value,
-                priceSnapshot,
-                BookingTestTime.CreatedAtUtc);
-
-        Assert.True(
-            bookingResult.IsSuccess);
-
-        DomainBooking booking =
-            bookingResult.Value;
+                priceSnapshot: priceSnapshot);
 
         if (approve)
         {
-            Result approvalResult =
-                booking.Approve(BookingTestTime.ApprovedAtUtc);
-
-            Assert.True(
-                approvalResult.IsSuccess);
+            BookingTestData.Approve(booking);
 
             Assert.Equal(
                 BookingStatus.PendingPayment,
@@ -812,8 +780,7 @@ public sealed class InitiatePaymentEndpointTests
                 booking.Status);
         }
 
-        bookingRepository.Add(
-            booking);
+        bookingRepository.Add(booking);
 
         await unitOfWork.SaveChangesAsync(
             cancellationToken);
@@ -843,10 +810,9 @@ public sealed class InitiatePaymentEndpointTests
                 .Value;
 
         return PriceSnapshot.Create(
-            new PriceBreakdown(
+            PriceBreakdown.Create(
                 accommodationPrice,
-                extraGuestPrice,
-                totalPrice));
+                extraGuestPrice).Value);
     }
 
     private sealed class IdempotencyStoredResponse

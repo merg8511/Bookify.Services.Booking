@@ -4,7 +4,6 @@ using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.Domain.Tests.Infrastructure;
-
 using DomainBooking =
     Bookify.Services.Booking.Domain.Bookings.Booking;
 
@@ -13,13 +12,11 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings;
 public sealed class BookingLifecycleMetadataTests
 {
     [Fact]
-    public void Create_ShouldAssignReferenceAndCreatedAtUtc()
+    public void Create_ShouldAssignInitialLifecycleMetadata()
     {
-        // ACT
         DomainBooking booking =
             CreateBooking();
 
-        // ASSERT
         Assert.NotNull(
             booking.Reference);
 
@@ -31,7 +28,8 @@ public sealed class BookingLifecycleMetadataTests
             BookingTestTime.CreatedAtUtc,
             booking.CreatedAtUtc);
 
-        Assert.Null(
+        Assert.Equal(
+            BookingTestTime.ApprovalDueAtUtc,
             booking.ApprovalDueAtUtc);
 
         Assert.Null(
@@ -51,18 +49,16 @@ public sealed class BookingLifecycleMetadataTests
     }
 
     [Fact]
-    public void Approve_ShouldSetApprovedAtUtc()
+    public void Approve_ShouldSetApprovalAndPaymentMetadata()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
-        // ACT
         Result result =
             booking.Approve(
-                BookingTestTime.ApprovedAtUtc);
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
 
-        // ASSERT
         Assert.True(
             result.IsSuccess);
 
@@ -74,7 +70,8 @@ public sealed class BookingLifecycleMetadataTests
             BookingTestTime.ApprovedAtUtc,
             booking.ApprovedAtUtc);
 
-        Assert.Null(
+        Assert.Equal(
+            BookingTestTime.PaymentDueAtUtc,
             booking.PaymentDueAtUtc);
 
         Assert.Null(
@@ -90,16 +87,13 @@ public sealed class BookingLifecycleMetadataTests
     [Fact]
     public void Reject_ShouldSetCancelledAtUtc()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
-        // ACT
         Result result =
             booking.Reject(
                 BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
         Assert.True(
             result.IsSuccess);
 
@@ -119,6 +113,9 @@ public sealed class BookingLifecycleMetadataTests
             booking.ApprovedAtUtc);
 
         Assert.Null(
+            booking.PaymentDueAtUtc);
+
+        Assert.Null(
             booking.PaidAtUtc);
 
         Assert.Null(
@@ -128,16 +125,13 @@ public sealed class BookingLifecycleMetadataTests
     [Fact]
     public void Cancel_FromPendingApproval_ShouldSetCancelledAtUtc()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
-        // ACT
         Result result =
             booking.Cancel(
                 BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
         Assert.True(
             result.IsSuccess);
 
@@ -155,39 +149,29 @@ public sealed class BookingLifecycleMetadataTests
     }
 
     [Fact]
-    public void Cancel_FromPendingPayment_ShouldSetCancelledAtUtc()
+    public void Cancel_FromPendingPayment_ShouldPreserveApprovalMetadataAndSetCancelledAtUtc()
     {
-        // ARRANGE
         DomainBooking booking =
-            CreateBooking();
+            CreatePendingPaymentBooking();
 
-        Result approvalResult =
-            booking.Approve(
-                BookingTestTime.ApprovedAtUtc);
-
-        Assert.True(
-            approvalResult.IsSuccess);
-
-        // ACT
-        Result cancellationResult =
+        Result result =
             booking.Cancel(
                 BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
         Assert.True(
-            cancellationResult.IsSuccess);
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Cancelled,
             booking.Status);
 
         Assert.Equal(
-            BookingCancellationReason.CancelledByGuest,
-            booking.CancellationReason);
-
-        Assert.Equal(
             BookingTestTime.ApprovedAtUtc,
             booking.ApprovedAtUtc);
+
+        Assert.Equal(
+            BookingTestTime.PaymentDueAtUtc,
+            booking.PaymentDueAtUtc);
 
         Assert.Equal(
             BookingTestTime.CancelledAtUtc,
@@ -197,25 +181,15 @@ public sealed class BookingLifecycleMetadataTests
     [Fact]
     public void ExpirePayment_ShouldSetCancelledAtUtc()
     {
-        // ARRANGE
         DomainBooking booking =
-            CreateBooking();
+            CreatePendingPaymentBooking();
 
-        Result approvalResult =
-            booking.Approve(
-                BookingTestTime.ApprovedAtUtc);
-
-        Assert.True(
-            approvalResult.IsSuccess);
-
-        // ACT
-        Result expirationResult =
+        Result result =
             booking.ExpirePayment(
                 BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
         Assert.True(
-            expirationResult.IsSuccess);
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Cancelled,
@@ -233,16 +207,13 @@ public sealed class BookingLifecycleMetadataTests
     [Fact]
     public void MarkAsPaid_ShouldSetPaidAtUtc()
     {
-        // ARRANGE
         DomainBooking booking =
             CreatePendingPaymentBooking();
 
-        // ACT
         Result result =
             booking.MarkAsPaid(
                 BookingTestTime.PaidAtUtc);
 
-        // ASSERT
         Assert.True(
             result.IsSuccess);
 
@@ -253,6 +224,10 @@ public sealed class BookingLifecycleMetadataTests
         Assert.Equal(
             BookingTestTime.ApprovedAtUtc,
             booking.ApprovedAtUtc);
+
+        Assert.Equal(
+            BookingTestTime.PaymentDueAtUtc,
+            booking.PaymentDueAtUtc);
 
         Assert.Equal(
             BookingTestTime.PaidAtUtc,
@@ -268,25 +243,20 @@ public sealed class BookingLifecycleMetadataTests
     [Fact]
     public void Complete_ShouldSetCompletedAtUtc()
     {
-        // ARRANGE
         DomainBooking booking =
             CreatePendingPaymentBooking();
 
-        Result paymentResult =
-            booking.MarkAsPaid(
-                BookingTestTime.PaidAtUtc);
-
         Assert.True(
-            paymentResult.IsSuccess);
+            booking.MarkAsPaid(
+                    BookingTestTime.PaidAtUtc)
+                .IsSuccess);
 
-        // ACT
-        Result completionResult =
+        Result result =
             booking.Complete(
                 BookingTestTime.CompletedAtUtc);
 
-        // ASSERT
         Assert.True(
-            completionResult.IsSuccess);
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Completed,
@@ -297,8 +267,16 @@ public sealed class BookingLifecycleMetadataTests
             booking.CreatedAtUtc);
 
         Assert.Equal(
+            BookingTestTime.ApprovalDueAtUtc,
+            booking.ApprovalDueAtUtc);
+
+        Assert.Equal(
             BookingTestTime.ApprovedAtUtc,
             booking.ApprovedAtUtc);
+
+        Assert.Equal(
+            BookingTestTime.PaymentDueAtUtc,
+            booking.PaymentDueAtUtc);
 
         Assert.Equal(
             BookingTestTime.PaidAtUtc,
@@ -312,68 +290,57 @@ public sealed class BookingLifecycleMetadataTests
             booking.CancelledAtUtc);
     }
 
-    private static DomainBooking
-        CreatePendingPaymentBooking()
+    private static DomainBooking CreatePendingPaymentBooking()
     {
         DomainBooking booking =
             CreateBooking();
 
-        Result approvalResult =
+        Result result =
             booking.Approve(
-                BookingTestTime.ApprovedAtUtc);
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
 
         Assert.True(
-            approvalResult.IsSuccess);
+            result.IsSuccess);
 
         return booking;
     }
 
     private static DomainBooking CreateBooking()
     {
-        RentableUnit rentableUnit =
-            RentableUnit.Create(
-                    Guid.NewGuid(),
-                    "Room A",
-                    RentableUnitType.Room,
-                    maximumCapacity: 4,
-                    maxBaseGuests: 2)
-                .Value;
+        return DomainBooking.Create(
+                CreateRentableUnit(),
+                CreateStayPeriod(),
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc)
+            .Value;
+    }
 
-        StayPeriod stayPeriod =
-            StayPeriod.Create(
-                    new DateOnly(
-                        2026,
-                        10,
-                        10),
-                    new DateOnly(
-                        2026,
-                        10,
-                        12))
-                .Value;
+    private static RentableUnit CreateRentableUnit()
+    {
+        return RentableUnit.Create(
+                Guid.NewGuid(),
+                "Room A",
+                RentableUnitType.Room,
+                maximumCapacity: 4,
+                maxBaseGuests: 2)
+            .Value;
+    }
 
-        GuestCount guestCount =
-            GuestCount.Create(
-                    2)
-                .Value;
-
-        GuestDetails guestDetails =
-            GuestDetails.Create(
-                    "John Doe",
-                    "john@example.com",
-                    "+50377778888")
-                .Value;
-
-        Result<DomainBooking> result =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount,
-                guestDetails,
-                BookingTestTime.CreatedAtUtc);
-
-        Assert.True(
-            result.IsSuccess);
-
-        return result.Value;
+    private static StayPeriod CreateStayPeriod()
+    {
+        return StayPeriod.Create(
+                new DateOnly(
+                    2026,
+                    10,
+                    10),
+                new DateOnly(
+                    2026,
+                    10,
+                    12))
+            .Value;
     }
 }

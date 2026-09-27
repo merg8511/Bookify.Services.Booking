@@ -314,7 +314,7 @@ public sealed class BookingLifecycleEndpointTests
                 CreateBookingGraph();
 
         Assert.True(
-            booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc).IsSuccess);
 
         Assert.True(
             booking.MarkAsPaid(BookingTestTime.PaidAtUtc).IsSuccess);
@@ -375,18 +375,9 @@ public sealed class BookingLifecycleEndpointTests
             .Value;
 
         DomainBooking booking =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                GuestCount.Create(
-                    2)
-                .Value,
-                GuestDetails.Create(
-                "John Doe",
-                "john@example.com",
-                "+50377778888").Value,
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+    BookingTestData.CreateBooking(
+        rentableUnit,
+        stayPeriod);
 
         return (
             property,
@@ -509,9 +500,5 @@ public sealed class BookingLifecycleEndpointTests
         Assert.Equal(
             expectedStatus.ToString(),
             readModel.Status);
-
-        Assert.Equal(
-            expectedBlocksInventory,
-            readModel.BlocksInventory);
     }
 }

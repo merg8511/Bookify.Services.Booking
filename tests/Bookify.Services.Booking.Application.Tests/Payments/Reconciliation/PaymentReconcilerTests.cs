@@ -494,7 +494,8 @@ public sealed class PaymentReconcilerTests
                 "john@example.com",
                 "+50377778888").Value,
                 priceSnapshot,
-                BookingTestTime.CreatedAtUtc);
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
         Assert.True(
             bookingResult.IsSuccess);
@@ -503,7 +504,7 @@ public sealed class PaymentReconcilerTests
             bookingResult.Value;
 
         Result approveResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
 
         Assert.True(
             approveResult.IsSuccess);
@@ -802,9 +803,8 @@ public sealed class PaymentReconcilerTests
             .Value;
 
         return PriceSnapshot.Create(
-            new PriceBreakdown(
+            PriceBreakdown.Create(
                 accommodationPrice,
-                extraGuestPrice,
-                totalPrice));
+                extraGuestPrice).Value);
     }
 }

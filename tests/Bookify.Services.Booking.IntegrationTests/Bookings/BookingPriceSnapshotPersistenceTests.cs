@@ -78,17 +78,11 @@ public sealed class BookingPriceSnapshotPersistenceTests
                 priceBreakdown);
 
         DomainBooking booking =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount,
-                GuestDetails.Create(
-                "John Doe",
-                "john@example.com",
-                "+50377778888").Value,
-                priceSnapshot,
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+    BookingTestData.CreateBooking(
+        rentableUnit,
+        stayPeriod,
+        guestCount,
+        priceSnapshot: priceSnapshot);
 
         using (
             IServiceScope seedScope =

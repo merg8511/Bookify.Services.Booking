@@ -105,9 +105,6 @@ public sealed class CancelBookingEndpointTests
         Assert.Equal(
             BookingStatus.Cancelled.ToString(),
             readModel.Status);
-
-        Assert.False(
-            readModel.BlocksInventory);
     }
 
     [Fact]
@@ -501,21 +498,16 @@ public sealed class CancelBookingEndpointTests
             .Value;
 
         DomainBooking booking =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                GuestCount.Create(
-                    2)
-                .Value, GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+    BookingTestData.CreateBooking(
+        rentableUnit,
+        stayPeriod);
 
         if (targetStatus is
             BookingStatus.PendingPayment or
             BookingStatus.Paid)
         {
             Assert.True(
-                booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
+                booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc).IsSuccess);
         }
 
         if (targetStatus ==

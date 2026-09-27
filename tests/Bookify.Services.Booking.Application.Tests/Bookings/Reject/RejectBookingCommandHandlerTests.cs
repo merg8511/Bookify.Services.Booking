@@ -101,7 +101,7 @@ public sealed class RejectBookingCommandHandlerTests
 
         DomainBooking booking = CreateBooking();
 
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
 
         var unitOfWork = new SpyUnitOfWork();
 
@@ -184,13 +184,9 @@ public sealed class RejectBookingCommandHandlerTests
                         12))
                 .Value;
 
-        return DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                GuestCount.Create(2).Value,
-                GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+        return BookingTestData.CreateBooking(
+     rentableUnit,
+     stayPeriod);
     }
 
     private sealed class StubBookingRepository : IBookingRepository

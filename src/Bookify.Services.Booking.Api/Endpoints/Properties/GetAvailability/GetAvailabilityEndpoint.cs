@@ -23,13 +23,13 @@ internal static class GetAvailabilityEndpoint
     }
 
     private static async Task<Results<Ok<GetAvailabilityResponse>, ProblemHttpResult>> HandleAsync(
-            Guid propertyId,
-            DateOnly? checkInDate,
-            DateOnly? checkOutDate,
-            int? guestCount,
-            IQueryExecutor<GetAvailabilityQuery, AvailabilityReadModel> queryExecutor,
-            HttpContext httpContext,
-            CancellationToken cancellationToken)
+        Guid propertyId,
+        DateOnly? checkInDate,
+        DateOnly? checkOutDate,
+        int? guestCount,
+        IQueryExecutor<GetAvailabilityQuery, AvailabilityReadModel> queryExecutor,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
     {
         var query = new GetAvailabilityQuery(
             propertyId,
@@ -37,9 +37,7 @@ internal static class GetAvailabilityEndpoint
             checkOutDate,
             guestCount);
 
-        Result<AvailabilityReadModel> result = await queryExecutor.ExecuteAsync(
-            query,
-            cancellationToken);
+        Result<AvailabilityReadModel> result = await queryExecutor.ExecuteAsync(query, cancellationToken);
 
         return result.ToHttpResult(
             httpContext,
@@ -48,8 +46,7 @@ internal static class GetAvailabilityEndpoint
 
     private static GetAvailabilityResponse MapToResponse(AvailabilityReadModel availability)
     {
-        AvailableRentableUnitResponse[] units = availability
-            .AvailableUnits
+        AvailableRentableUnitResponse[] units = availability.AvailableUnits
             .Select(MapUnit)
             .ToArray();
 
@@ -65,8 +62,7 @@ internal static class GetAvailabilityEndpoint
 
     private static AvailableRentableUnitResponse MapUnit(AvailableRentableUnitReadModel unit)
     {
-        AvailabilityQuoteReadModel quote = unit.Quote ??
-            throw new InvalidOperationException("Available rentable unit does not contain an informative quote.");
+        AvailabilityQuoteReadModel quote = unit.Quote;
 
         return new AvailableRentableUnitResponse(
             unit.Id,

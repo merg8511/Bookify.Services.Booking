@@ -134,8 +134,7 @@ public sealed class ApproveBookingCommandHandlerTests
         DomainBooking booking =
             CreateBooking();
 
-        booking.Approve(
-            BookingTestTime.ApprovedAtUtc);
+        BookingTestData.Approve(booking);
 
         var bookingRepository =
             new StubBookingRepository(
@@ -232,13 +231,10 @@ public sealed class ApproveBookingCommandHandlerTests
                     22))
             .Value;
 
-        return DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                GuestCount.Create(2).Value,
-                CreateGuestDetails(),
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+        return BookingTestData.CreateBooking(
+            rentableUnit,
+            stayPeriod,
+            guestDetails: CreateGuestDetails());
     }
 
     private sealed class StubBookingRepository

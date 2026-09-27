@@ -573,18 +573,12 @@ public sealed class StripePaymentWebhookEndpointTests
             .Value;
 
         DomainBooking booking =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                GuestCount.Create(
-                    2)
-                .Value,
-                GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+    BookingTestData.CreateBooking(
+        rentableUnit,
+        stayPeriod);
 
         Assert.True(
-            booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc).IsSuccess);
 
         DateTimeOffset paymentCreatedAtUtc =
             DateTimeOffset.UtcNow

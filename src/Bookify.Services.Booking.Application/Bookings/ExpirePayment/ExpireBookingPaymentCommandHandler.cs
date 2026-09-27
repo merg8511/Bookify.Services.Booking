@@ -67,8 +67,10 @@ public sealed class ExpireBookingPaymentCommandHandler
 
             if (booking is null)
             {
-                return Result.Failure(
-                    ExpireBookingPaymentErrors.NotFound(command.BookingId));
+                return await RollbackFailureAsync(
+                    transaction,
+                    ExpireBookingPaymentErrors.NotFound(command.BookingId),
+                    cancellationToken);
             }
 
             if (booking.Status != BookingStatus.PendingPayment)

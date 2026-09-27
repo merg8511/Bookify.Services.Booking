@@ -33,10 +33,8 @@ internal sealed class DapperAvailabilityReadService :
             b.check_out_date AS "CheckOutDate",
             b.status AS "Status"
         FROM requested_unit
-        INNER JOIN bookings AS b
-            ON b.property_id = requested_unit.property_id
-        INNER JOIN rentable_units AS existing_unit
-            ON existing_unit.id = b.rentable_unit_id
+        INNER JOIN bookings AS b ON b.property_id = requested_unit.property_id
+        INNER JOIN rentable_units AS existing_unit ON existing_unit.id = b.rentable_unit_id
             AND existing_unit.property_id = b.property_id
         WHERE b.status IN
             (
@@ -89,7 +87,8 @@ internal sealed class DapperAvailabilityReadService :
             (
                 SELECT 1
                 FROM bookings AS b
-                INNER JOIN rentable_units AS existing_unit ON existing_unit.id = b.rentable_unit_id
+                INNER JOIN rentable_units AS existing_unit
+                    ON existing_unit.id = b.rentable_unit_id
                     AND existing_unit.property_id = b.property_id
                 WHERE b.property_id = requested_unit.property_id
                     AND b.status IN
@@ -126,22 +125,21 @@ internal sealed class DapperAvailabilityReadService :
         WHERE season.rentable_unit_id = ANY(@RentableUnitIds)
             AND season.start_date < @RequestedCheckOutDate
             AND season.end_date > @RequestedCheckInDate
-
         ORDER BY
             season.rentable_unit_id,
             season.priority DESC,
             season.start_date,
-            season.end_date
+            season.end_date;
         """;
 
     private readonly IDbConnectionFactory _connectionFactory;
 
-    public DapperAvailabilityReadService(IDbConnectionFactory connectionFactory)
+    public DapperAvailabilityReadService(
+        IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory
             ?? throw new ArgumentNullException(nameof(connectionFactory));
     }
-
 
     public async Task<IReadOnlyList<OverlappingBookingReadModel>> GetInventoryConflictsAsync(
         Guid propertyId,
@@ -159,16 +157,18 @@ internal sealed class DapperAvailabilityReadService :
                 PropertyId = propertyId,
                 RequestedRentableUnitId = requestedRentableUnitId,
                 RequestedCheckInDate = requestedCheckInDate,
-                RequestedCheckOutDate = requestedCheckOutDate,
+                RequestedCheckOutDate = requestedCheckOutDate
             },
             cancellationToken: cancellationToken);
 
-        IEnumerable<OverlappingBookingReadModel> rows = await connection.QueryAsync<OverlappingBookingReadModel>(command);
+        IEnumerable<OverlappingBookingReadModel> rows = await connection
+            .QueryAsync<OverlappingBookingReadModel>(
+                command);
 
         return rows.ToArray();
     }
 
-    public async Task<IReadOnlyList<AvailableRentableUnitReadModel>> GetAvailableUnitsAsync(
+    public async Task<IReadOnlyList<AvailableRentableUnitCandidateReadModel>> GetAvailableUnitsAsync(
         Guid propertyId,
         DateOnly requestedCheckInDate,
         DateOnly requestedCheckOutDate,
@@ -188,10 +188,8 @@ internal sealed class DapperAvailabilityReadService :
             },
             cancellationToken: cancellationToken);
 
-        IEnumerable<
-            AvailableRentableUnitReadModel> rows =
-            await connection.QueryAsync<
-                AvailableRentableUnitReadModel>(command);
+        IEnumerable<AvailableRentableUnitCandidateReadModel> rows = await connection
+            .QueryAsync<AvailableRentableUnitCandidateReadModel>(command);
 
         return rows.ToArray();
     }

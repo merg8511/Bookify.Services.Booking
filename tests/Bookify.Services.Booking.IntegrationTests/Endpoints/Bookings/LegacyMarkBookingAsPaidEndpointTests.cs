@@ -119,18 +119,12 @@ public sealed class LegacyMarkBookingAsPaidEndpointTests
             .Value;
 
         DomainBooking booking =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                GuestCount.Create(
-                    2)
-                .Value,
-                GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+    BookingTestData.CreateBooking(
+        rentableUnit,
+        stayPeriod);
 
         Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
 
         Assert.True(
             approvalResult.IsSuccess);

@@ -1012,28 +1012,25 @@ public sealed class InitiatePaymentPersistenceTests
             CreatePriceSnapshot();
 
         Result<DomainBooking> bookingResult =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount,
-                GuestDetails.Create(
-                "John Doe",
-                "john@example.com",
-                "+50377778888").Value,
-                priceSnapshot,
-                BookingTestTime.CreatedAtUtc);
+    DomainBooking.Create(
+        rentableUnit,
+        stayPeriod,
+        guestCount,
+        BookingTestData.CreateGuestDetails(),
+        priceSnapshot,
+        BookingTestTime.CreatedAtUtc,
+        BookingTestTime.ApprovalDueAtUtc);
 
-        Assert.True(
-            bookingResult.IsSuccess);
+        Assert.True(bookingResult.IsSuccess);
 
-        DomainBooking booking =
-            bookingResult.Value;
+        DomainBooking booking = bookingResult.Value;
 
         Result approveResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
 
-        Assert.True(
-            approveResult.IsSuccess);
+        Assert.True(approveResult.IsSuccess);
 
         Assert.Equal(
             BookingStatus.PendingPayment,
@@ -1085,31 +1082,11 @@ public sealed class InitiatePaymentPersistenceTests
         return result.Value;
     }
 
-    private static PriceSnapshot
-        CreatePriceSnapshot()
+    private static PriceSnapshot CreatePriceSnapshot()
     {
-        Money accommodationPrice =
-            Money.Create(
-                200m,
-                "USD")
-            .Value;
-
-        Money extraGuestPrice =
-            Money.Create(
-                0m,
-                "USD")
-            .Value;
-
-        Money totalPrice =
-            Money.Create(
-                200m,
-                "USD")
-            .Value;
-
-        return PriceSnapshot.Create(
-            new PriceBreakdown(
-                accommodationPrice,
-                extraGuestPrice,
-                totalPrice));
+        return BookingTestData.CreatePriceSnapshot(
+            accommodationPrice: 200m,
+            extraGuestPrice: 0m,
+            currency: "USD");
     }
 }

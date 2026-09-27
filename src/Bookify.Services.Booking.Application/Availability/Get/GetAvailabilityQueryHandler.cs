@@ -5,12 +5,14 @@ using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.Services;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
+using Bookify.Services.Booking.Domain.Properties.Pricing;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 
 namespace Bookify.Services.Booking.Application.Availability.Get;
 
-public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQuery, AvailabilityReadModel>
+public sealed class GetAvailabilityQueryHandler :
+    IQueryHandler<GetAvailabilityQuery, AvailabilityReadModel>
 {
 
     private readonly IPropertyReadService _propertyReadService;
@@ -31,7 +33,8 @@ public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQ
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        PropertyDetailsReadModel? property = await _propertyReadService.GetByIdAsync(query.PropertyId, cancellationToken);
+        PropertyDetailsReadModel? property = await _propertyReadService
+            .GetByIdAsync(query.PropertyId, cancellationToken);
 
         if (property is null)
         {
@@ -72,7 +75,7 @@ public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQ
         StayPeriod stayPeriod = stayPeriodResult.Value;
         GuestCount guestCount = guestCountResult.Value;
 
-        IReadOnlyList<AvailableRentableUnitReadModel> availableUnits = await _availabilityReadService
+        IReadOnlyList<AvailableRentableUnitCandidateReadModel> candidates = await _availabilityReadService
             .GetAvailableUnitsAsync(
                 query.PropertyId,
                 stayPeriod.CheckInDate,
@@ -80,38 +83,26 @@ public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQ
                 guestCount.Value,
                 cancellationToken);
 
-        IReadOnlyList<AvailabilityPricingSeasonReadModel> pricingSeasons;
-
-        if (availableUnits.Count == 0)
-        {
-            pricingSeasons = Array.Empty<AvailabilityPricingSeasonReadModel>();
-        }
-        else
-        {
-            Guid[] rentableUnitIds = availableUnits
-                .Select(unit => unit.Id)
-                .ToArray();
-
-            pricingSeasons = await _availabilityReadService
-                .GetPricingSeasonsAsync(
-                    rentableUnitIds,
-                    stayPeriod.CheckInDate,
-                    stayPeriod.CheckOutDate,
-                    cancellationToken);
-        }
+        IReadOnlyList<AvailabilityPricingSeasonReadModel> pricingSeasons = candidates.Count == 0
+            ? Array.Empty<AvailabilityPricingSeasonReadModel>()
+            : await _availabilityReadService.GetPricingSeasonsAsync(
+                candidates.Select(unit => unit.Id).ToArray(),
+                stayPeriod.CheckInDate,
+                stayPeriod.CheckOutDate,
+                cancellationToken);
 
         Dictionary<Guid, AvailabilityPricingSeasonReadModel[]> seasonsByUnit = pricingSeasons
             .GroupBy(season => season.RentableUnitId)
             .ToDictionary(group => group.Key, group => group.ToArray());
 
-        var quotedUnits = new List<AvailableRentableUnitReadModel>(availableUnits.Count);
+        var quotedUnits = new List<AvailableRentableUnitReadModel>(candidates.Count);
 
-        foreach (AvailableRentableUnitReadModel unit in availableUnits)
+        foreach (AvailableRentableUnitCandidateReadModel candidate in candidates)
         {
-            seasonsByUnit.TryGetValue(unit.Id, out AvailabilityPricingSeasonReadModel[]? unitSeasonRows);
+            seasonsByUnit.TryGetValue(candidate.Id, out AvailabilityPricingSeasonReadModel[]? unitSeasonRows);
 
             Result<AvailabilityQuoteReadModel> quoteResult = CalculateQuote(
-                unit,
+                candidate,
                 unitSeasonRows ?? Array.Empty<AvailabilityPricingSeasonReadModel>(),
                 guestCount,
                 stayPeriod);
@@ -123,20 +114,14 @@ public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQ
 
             quotedUnits.Add(
                 new AvailableRentableUnitReadModel
-                {
-                    Id = unit.Id,
-                    PropertyId = unit.PropertyId,
-                    Name = unit.Name,
-                    Type = unit.Type,
-                    MaximumCapacity = unit.MaximumCapacity,
-                    MaxBaseGuests = unit.MaxBaseGuests,
-                    IsEntireProperty = unit.IsEntireProperty,
-                    RegularNightlyRateAmount = unit.RegularNightlyRateAmount,
-                    WeekendNightlyRateAmount = unit.WeekendNightlyRateAmount,
-                    ExtraGuestNightlyRateAmount = unit.ExtraGuestNightlyRateAmount,
-                    PricingCurrency = unit.PricingCurrency,
-                    Quote = quoteResult.Value
-                });
+                (
+                    candidate.Id,
+                    candidate.Name,
+                    candidate.Type,
+                    candidate.MaximumCapacity,
+                    candidate.IsEntireProperty,
+                    quoteResult.Value
+                ));
         }
 
         var response = new AvailabilityReadModel(
@@ -151,15 +136,15 @@ public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQ
         return Result<AvailabilityReadModel>.Success(response);
     }
 
-    public static Result<AvailabilityQuoteReadModel> CalculateQuote(
-        AvailableRentableUnitReadModel unit,
-        IReadOnlyCollection<AvailabilityPricingSeasonReadModel> seasonRows,
+    private static Result<AvailabilityQuoteReadModel> CalculateQuote(
+        AvailableRentableUnitCandidateReadModel candidate,
+        AvailabilityPricingSeasonReadModel[] seasonRows,
         GuestCount guestCount,
         StayPeriod stayPeriod)
     {
         Result<Money> regularRateResult = Money.Create(
-            unit.RegularNightlyRateAmount,
-            unit.PricingCurrency);
+            candidate.RegularNightlyRateAmount,
+            candidate.PricingCurrency);
 
         if (regularRateResult.IsFailure)
         {
@@ -167,8 +152,8 @@ public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQ
         }
 
         Result<Money> weekendRateResult = Money.Create(
-            unit.WeekendNightlyRateAmount,
-            unit.PricingCurrency);
+            candidate.WeekendNightlyRateAmount,
+            candidate.PricingCurrency);
 
         if (weekendRateResult.IsFailure)
         {
@@ -176,15 +161,25 @@ public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQ
         }
 
         Result<Money> extraGuestRateResult = Money.Create(
-            unit.ExtraGuestNightlyRateAmount,
-            unit.PricingCurrency);
+            candidate.ExtraGuestNightlyRateAmount,
+            candidate.PricingCurrency);
 
         if (extraGuestRateResult.IsFailure)
         {
             return Result<AvailabilityQuoteReadModel>.Failure(extraGuestRateResult.Error);
         }
 
-        var seasons = new List<PricingSeason>(seasonRows.Count);
+        Result<RentableUnitPricing> pricingResult = RentableUnitPricing.Create(
+            regularRateResult.Value,
+            weekendRateResult.Value,
+            extraGuestRateResult.Value);
+
+        if (pricingResult.IsFailure)
+        {
+            return Result<AvailabilityQuoteReadModel>.Failure(pricingResult.Error);
+        }
+
+        var seasons = new List<PricingSeason>(seasonRows.Length);
 
         foreach (AvailabilityPricingSeasonReadModel seasonRow in seasonRows)
         {
@@ -210,10 +205,8 @@ public sealed class GetAvailabilityQueryHandler : IQueryHandler<GetAvailabilityQ
         }
 
         Result<PriceBreakdown> priceResult = BookingPricingEngine.CalculatePrice(
-            regularRateResult.Value,
-            weekendRateResult.Value,
-            extraGuestRateResult.Value,
-            unit.MaxBaseGuests,
+            pricingResult.Value,
+            candidate.MaxBaseGuests,
             guestCount,
             stayPeriod,
             seasons);
