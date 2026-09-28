@@ -61,7 +61,6 @@ internal sealed class DapperAvailabilityReadService :
         """
         SELECT
             requested_unit.id AS "Id",
-            requested_unit.property_id AS "PropertyId",
             requested_unit.name AS "Name",
             requested_unit.type AS "Type",
             requested_unit.maximum_capacity AS "MaximumCapacity",
