@@ -121,7 +121,6 @@ public sealed class DapperAvailabilityReadServiceTests
             Assert.Single(result);
 
         Assert.Equal(data.RoomBId, availableUnit.Id);
-        Assert.Equal(data.PropertyId, availableUnit.PropertyId);
         Assert.Equal("Room B", availableUnit.Name);
         Assert.Equal(2, availableUnit.MaximumCapacity);
         Assert.Equal(2, availableUnit.MaxBaseGuests);

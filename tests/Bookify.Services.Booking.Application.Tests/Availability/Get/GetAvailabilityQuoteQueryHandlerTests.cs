@@ -35,7 +35,6 @@ public sealed class GetAvailabilityQuoteQueryHandlerTests
         var candidate = new AvailableRentableUnitCandidateReadModel
         {
             Id = unitId,
-            PropertyId = propertyId,
             Name = "Room A",
             Type = "Room",
             MaximumCapacity = 4,

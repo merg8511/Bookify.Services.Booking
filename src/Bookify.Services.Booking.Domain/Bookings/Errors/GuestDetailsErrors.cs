@@ -12,7 +12,7 @@ public static class GuestDetailsErrors
     public static readonly Error FullNameTooLong =
         Error.Validation(
             "Booking.GuestFullNameTooLong",
-            "The guest full name cannot exceed 200 charracters.");
+            "The guest full name cannot exceed 200 characters.");
 
     public static readonly Error EmailRequired =
         Error.Validation(
@@ -37,5 +37,5 @@ public static class GuestDetailsErrors
     public static readonly Error PhoneInvalid =
         Error.Validation(
             "Booking.GuestPhoneInvalid",
-            "The guest phone must contain btween 7 and 15 digits and may optionally start with '+'.");
+            "The guest phone must contain between 7 and 15 digits and may optionally start with '+'.");
 }

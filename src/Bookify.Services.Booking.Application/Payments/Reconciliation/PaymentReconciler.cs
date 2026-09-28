@@ -24,10 +24,10 @@ public static class PaymentReconciler
             throw new InvalidOperationException("The payment does not belong to the supplied booking.");
         }
 
-        bool attemptBelingsToPayment = payment
+        bool attemptBelongsToPayment = payment
             .Attempts.Any(currentAttempt => currentAttempt.Id == attempt.Id);
 
-        if (!attemptBelingsToPayment)
+        if (!attemptBelongsToPayment)
         {
             throw new InvalidOperationException("The payment attempt does not belong to the supplied payment.");
         }
@@ -178,7 +178,7 @@ public static class PaymentReconciler
     {
         if (payment.CompletedAtUtc is null)
         {
-            throw new InvalidOperationException("A succeded payment must contain its completion timestamp.");
+            throw new InvalidOperationException("A succeeded payment must contain its completion timestamp.");
         }
 
         return payment.CompletedAtUtc.Value;
