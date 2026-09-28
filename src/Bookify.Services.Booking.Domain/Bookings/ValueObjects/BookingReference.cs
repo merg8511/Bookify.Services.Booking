@@ -6,13 +6,11 @@ namespace Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 
 public sealed record BookingReference
 {
-    public const string Prefix = "BK";
-
-    public const int SegmentLength = 4;
-    public const int SegmentCount = 5;
-
-    public const int TokenLength = SegmentLength * SegmentCount;
     public const int MaxLength = 27;
+
+    private const string Prefix = "BK";
+    private const int SegmentLength = 4;
+    private const int SegmentCount = 5;
     private const int RandomByteCount = 10;
 
     private BookingReference()

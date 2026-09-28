@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
+using Bookify.Services.Booking.Application.Bookings.ReadModels;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Shared;
 

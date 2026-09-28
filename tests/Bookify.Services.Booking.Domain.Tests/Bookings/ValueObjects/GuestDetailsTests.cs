@@ -322,4 +322,35 @@ public sealed class GuestDetailsTests
             "John Michael Doe",
             result.Value.FullName);
     }
+
+    [Fact]
+    public void Create_MissingAndInvalidEmail_ShouldReturnDistinctErrorCodes()
+    {
+        Result<GuestDetails> missingEmail =
+            GuestDetails.Create(
+                "John Doe",
+                null,
+                "+50377778888");
+
+        Result<GuestDetails> invalidEmail =
+            GuestDetails.Create(
+                "John Doe",
+                "not-an-email",
+                "+50377778888");
+
+        Assert.True(missingEmail.IsFailure);
+        Assert.True(invalidEmail.IsFailure);
+
+        Assert.Equal(
+            "Booking.GuestEmailRequired",
+            missingEmail.Error.Code);
+
+        Assert.Equal(
+            "Booking.GuestEmailInvalid",
+            invalidEmail.Error.Code);
+
+        Assert.NotEqual(
+            missingEmail.Error.Code,
+            invalidEmail.Error.Code);
+    }
 }

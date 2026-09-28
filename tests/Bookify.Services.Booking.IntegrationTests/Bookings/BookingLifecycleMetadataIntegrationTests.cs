@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.ReadModels;
 using Bookify.Services.Booking.Domain.Bookings;
+using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
@@ -44,6 +45,11 @@ public sealed class BookingLifecycleMetadataIntegrationTests
 
     private static readonly DateTimeOffset CompletedAtUtc =
         CreatedAtUtc.AddHours(3);
+    private static readonly DateTimeOffset ApprovalDueAtUtc =
+    CreatedAtUtc.AddHours(24);
+
+    private static readonly DateTimeOffset PaymentDueAtUtc =
+        ApprovedAtUtc.AddMinutes(30);
 
     private readonly BookingApiFactory _factory;
 
@@ -56,40 +62,32 @@ public sealed class BookingLifecycleMetadataIntegrationTests
 
     [Fact]
     public async Task
-        BookingMetadata_ShouldPersistWithEfAndProjectWithDapper()
+    BookingMetadata_ShouldPersistWithEfAndProjectWithDapper()
     {
-        // ARRANGE
         CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+            TestContext.Current.CancellationToken;
 
         SeedData data =
-            await SeedPropertyWithRoomAsync(
-                cancellationToken);
+            await SeedPropertyWithRoomAsync(cancellationToken);
 
         StayPeriod stayPeriod =
             StayPeriod.Create(
-                    new DateOnly(
-                        2026,
-                        11,
-                        10),
-                    new DateOnly(
-                        2026,
-                        11,
-                        12))
-                .Value;
+                new DateOnly(2026, 11, 10),
+                new DateOnly(2026, 11, 12))
+            .Value;
 
         GuestCount guestCount =
-            GuestCount.Create(
-                    2)
-                .Value;
+            GuestCount.Create(2).Value;
 
         GuestDetails guestDetails =
             GuestDetails.Create(
-                    "John Doe",
-                    "john@example.com",
-                    "+50377778888")
-                .Value;
+                "John Doe",
+                "john@example.com",
+                "+50377778888")
+            .Value;
+
+        PriceSnapshot priceSnapshot =
+            BookingTestData.CreatePriceSnapshot();
 
         Result<DomainBooking> creationResult =
             DomainBooking.Create(
@@ -97,106 +95,84 @@ public sealed class BookingLifecycleMetadataIntegrationTests
                 stayPeriod,
                 guestCount,
                 guestDetails,
-                CreatedAtUtc);
+                priceSnapshot,
+                CreatedAtUtc,
+                ApprovalDueAtUtc);
 
-        Assert.True(
-            creationResult.IsSuccess);
+        Assert.True(creationResult.IsSuccess);
 
-        DomainBooking booking =
-            creationResult.Value;
+        DomainBooking booking = creationResult.Value;
 
-        string expectedReference =
-            booking.Reference.Value;
+        string expectedReference = booking.Reference.Value;
 
         Result approvalResult =
             booking.Approve(
-                ApprovedAtUtc);
+                ApprovedAtUtc,
+                PaymentDueAtUtc);
 
-        Assert.True(
-            approvalResult.IsSuccess);
+        Assert.True(approvalResult.IsSuccess);
 
         Result paymentResult =
-            booking.MarkAsPaid(
-                PaidAtUtc);
+            booking.MarkAsPaid(PaidAtUtc);
 
-        Assert.True(
-            paymentResult.IsSuccess);
+        Assert.True(paymentResult.IsSuccess);
 
         Result completionResult =
-            booking.Complete(
-                CompletedAtUtc);
+            booking.Complete(CompletedAtUtc);
 
-        Assert.True(
-            completionResult.IsSuccess);
+        Assert.True(completionResult.IsSuccess);
 
         // ACT - SAVE WITH EF
-        using (
-            IServiceScope saveScope =
-                _factory.Services.CreateScope())
+        using (IServiceScope saveScope =
+            _factory.Services.CreateScope())
         {
             IBookingRepository repository =
                 saveScope.ServiceProvider
-                    .GetRequiredService<
-                        IBookingRepository>();
+                    .GetRequiredService<IBookingRepository>();
 
             IUnitOfWork unitOfWork =
                 saveScope.ServiceProvider
-                    .GetRequiredService<
-                        IUnitOfWork>();
+                    .GetRequiredService<IUnitOfWork>();
 
-            repository.Add(
-                booking);
+            repository.Add(booking);
 
             await unitOfWork.SaveChangesAsync(
                 cancellationToken);
         }
 
         // ASSERT - EF CORE
-        using (
-            IServiceScope efScope =
-                _factory.Services.CreateScope())
+        using (IServiceScope efScope =
+            _factory.Services.CreateScope())
         {
             IBookingRepository repository =
                 efScope.ServiceProvider
-                    .GetRequiredService<
-                        IBookingRepository>();
+                    .GetRequiredService<IBookingRepository>();
 
             DomainBooking? persisted =
                 await repository.GetByIdAsync(
                     booking.Id,
                     cancellationToken);
 
-            Assert.NotNull(
-                persisted);
+            Assert.NotNull(persisted);
 
             Assert.Equal(
                 expectedReference,
                 persisted.Reference.Value);
 
-            Assert.Equal(
-                CreatedAtUtc,
-                persisted.CreatedAtUtc);
+            Assert.Equal(CreatedAtUtc, persisted.CreatedAtUtc);
+            Assert.Equal(ApprovalDueAtUtc, persisted.ApprovalDueAtUtc);
+
+            Assert.Equal(ApprovedAtUtc, persisted.ApprovedAtUtc);
+            Assert.Equal(PaymentDueAtUtc, persisted.PaymentDueAtUtc);
+
+            Assert.Equal(PaidAtUtc, persisted.PaidAtUtc);
+            Assert.Equal(CompletedAtUtc, persisted.CompletedAtUtc);
+
+            Assert.Null(persisted.CancelledAtUtc);
 
             Assert.Equal(
-                ApprovedAtUtc,
-                persisted.ApprovedAtUtc);
-
-            Assert.Equal(
-                PaidAtUtc,
-                persisted.PaidAtUtc);
-
-            Assert.Equal(
-                CompletedAtUtc,
-                persisted.CompletedAtUtc);
-
-            Assert.Null(
-                persisted.ApprovalDueAtUtc);
-
-            Assert.Null(
-                persisted.PaymentDueAtUtc);
-
-            Assert.Null(
-                persisted.CancelledAtUtc);
+                priceSnapshot,
+                persisted.PriceSnapshot);
         }
 
         // ASSERT - DAPPER
@@ -205,45 +181,37 @@ public sealed class BookingLifecycleMetadataIntegrationTests
 
         IBookingReadService readService =
             dapperScope.ServiceProvider
-                .GetRequiredService<
-                    IBookingReadService>();
+                .GetRequiredService<IBookingReadService>();
 
         BookingDetailsReadModel? readModel =
             await readService.GetByIdAsync(
                 booking.Id,
                 cancellationToken);
 
-        Assert.NotNull(
-            readModel);
+        Assert.NotNull(readModel);
 
         Assert.Equal(
             expectedReference,
             readModel.BookingReference);
 
-        Assert.Equal(
-            CreatedAtUtc,
-            readModel.CreatedAtUtc);
+        Assert.Equal(CreatedAtUtc, readModel.CreatedAtUtc);
+        Assert.Equal(ApprovalDueAtUtc, readModel.ApprovalDueAtUtc);
+
+        Assert.Equal(ApprovedAtUtc, readModel.ApprovedAtUtc);
+        Assert.Equal(PaymentDueAtUtc, readModel.PaymentDueAtUtc);
+
+        Assert.Equal(PaidAtUtc, readModel.PaidAtUtc);
+        Assert.Equal(CompletedAtUtc, readModel.CompletedAtUtc);
+
+        Assert.Null(readModel.CancelledAtUtc);
 
         Assert.Equal(
-            ApprovedAtUtc,
-            readModel.ApprovedAtUtc);
+            priceSnapshot.TotalPrice.Amount,
+            readModel.TotalPrice);
 
         Assert.Equal(
-            PaidAtUtc,
-            readModel.PaidAtUtc);
-
-        Assert.Equal(
-            CompletedAtUtc,
-            readModel.CompletedAtUtc);
-
-        Assert.Null(
-            readModel.ApprovalDueAtUtc);
-
-        Assert.Null(
-            readModel.PaymentDueAtUtc);
-
-        Assert.Null(
-            readModel.CancelledAtUtc);
+            priceSnapshot.TotalPrice.Currency,
+            readModel.Currency);
     }
 
     [Fact]

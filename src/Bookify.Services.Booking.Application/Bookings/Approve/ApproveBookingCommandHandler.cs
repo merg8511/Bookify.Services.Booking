@@ -23,18 +23,27 @@ public sealed class ApproveBookingCommandHandler
         IClock clock,
         IBookingDeadlinePolicy deadlinePolicy)
     {
-        _bookingRepository = bookingRepository;
-        _unitOfWork = unitOfWork;
-        _clock = clock;
-        _deadlinePolicy = deadlinePolicy;
+        _bookingRepository = bookingRepository
+             ?? throw new ArgumentNullException(nameof(bookingRepository));
+
+        _unitOfWork = unitOfWork
+            ?? throw new ArgumentNullException(nameof(unitOfWork));
+
+        _clock = clock
+            ?? throw new ArgumentNullException(nameof(clock));
+
+        _deadlinePolicy = deadlinePolicy
+            ?? throw new ArgumentNullException(nameof(deadlinePolicy));
     }
+
     public async Task<Result> HandleAsync(
         ApproveBookingCommand command,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        DomainBooking? booking = await _bookingRepository.GetByIdAsync(command.BookingId, cancellationToken);
+        DomainBooking? booking = await _bookingRepository.GetByIdAsync(
+            command.BookingId, cancellationToken);
 
         if (booking is null)
         {
@@ -42,19 +51,13 @@ public sealed class ApproveBookingCommandHandler
         }
 
         DateTimeOffset approvedAtUtc = _clock.UtcNow;
-        Result approvalResult = booking.Approve(approvedAtUtc);
+        DateTimeOffset paymentDueAtUtc = _deadlinePolicy.GetPaymentDueAtUtc(approvedAtUtc);
+
+        Result approvalResult = booking.Approve(approvedAtUtc, paymentDueAtUtc);
 
         if (approvalResult.IsFailure)
         {
             return approvalResult;
-        }
-
-        DateTimeOffset paymentDueAtUtc = _deadlinePolicy.GetPaymentDueAtUtc(approvedAtUtc);
-        Result paymentDeadlineResult = booking.SchedulePaymentDeadline(paymentDueAtUtc);
-
-        if (paymentDeadlineResult.IsFailure)
-        {
-            return paymentDeadlineResult;
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

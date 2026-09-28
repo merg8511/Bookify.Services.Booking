@@ -1,3 +1,4 @@
+
 using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
@@ -13,203 +14,132 @@ namespace Bookify.Services.Booking.Application.Tests.Availability.Get;
 public sealed class GetAvailabilityQuoteQueryHandlerTests
 {
     [Fact]
-    public async Task
-        HandleAsync_ShouldCalculateInformativeQuoteUsingPricingEngine()
+    public async Task HandleAsync_ShouldCalculateInformativeQuoteUsingPricingEngine()
     {
-        // Arrange
         CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+            TestContext.Current.CancellationToken;
 
-        Guid propertyId =
-            Guid.NewGuid();
+        Guid propertyId = Guid.NewGuid();
+        Guid unitId = Guid.NewGuid();
 
-        Guid unitId =
-            Guid.NewGuid();
+        var property = new PropertyDetailsReadModel
+        {
+            Id = propertyId,
+            Name = "Quote Property",
+            TimeZoneId = "America/El_Salvador",
+            CheckInTime = new TimeOnly(15, 0),
+            CheckOutTime = new TimeOnly(11, 0),
+            IsActive = true
+        };
 
-        var property =
-            new PropertyDetailsReadModel
-            {
-                Id =
-                    propertyId,
+        var candidate = new AvailableRentableUnitCandidateReadModel
+        {
+            Id = unitId,
+            PropertyId = propertyId,
+            Name = "Room A",
+            Type = "Room",
+            MaximumCapacity = 4,
+            MaxBaseGuests = 2,
+            IsEntireProperty = false,
+            RegularNightlyRateAmount = 100m,
+            WeekendNightlyRateAmount = 140m,
+            ExtraGuestNightlyRateAmount = 25m,
+            PricingCurrency = "USD"
+        };
 
-                Name =
-                    "Quote Property",
+        var season = new AvailabilityPricingSeasonReadModel
+        {
+            RentableUnitId = unitId,
+            StartDate = new DateOnly(2026, 12, 25),
+            EndDate = new DateOnly(2026, 12, 26),
+            NightlyRateAmount = 200m,
+            Currency = "USD",
+            Priority = 10
+        };
 
-                TimeZoneId =
-                    "America/El_Salvador",
+        var readService =
+            new StubAvailabilityReadService([candidate], [season]);
 
-                CheckInTime =
-                    new TimeOnly(
-                        15,
-                        0),
+        var handler = new GetAvailabilityQueryHandler(
+            new StubPropertyReadService(property),
+            readService);
 
-                CheckOutTime =
-                    new TimeOnly(
-                        11,
-                        0),
-
-                IsActive =
-                    true
-            };
-
-        var availableUnit =
-            new AvailableRentableUnitReadModel
-            {
-                Id =
-                    unitId,
-
-                PropertyId =
-                    propertyId,
-
-                Name =
-                    "Room A",
-
-                Type =
-                    "Room",
-
-                MaximumCapacity =
-                    4,
-
-                MaxBaseGuests =
-                    2,
-
-                IsEntireProperty =
-                    false,
-
-                RegularNightlyRateAmount =
-                    100m,
-
-                WeekendNightlyRateAmount =
-                    140m,
-
-                ExtraGuestNightlyRateAmount =
-                    25m,
-
-                PricingCurrency =
-                    "USD"
-            };
-
-        var season =
-            new AvailabilityPricingSeasonReadModel
-            {
-                RentableUnitId =
-                    unitId,
-
-                StartDate =
-                    new DateOnly(
-                        2026,
-                        12,
-                        25),
-
-                EndDate =
-                    new DateOnly(
-                        2026,
-                        12,
-                        26),
-
-                NightlyRateAmount =
-                    200m,
-
-                Currency =
-                    "USD",
-
-                Priority =
-                    10
-            };
-
-        var handler =
-            new GetAvailabilityQueryHandler(
-                new StubPropertyReadService(
-                    property),
-                new StubAvailabilityReadService(
-                    [availableUnit],
-                    [season]));
-
-        var query =
-            new GetAvailabilityQuery(
-                propertyId,
-                new DateOnly(
-                    2026,
-                    12,
-                    24),
-                new DateOnly(
-                    2026,
-                    12,
-                    27),
-                GuestCount: 3);
-
-        // Act
         Result<AvailabilityReadModel> result =
             await handler.HandleAsync(
-                query,
+                new GetAvailabilityQuery(
+                    propertyId,
+                    new DateOnly(2026, 12, 24),
+                    new DateOnly(2026, 12, 27),
+                    GuestCount: 3),
                 cancellationToken);
 
-        // Assert
-        Assert.True(
-            result.IsSuccess);
+        Assert.True(result.IsSuccess);
 
         AvailableRentableUnitReadModel unit =
-            Assert.Single(
-                result.Value
-                    .AvailableUnits);
+            Assert.Single(result.Value.AvailableUnits);
 
-        Assert.NotNull(
-            unit.Quote);
+        Assert.Equal(unitId, unit.Id);
+        Assert.Equal(440m, unit.Quote.AccommodationPrice);
+        Assert.Equal(75m, unit.Quote.ExtraGuestPrice);
+        Assert.Equal(515m, unit.Quote.TotalPrice);
+        Assert.Equal("USD", unit.Quote.Currency);
 
-        Assert.Equal(
-            440m,
-            unit.Quote
-                .AccommodationPrice);
-
-        Assert.Equal(
-            75m,
-            unit.Quote
-                .ExtraGuestPrice);
-
-        Assert.Equal(
-            515m,
-            unit.Quote
-                .TotalPrice);
-
-        Assert.Equal(
-            "USD",
-            unit.Quote
-                .Currency);
+        Assert.Equal(1, readService.PricingSeasonsCallCount);
     }
 
-    private sealed class
-        StubAvailabilityReadService :
-            IAvailabilityReadService
+    [Fact]
+    public async Task HandleAsync_WhenNoUnitsAreAvailable_ShouldNotReadPricingSeasons()
     {
-        private readonly
-            IReadOnlyList<
-                AvailableRentableUnitReadModel>
-                _availableUnits;
+        Guid propertyId = Guid.NewGuid();
 
-        private readonly
-            IReadOnlyList<
-                AvailabilityPricingSeasonReadModel>
-                _pricingSeasons;
+        var property = new PropertyDetailsReadModel
+        {
+            Id = propertyId,
+            Name = "Empty Property",
+            TimeZoneId = "America/El_Salvador",
+            IsActive = true
+        };
+
+        var readService = new StubAvailabilityReadService([], []);
+
+        var handler = new GetAvailabilityQueryHandler(
+            new StubPropertyReadService(property),
+            readService);
+
+        Result<AvailabilityReadModel> result =
+            await handler.HandleAsync(
+                new GetAvailabilityQuery(
+                    propertyId,
+                    new DateOnly(2026, 12, 24),
+                    new DateOnly(2026, 12, 27),
+                    GuestCount: 2),
+                TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value.AvailableUnits);
+        Assert.Equal(0, readService.PricingSeasonsCallCount);
+    }
+
+    private sealed class StubAvailabilityReadService :
+        IAvailabilityReadService
+    {
+        private readonly IReadOnlyList<AvailableRentableUnitCandidateReadModel>
+            _candidates;
+
+        private readonly IReadOnlyList<AvailabilityPricingSeasonReadModel>
+            _seasons;
+
+        public int PricingSeasonsCallCount { get; private set; }
 
         public StubAvailabilityReadService(
-            IReadOnlyList<
-                AvailableRentableUnitReadModel>
-                availableUnits,
-            IReadOnlyList<
-                AvailabilityPricingSeasonReadModel>
-                pricingSeasons)
+            IReadOnlyList<AvailableRentableUnitCandidateReadModel> candidates,
+            IReadOnlyList<AvailabilityPricingSeasonReadModel> seasons)
         {
-            _availableUnits =
-                availableUnits;
-
-            _pricingSeasons =
-                pricingSeasons;
+            _candidates = candidates;
+            _seasons = seasons;
         }
 
-        public Task<
-            IReadOnlyList<
-                AvailableRentableUnitReadModel>>
+        public Task<IReadOnlyList<AvailableRentableUnitCandidateReadModel>>
             GetAvailableUnitsAsync(
                 Guid propertyId,
                 DateOnly requestedCheckInDate,
@@ -217,32 +147,26 @@ public sealed class GetAvailabilityQuoteQueryHandlerTests
                 int guestCount,
                 CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            return Task.FromResult(
-                _availableUnits);
+            return Task.FromResult(_candidates);
         }
 
-        public Task<
-            IReadOnlyList<
-                AvailabilityPricingSeasonReadModel>>
+        public Task<IReadOnlyList<AvailabilityPricingSeasonReadModel>>
             GetPricingSeasonsAsync(
                 IReadOnlyCollection<Guid> rentableUnitIds,
                 DateOnly requestedCheckInDate,
                 DateOnly requestedCheckOutDate,
                 CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            return Task.FromResult(
-                _pricingSeasons);
+            PricingSeasonsCallCount++;
+
+            return Task.FromResult(_seasons);
         }
 
-        public Task<
-            IReadOnlyList<
-                OverlappingBookingReadModel>>
+        public Task<IReadOnlyList<OverlappingBookingReadModel>>
             GetInventoryConflictsAsync(
                 Guid propertyId,
                 Guid requestedRentableUnitId,
@@ -254,49 +178,36 @@ public sealed class GetAvailabilityQuoteQueryHandlerTests
         }
     }
 
-    private sealed class
-        StubPropertyReadService :
-            IPropertyReadService
+    private sealed class StubPropertyReadService :
+        IPropertyReadService
     {
-        private readonly
-            PropertyDetailsReadModel?
-                _property;
+        private readonly PropertyDetailsReadModel? _property;
 
-        public StubPropertyReadService(
-            PropertyDetailsReadModel?
-                property)
+        public StubPropertyReadService(PropertyDetailsReadModel? property)
         {
-            _property =
-                property;
+            _property = property;
         }
 
-        public Task<
-            PropertyDetailsReadModel?>
-            GetByIdAsync(
-                Guid propertyId,
-                CancellationToken cancellationToken = default)
+        public Task<PropertyDetailsReadModel?> GetByIdAsync(
+            Guid propertyId,
+            CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            return Task.FromResult(
-                _property?.Id ==
-                    propertyId
-                    ? _property
-                    : null);
+            PropertyDetailsReadModel? result =
+                _property?.Id == propertyId ? _property : null;
+
+            return Task.FromResult(result);
         }
 
-        public Task<
-            PagedResult<
-                PropertyListItemReadModel>>
-            GetPagedAsync(
-                int pageNumber,
-                int pageSize,
-                string? name,
-                bool? isActive,
-                PropertySortField sortField,
-                SortDirection sortDirection,
-                CancellationToken cancellationToken = default)
+        public Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(
+            int pageNumber,
+            int pageSize,
+            string? name,
+            bool? isActive,
+            PropertySortField sortField,
+            SortDirection sortDirection,
+            CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }

@@ -709,7 +709,7 @@ public sealed class PaymentCancellationCoordinatorTests
             CreateBooking();
 
         Result approveResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
 
         Assert.True(
             approveResult.IsSuccess);
@@ -741,14 +741,9 @@ public sealed class PaymentCancellationCoordinatorTests
                     12))
             .Value;
 
-        return DomainBooking.Create(
+        return BookingTestData.CreateBooking(
             rentableUnit,
-            stayPeriod,
-            GuestCount.Create(
-                2)
-            .Value,
-            GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
-            BookingTestTime.CreatedAtUtc)            .Value;
+            stayPeriod);
     }
 
     private static Payment CreatePayment(

@@ -1,11 +1,10 @@
-using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Bookings;
+using Bookify.Services.Booking.Application.Bookings.ReadModels;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
-using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.IntegrationTests.Contracts;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -94,8 +93,6 @@ public sealed class RejectBookingEndpointTests
         Assert.Equal(
             BookingStatus.Cancelled.ToString(),
             readModel.Status);
-
-        Assert.False(readModel.BlocksInventory);
     }
 
     [Fact]
@@ -244,17 +241,13 @@ public sealed class RejectBookingEndpointTests
                 .Value;
 
         DomainBooking booking =
-            DomainBooking.Create(
-                    rentableUnit,
-                    stayPeriod,
-                    GuestCount.Create(2).Value,
-                    GuestDetails.Create("John Doe", "john@example.com", "+50377778888").Value,
-                    BookingTestTime.CreatedAtUtc)
-                .Value;
+    BookingTestData.CreateBooking(
+        rentableUnit,
+        stayPeriod);
 
         if (approveBeforeSaving)
         {
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
         }
 
         using IServiceScope scope =

@@ -1,3 +1,4 @@
+
 namespace Bookify.Services.Booking.Api.Endpoints.Bookings.Get;
 
 public sealed record GetBookingResponse(
@@ -5,7 +6,7 @@ public sealed record GetBookingResponse(
     string BookingReference,
     Guid PropertyId,
     string PropertyName,
-    GetBookingRentableUnitResponse RentableUnitResponse,
+    GetBookingRentableUnitResponse RentableUnit,
     DateOnly CheckInDate,
     DateOnly CheckOutDate,
     int NumberOfNights,

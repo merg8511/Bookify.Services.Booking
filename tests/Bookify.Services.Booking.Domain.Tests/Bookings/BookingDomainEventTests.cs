@@ -6,6 +6,7 @@ using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.DomainEvents;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.Domain.Tests.Infrastructure;
+
 using DomainBooking =
     Bookify.Services.Booking.Domain.Bookings.Booking;
 
@@ -19,27 +20,18 @@ public sealed class BookingDomainEventTests
     [Fact]
     public void Create_WithValidData_ShouldRaiseBookingCreatedDomainEvent()
     {
-        // ARRANGE
-        RentableUnit rentableUnit =
-            CreateRentableUnit();
-
-        StayPeriod stayPeriod =
-            CreateStayPeriod();
-
-        GuestCount guestCount =
-            GuestCount.Create(2).Value;
-
-        // ACT
         Result<DomainBooking> result =
             DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount,
-                CreateGuestDetails(),
-                BookingTestTime.CreatedAtUtc);
+                CreateRentableUnit(),
+                CreateStayPeriod(),
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         IDomainEvent domainEvent =
             Assert.Single(
@@ -59,18 +51,18 @@ public sealed class BookingDomainEventTests
     [Fact]
     public void Approve_WhenSuccessful_ShouldRaiseBookingApprovedDomainEvent()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
         booking.ClearDomainEvents();
 
-        // ACT
         Result result =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         IDomainEvent domainEvent =
             Assert.Single(
@@ -89,26 +81,26 @@ public sealed class BookingDomainEventTests
     [Fact]
     public void Approve_WhenTransitionIsInvalid_ShouldNotRaiseDomainEvent()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
         booking.ClearDomainEvents();
 
-        Result firstApproval =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
-
         Assert.True(
-            firstApproval.IsSuccess);
+            booking.Approve(
+                    BookingTestTime.ApprovedAtUtc,
+                    BookingTestTime.PaymentDueAtUtc)
+                .IsSuccess);
 
         booking.ClearDomainEvents();
 
-        // ACT
         Result result =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsFailure);
+        Assert.True(
+            result.IsFailure);
 
         Assert.Empty(
             booking.GetDomainEvents());
@@ -117,26 +109,25 @@ public sealed class BookingDomainEventTests
     [Fact]
     public void MarkAsPaid_WhenSuccessful_ShouldRaiseBookingPaidDomainEvent()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
         booking.ClearDomainEvents();
 
-        Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
-
         Assert.True(
-            approvalResult.IsSuccess);
+            booking.Approve(
+                    BookingTestTime.ApprovedAtUtc,
+                    BookingTestTime.PaymentDueAtUtc)
+                .IsSuccess);
 
         booking.ClearDomainEvents();
 
-        // ACT
         Result result =
-            booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+            booking.MarkAsPaid(
+                BookingTestTime.PaidAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         IDomainEvent domainEvent =
             Assert.Single(
@@ -155,18 +146,17 @@ public sealed class BookingDomainEventTests
     [Fact]
     public void MarkAsPaid_WhenTransitionIsInvalid_ShouldNotRaiseDomainEvent()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
         booking.ClearDomainEvents();
 
-        // ACT
         Result result =
-            booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+            booking.MarkAsPaid(
+                BookingTestTime.PaidAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsFailure);
+        Assert.True(
+            result.IsFailure);
 
         Assert.Empty(
             booking.GetDomainEvents());
@@ -175,156 +165,118 @@ public sealed class BookingDomainEventTests
     [Fact]
     public void Reject_WhenSuccessful_ShouldRaiseCancelledEventWithRejectedByOwnerReason()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
         booking.ClearDomainEvents();
 
-        // ACT
         Result result =
-            booking.Reject(BookingTestTime.CancelledAtUtc);
+            booking.Reject(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         BookingCancelledDomainEvent cancelledEvent =
             AssertCancelledEvent(
                 booking);
 
         Assert.Equal(
-            BookingCancellationReason
-                .RejectedByOwner,
-            cancelledEvent
-                .CancellationReason);
+            BookingCancellationReason.RejectedByOwner,
+            cancelledEvent.CancellationReason);
     }
 
     [Fact]
     public void ExpirePayment_WhenSuccessful_ShouldRaiseCancelledEventWithPaymentExpiredReason()
     {
-        // ARRANGE
         DomainBooking booking =
-            CreateBooking();
+            CreatePendingPaymentBooking();
 
         booking.ClearDomainEvents();
 
-        Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+        Result result =
+            booking.ExpirePayment(
+                BookingTestTime.CancelledAtUtc);
 
         Assert.True(
-            approvalResult.IsSuccess);
-
-        booking.ClearDomainEvents();
-
-        // ACT
-        Result result =
-            booking.ExpirePayment(BookingTestTime.CancelledAtUtc);
-
-        // ASSERT
-        Assert.True(result.IsSuccess);
+            result.IsSuccess);
 
         BookingCancelledDomainEvent cancelledEvent =
             AssertCancelledEvent(
                 booking);
 
         Assert.Equal(
-            BookingCancellationReason
-                .PaymentExpired,
-            cancelledEvent
-                .CancellationReason);
+            BookingCancellationReason.PaymentExpired,
+            cancelledEvent.CancellationReason);
     }
 
     [Fact]
     public void Cancel_WhenPendingApproval_ShouldRaiseCancelledEventWithCancelledByGuestReason()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
         booking.ClearDomainEvents();
 
-        // ACT
         Result result =
-            booking.Cancel(BookingTestTime.CancelledAtUtc);
+            booking.Cancel(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         BookingCancelledDomainEvent cancelledEvent =
             AssertCancelledEvent(
                 booking);
 
         Assert.Equal(
-            BookingCancellationReason
-                .CancelledByGuest,
-            cancelledEvent
-                .CancellationReason);
+            BookingCancellationReason.CancelledByGuest,
+            cancelledEvent.CancellationReason);
     }
 
     [Fact]
     public void Cancel_WhenPendingPayment_ShouldRaiseCancelledEventWithCancelledByGuestReason()
     {
-        // ARRANGE
         DomainBooking booking =
-            CreateBooking();
+            CreatePendingPaymentBooking();
 
         booking.ClearDomainEvents();
 
-        Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+        Result result =
+            booking.Cancel(
+                BookingTestTime.CancelledAtUtc);
 
         Assert.True(
-            approvalResult.IsSuccess);
-
-        booking.ClearDomainEvents();
-
-        // ACT
-        Result result =
-            booking.Cancel(BookingTestTime.CancelledAtUtc);
-
-        // ASSERT
-        Assert.True(result.IsSuccess);
+            result.IsSuccess);
 
         BookingCancelledDomainEvent cancelledEvent =
             AssertCancelledEvent(
                 booking);
 
         Assert.Equal(
-            BookingCancellationReason
-                .CancelledByGuest,
-            cancelledEvent
-                .CancellationReason);
+            BookingCancellationReason.CancelledByGuest,
+            cancelledEvent.CancellationReason);
     }
 
     [Fact]
     public void Cancel_WhenTransitionIsInvalid_ShouldNotRaiseDomainEvent()
     {
-        // ARRANGE
         DomainBooking booking =
-            CreateBooking();
+            CreatePendingPaymentBooking();
+
+        Assert.True(
+            booking.MarkAsPaid(
+                    BookingTestTime.PaidAtUtc)
+                .IsSuccess);
 
         booking.ClearDomainEvents();
 
-        Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
-
-        Assert.True(
-            approvalResult.IsSuccess);
-
-        Result paymentResult =
-            booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
-
-        Assert.True(
-            paymentResult.IsSuccess);
-
-        booking.ClearDomainEvents();
-
-        // ACT
         Result result =
-            booking.Cancel(BookingTestTime.CancelledAtUtc);
+            booking.Cancel(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsFailure);
+        Assert.True(
+            result.IsFailure);
 
         Assert.Empty(
             booking.GetDomainEvents());
@@ -333,18 +285,18 @@ public sealed class BookingDomainEventTests
     [Fact]
     public void ValidLifecycle_ShouldPreserveDomainEventOrder()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
-        // ACT
         Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
 
         Result paymentResult =
-            booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+            booking.MarkAsPaid(
+                BookingTestTime.PaidAtUtc);
 
-        // ASSERT
         Assert.True(
             approvalResult.IsSuccess);
 
@@ -388,9 +340,8 @@ public sealed class BookingDomainEventTests
             });
     }
 
-    private static BookingCancelledDomainEvent
-        AssertCancelledEvent(
-            DomainBooking booking)
+    private static BookingCancelledDomainEvent AssertCancelledEvent(
+        DomainBooking booking)
     {
         IDomainEvent domainEvent =
             Assert.Single(
@@ -408,6 +359,20 @@ public sealed class BookingDomainEventTests
         return cancelledEvent;
     }
 
+    private static DomainBooking CreatePendingPaymentBooking()
+    {
+        DomainBooking booking =
+            CreateBooking();
+
+        Assert.True(
+            booking.Approve(
+                    BookingTestTime.ApprovedAtUtc,
+                    BookingTestTime.PaymentDueAtUtc)
+                .IsSuccess);
+
+        return booking;
+    }
+
     private static DomainBooking CreateBooking()
     {
         Result<DomainBooking> result =
@@ -415,10 +380,13 @@ public sealed class BookingDomainEventTests
                 CreateRentableUnit(),
                 CreateStayPeriod(),
                 GuestCount.Create(2).Value,
-                CreateGuestDetails(),
-                BookingTestTime.CreatedAtUtc);
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         return result.Value;
     }
@@ -433,7 +401,8 @@ public sealed class BookingDomainEventTests
                 maximumCapacity: 4,
                 maxBaseGuests: 2);
 
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         return result.Value;
     }
@@ -442,19 +411,18 @@ public sealed class BookingDomainEventTests
     {
         Result<StayPeriod> result =
             StayPeriod.Create(
-                new DateOnly(2026, 9, 10),
-                new DateOnly(2026, 9, 12));
+                new DateOnly(
+                    2026,
+                    9,
+                    10),
+                new DateOnly(
+                    2026,
+                    9,
+                    12));
 
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         return result.Value;
-    }
-
-    private static GuestDetails CreateGuestDetails()
-    {
-        return GuestDetails.Create(
-            "John Doe",
-            "john@example.com",
-            "+50377778888").Value;
     }
 }

@@ -7,90 +7,111 @@ using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.Errors;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.Domain.Tests.Infrastructure;
-using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
+
+using DomainBooking =
+    Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Domain.Tests.Bookings;
 
 public sealed class BookingTests
 {
-    private static readonly Guid PropertyId = Guid.NewGuid();
+    private static readonly Guid PropertyId =
+        Guid.NewGuid();
 
     [Fact]
-    public void Create_WithValidData_ShouldReturnPendingApprovalBooking()
+    public void Create_WithValidData_ShouldReturnCompletePendingApprovalBooking()
     {
         // ARRANGE
-        var rentableUnit = CreateRentableUnit();
-        var stayPeriod = CreateStayPeriod();
+        RentableUnit rentableUnit =
+            CreateRentableUnit();
+
+        StayPeriod stayPeriod =
+            CreateStayPeriod();
+
+        PriceSnapshot priceSnapshot =
+            BookingTestData.CreatePriceSnapshot();
 
         // ACT
-        var result = DomainBooking.Create(
-            rentableUnit,
-            stayPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc);
+        Result<DomainBooking> result =
+            DomainBooking.Create(
+                rentableUnit,
+                stayPeriod,
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                priceSnapshot,
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
         // ASSERT
-        Assert.True(result.IsSuccess);
-        Assert.NotEqual(Guid.Empty, result.Value.Id);
+        Assert.True(
+            result.IsSuccess);
+
+        DomainBooking booking =
+            result.Value;
+
+        Assert.NotEqual(
+            Guid.Empty,
+            booking.Id);
 
         Assert.Equal(
             rentableUnit.PropertyId,
-            result.Value.PropertyId);
+            booking.PropertyId);
 
         Assert.Equal(
             rentableUnit.Id,
-            result.Value.RentableUnitId);
+            booking.RentableUnitId);
 
         Assert.Equal(
             stayPeriod,
-            result.Value.StayPeriod);
+            booking.StayPeriod);
 
         Assert.Equal(
             2,
-            result.Value.GuestCount.Value);
+            booking.GuestCount.Value);
+
+        Assert.Equal(
+            priceSnapshot,
+            booking.PriceSnapshot);
 
         Assert.Equal(
             BookingStatus.PendingApproval,
-            result.Value.Status);
+            booking.Status);
+
+        Assert.Equal(
+            BookingTestTime.CreatedAtUtc,
+            booking.CreatedAtUtc);
+
+        Assert.Equal(
+            BookingTestTime.ApprovalDueAtUtc,
+            booking.ApprovalDueAtUtc);
 
         Assert.Null(
-            result.Value.CancellationReason);
-    }
+            booking.CancellationReason);
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(-20)]
-    public void Create_WithInvalidGuestCount_ShouldReturnFailure(int invalidGuestCount)
-    {
-        // Act
-        var guestCountResult = GuestCount.Create(invalidGuestCount);
-
-        // Assert
-        Assert.True(guestCountResult.IsFailure);
-        Assert.Equal(
-            GuestCountErrors.InvalidValue,
-            guestCountResult.Error);
+        Assert.Null(
+            booking.PaymentDueAtUtc);
     }
 
     [Fact]
     public void Create_WhenGuestCountExceedsCapacity_ShouldReturnFailure()
     {
-        // ARRANGE
-        var rentableUnit = CreateRentableUnit(maximumCapacity: 4);
-        var stayPeriod = CreateStayPeriod();
+        RentableUnit rentableUnit =
+            CreateRentableUnit(
+                maximumCapacity: 4);
 
-        // ACT
-        var result = DomainBooking.Create(
-            rentableUnit,
-            stayPeriod,
-            GuestCount.Create(5).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc);
+        Result<DomainBooking> result =
+            DomainBooking.Create(
+                rentableUnit,
+                CreateStayPeriod(),
+                GuestCount.Create(5).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsFailure);
+        Assert.True(
+            result.IsFailure);
+
         Assert.Equal(
             BookingErrors.GuestCapacityExceeded,
             result.Error);
@@ -99,75 +120,111 @@ public sealed class BookingTests
     [Fact]
     public void Create_WhenGuestCountEqualsCapacity_ShouldReturnSuccess()
     {
-        // ARRANGE
-        var rentableUnit = CreateRentableUnit(
-            maximumCapacity: 4);
-        var stayPeriod = CreateStayPeriod();
+        RentableUnit rentableUnit =
+            CreateRentableUnit(
+                maximumCapacity: 4);
 
-        // ACT
-        var result = DomainBooking.Create(
-           rentableUnit,
-           stayPeriod,
-           GuestCount.Create(4).Value,
-           CreateGuestDetails(),
-           BookingTestTime.CreatedAtUtc);
+        Result<DomainBooking> result =
+            DomainBooking.Create(
+                rentableUnit,
+                CreateStayPeriod(),
+                GuestCount.Create(4).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
+
         Assert.Equal(
             4,
-            result.Value.GuestCount.Value);
+            result.Value
+                .GuestCount
+                .Value);
     }
 
     [Fact]
     public void Create_WithInactiveRentableUnit_ShouldReturnFailure()
     {
-        // ARRANGE
-        var rentableUnit = CreateRentableUnit();
+        RentableUnit rentableUnit =
+            CreateRentableUnit();
+
         rentableUnit.Deactivate();
 
-        var stayPeriod = CreateStayPeriod();
+        Result<DomainBooking> result =
+            DomainBooking.Create(
+                rentableUnit,
+                CreateStayPeriod(),
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
-        // ACT
-        var result = DomainBooking.Create(
-            rentableUnit,
-            stayPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc);
+        Assert.True(
+            result.IsFailure);
 
-        // ASSERT
-        Assert.True(result.IsFailure);
         Assert.Equal(
             BookingErrors.RentableUnitInactive,
             result.Error);
     }
 
     [Fact]
+    public void Create_WithInvalidApprovalDeadline_ShouldReturnFailure()
+    {
+        Result<DomainBooking> result =
+            DomainBooking.Create(
+                CreateRentableUnit(),
+                CreateStayPeriod(),
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.CreatedAtUtc);
+
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            BookingDeadlineErrors.InvalidApprovalDeadline,
+            result.Error);
+    }
+
+    [Fact]
     public void Create_TwiceWithSameData_ShouldCreateDifferentBookings()
     {
-        // ARRANGE
-        var rentableUnit = CreateRentableUnit();
-        var stayPeriod = CreateStayPeriod();
+        RentableUnit rentableUnit =
+            CreateRentableUnit();
 
-        // ACT
-        var firstResult = DomainBooking.Create(
-            rentableUnit,
-            stayPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc);
+        StayPeriod stayPeriod =
+            CreateStayPeriod();
 
-        var secondResult = DomainBooking.Create(
-            rentableUnit,
-            stayPeriod,
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc);
+        Result<DomainBooking> firstResult =
+            DomainBooking.Create(
+                rentableUnit,
+                stayPeriod,
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
-        // ASSERT
-        Assert.True(firstResult.IsSuccess);
-        Assert.True(secondResult.IsSuccess);
+        Result<DomainBooking> secondResult =
+            DomainBooking.Create(
+                rentableUnit,
+                stayPeriod,
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
+
+        Assert.True(
+            firstResult.IsSuccess);
+
+        Assert.True(
+            secondResult.IsSuccess);
 
         Assert.NotEqual(
             firstResult.Value.Id,
@@ -175,37 +232,146 @@ public sealed class BookingTests
     }
 
     [Fact]
-    public void Approve_WhenPendingApproval_ShouldChangeStatusToPendingPayment()
+    public void Create_WithNullRentableUnit_ShouldThrow()
     {
-        // ARRANGE
-        var booking = CreateBooking();
+        void Action()
+        {
+            DomainBooking.Create(
+                null!,
+                CreateStayPeriod(),
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
+        }
 
-        // ACT
-        var result = booking.Approve(BookingTestTime.ApprovedAtUtc);
+        Assert.Throws<
+            ArgumentNullException>(
+                Action);
+    }
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+    [Fact]
+    public void Create_WithNullStayPeriod_ShouldThrow()
+    {
+        void Action()
+        {
+            DomainBooking.Create(
+                CreateRentableUnit(),
+                null!,
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
+        }
+
+        Assert.Throws<
+            ArgumentNullException>(
+                Action);
+    }
+
+    [Fact]
+    public void Create_WithNullPriceSnapshot_ShouldThrow()
+    {
+        void Action()
+        {
+            DomainBooking.Create(
+                CreateRentableUnit(),
+                CreateStayPeriod(),
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                null!,
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
+        }
+
+        Assert.Throws<
+            ArgumentNullException>(
+                Action);
+    }
+
+    [Fact]
+    public void Approve_WhenPendingApproval_ShouldChangeStatusAndSetPaymentDeadline()
+    {
+        DomainBooking booking =
+            CreateBooking();
+
+        Result result =
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
+
+        Assert.True(result.IsSuccess,
+            $"Approval failed: {result.Error.Code} - {result.Error.Message}. " +
+            $"Current status: {booking.Status}. " +
+            $"ApprovedAtUtc: {BookingTestTime.ApprovedAtUtc:O}. " +
+            $"PaymentDueAtUtc: {BookingTestTime.PaymentDueAtUtc:O}.");
 
         Assert.Equal(
             BookingStatus.PendingPayment,
             booking.Status);
+
+        Assert.Equal(
+            BookingTestTime.ApprovedAtUtc,
+            booking.ApprovedAtUtc);
+
+        Assert.Equal(
+            BookingTestTime.PaymentDueAtUtc,
+            booking.PaymentDueAtUtc);
 
         Assert.Null(
             booking.CancellationReason);
     }
 
     [Fact]
+    public void Approve_WithInvalidPaymentDeadline_ShouldReturnFailureWithoutMutation()
+    {
+        DomainBooking booking =
+            CreateBooking();
+
+        Result result =
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.ApprovedAtUtc);
+
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            BookingDeadlineErrors.InvalidPaymentDeadline,
+            result.Error);
+
+        Assert.Equal(
+            BookingStatus.PendingApproval,
+            booking.Status);
+
+        Assert.Null(
+            booking.ApprovedAtUtc);
+
+        Assert.Null(
+            booking.PaymentDueAtUtc);
+    }
+
+    [Fact]
     public void Approve_WhenNotPendingApproval_ShouldReturnFailure()
     {
-        // ARRANGE
-        var booking = CreateBooking();
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        DomainBooking booking =
+            CreateBooking();
 
-        // ACT
-        var result = booking.Approve(BookingTestTime.ApprovedAtUtc);
+        Assert.True(
+            booking.Approve(
+                    BookingTestTime.ApprovedAtUtc,
+                    BookingTestTime.PaymentDueAtUtc)
+                .IsSuccess);
 
-        // ASSERT
-        AssertInvalidTransition(result);
+        Result result =
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
+
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.PendingPayment,
@@ -215,14 +381,15 @@ public sealed class BookingTests
     [Fact]
     public void Reject_WhenPendingApproval_ShouldCancelBooking()
     {
-        // ARRANGE
-        var booking = CreateBooking();
+        DomainBooking booking =
+            CreateBooking();
 
-        // ACT
-        var result = booking.Reject(BookingTestTime.CancelledAtUtc);
+        Result result =
+            booking.Reject(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Cancelled,
@@ -236,35 +403,42 @@ public sealed class BookingTests
     [Fact]
     public void Reject_WhenPendingPayment_ShouldReturnFailure()
     {
-        // ARRANGE
-        var booking = CreateBooking();
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        DomainBooking booking =
+            CreateBooking();
 
-        // ACT
-        var result = booking.Reject(BookingTestTime.CancelledAtUtc);
+        Assert.True(
+            booking.Approve(
+                    BookingTestTime.ApprovedAtUtc,
+                    BookingTestTime.PaymentDueAtUtc)
+                .IsSuccess);
 
-        // ASSERT
-        AssertInvalidTransition(result);
+        Result result =
+            booking.Reject(
+                BookingTestTime.CancelledAtUtc);
+
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.PendingPayment,
             booking.Status);
 
-        Assert.Null(booking.CancellationReason);
+        Assert.Null(
+            booking.CancellationReason);
     }
 
     [Fact]
     public void MarkAsPaid_WhenPendingPayment_ShouldChangeStatusToPaid()
     {
-        // ARRANGE
-        var booking = CreateBooking();
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
 
-        // ACT
-        var result = booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+        Result result =
+            booking.MarkAsPaid(
+                BookingTestTime.PaidAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Paid,
@@ -277,14 +451,15 @@ public sealed class BookingTests
     [Fact]
     public void MarkAsPaid_WhenPendingApproval_ShouldReturnFailure()
     {
-        // ARRANGE
-        var booking = CreateBooking();
+        DomainBooking booking =
+            CreateBooking();
 
-        // ACT
-        var result = booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+        Result result =
+            booking.MarkAsPaid(
+                BookingTestTime.PaidAtUtc);
 
-        // ASSERT
-        AssertInvalidTransition(result);
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.PendingApproval,
@@ -294,15 +469,15 @@ public sealed class BookingTests
     [Fact]
     public void ExpirePayment_WhenPendingPayment_ShouldCancelBooking()
     {
-        // ARRANGE
-        var booking = CreateBooking();
-        booking.Approve(BookingTestTime.PaidAtUtc);
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
 
-        // ACT
-        var result = booking.ExpirePayment(BookingTestTime.CancelledAtUtc);
+        Result result =
+            booking.ExpirePayment(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Cancelled,
@@ -314,16 +489,17 @@ public sealed class BookingTests
     }
 
     [Fact]
-    public void ExpirePayment_WhenPendingApprobal_ShouldReturnFailure()
+    public void ExpirePayment_WhenPendingApproval_ShouldReturnFailure()
     {
-        // ARRANGE
-        var booking = CreateBooking();
+        DomainBooking booking =
+            CreateBooking();
 
-        // ACT
-        var result = booking.ExpirePayment(BookingTestTime.CancelledAtUtc);
+        Result result =
+            booking.ExpirePayment(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        AssertInvalidTransition(result);
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.PendingApproval,
@@ -336,14 +512,15 @@ public sealed class BookingTests
     [Fact]
     public void Complete_WhenPaid_ShouldChangeStatusToCompleted()
     {
-        // ARRANGE
-        var booking = CreatePaidBooking();
+        DomainBooking booking =
+            CreatePaidBooking();
 
-        // ACT
-        var result = booking.Complete(BookingTestTime.CompletedAtUtc);
+        Result result =
+            booking.Complete(
+                BookingTestTime.CompletedAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Completed,
@@ -353,15 +530,15 @@ public sealed class BookingTests
     [Fact]
     public void Complete_WhenPendingPayment_ShouldReturnFailure()
     {
-        // ARRANGE
-        var booking = CreateBooking();
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
 
-        // ACT
-        var result = booking.Complete(BookingTestTime.CompletedAtUtc);
+        Result result =
+            booking.Complete(
+                BookingTestTime.CompletedAtUtc);
 
-        // ASSERT
-        AssertInvalidTransition(result);
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.PendingPayment,
@@ -371,39 +548,56 @@ public sealed class BookingTests
     [Fact]
     public void ValidLifecycle_ShouldReachCompletedStatus()
     {
-        // ARRANGE
-        var booking = CreateBooking();
+        DomainBooking booking =
+            CreateBooking();
 
-        // ACT
-        var approvalResult = booking.Approve(BookingTestTime.ApprovedAtUtc);
-        var paymentResult = booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
-        var completionResult = booking.Complete(BookingTestTime.CompletedAtUtc);
+        Result approvalResult =
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
 
-        // ASSERT
-        Assert.True(approvalResult.IsSuccess);
-        Assert.True(paymentResult.IsSuccess);
-        Assert.True(completionResult.IsSuccess);
+        Result paymentResult =
+            booking.MarkAsPaid(
+                BookingTestTime.PaidAtUtc);
+
+        Result completionResult =
+            booking.Complete(
+                BookingTestTime.CompletedAtUtc);
+
+        Assert.True(
+            approvalResult.IsSuccess);
+
+        Assert.True(
+            paymentResult.IsSuccess);
+
+        Assert.True(
+            completionResult.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Completed,
             booking.Status);
 
-        Assert.Null(booking.CancellationReason);
+        Assert.Null(
+            booking.CancellationReason);
     }
 
     [Fact]
     public void CancelledBooking_ShouldNotAllowPayment()
     {
-        // ARRANGE
-        var booking = CreateBooking();
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
-        booking.ExpirePayment(BookingTestTime.CancelledAtUtc);
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
 
-        // ACT
-        var result = booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+        Assert.True(
+            booking.ExpirePayment(
+                    BookingTestTime.CancelledAtUtc)
+                .IsSuccess);
 
-        // ASSERT
-        AssertInvalidTransition(result);
+        Result result =
+            booking.MarkAsPaid(
+                BookingTestTime.PaidAtUtc);
+
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.Cancelled,
@@ -417,285 +611,58 @@ public sealed class BookingTests
     [Fact]
     public void CompletedBooking_ShouldNotAllowAnotherTransition()
     {
-        // ARRANGE
-        var booking = CreatePaidBooking();
-        booking.Complete(BookingTestTime.CompletedAtUtc);
+        DomainBooking booking =
+            CreatePaidBooking();
 
-        // ACT
-        var result = booking.Complete(BookingTestTime.CompletedAtUtc);
+        Assert.True(
+            booking.Complete(
+                    BookingTestTime.CompletedAtUtc)
+                .IsSuccess);
 
-        // ASSERT
-        AssertInvalidTransition(result);
+        Result result =
+            booking.Complete(
+                BookingTestTime.CompletedAtUtc);
+
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.Completed,
             booking.Status);
-    }
-
-    [Fact]
-    public void Create_WithNullRentaableUnit_ShouldThrow()
-    {
-        // ARRANGE
-        var stayPeriod = CreateStayPeriod();
-
-        // ACT
-        void Action()
-        {
-            DomainBooking.Create(
-                null!,
-                stayPeriod,
-                GuestCount.Create(2).Value,
-                CreateGuestDetails(),
-                BookingTestTime.CreatedAtUtc);
-        }
-
-        // ASSERT
-        Assert.Throws<ArgumentNullException>(Action);
-    }
-
-    [Fact]
-    public void Create_WithNullStayPeriod_ShouldThrow()
-    {
-        // ARRANGE
-        var rentableUnit = CreateRentableUnit();
-
-        // ACT
-        void Action()
-        {
-            DomainBooking.Create(
-                rentableUnit,
-                null!,
-                GuestCount.Create(2).Value,
-                CreateGuestDetails(),
-                BookingTestTime.CreatedAtUtc);
-        }
-
-        // ASSERT
-        Assert.Throws<ArgumentNullException>(Action);
-    }
-
-    [Fact]
-    public void BlocksInventory_WhenPendingApproval_ShouldReturnTrue()
-    {
-        // ARRANGE
-        var booking = CreateBooking();
-
-        // ASSERT
-        Assert.True(booking.BlocksInventory);
-    }
-
-    [Fact]
-    public void BlocksInventory_WhenPendingPayment_ShouldReturnTrue()
-    {
-        // ARRANGE
-        var booking = CreateBooking();
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
-
-        // ASSERT
-        Assert.True(booking.BlocksInventory);
-    }
-
-    [Fact]
-    public void BlocksInventory_WhenPaid_ShouldReturnTrue()
-    {
-        // ARRANGE
-        var booking = CreateBooking();
-
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
-        booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
-
-        // ASSERT
-        Assert.True(booking.BlocksInventory);
-    }
-
-    [Fact]
-    public void BlocksInventory_WhenCompleted_ShouldReturnTrue()
-    {
-        // ARRANGE
-        var booking = CreatePaidBooking();
-        booking.Complete(BookingTestTime.CompletedAtUtc);
-
-        // ASSERT
-        Assert.True(booking.BlocksInventory);
-    }
-
-    [Fact]
-    public void BlocksInventory_WhenCancelled_ShouldReturnFalse()
-    {
-        // ARRANGE
-        var booking = CreateBooking();
-        booking.Reject(BookingTestTime.CancelledAtUtc);
-
-        // ASSERT
-        Assert.False(booking.BlocksInventory);
-    }
-
-    [Fact]
-    public void BlocksInventory_ShouldMatchBookingLifecycle()
-    {
-        // Arrange
-        DomainBooking pendingApproval = CreateBooking();
-        DomainBooking pendingPayment = CreateBooking();
-        DomainBooking paid = CreateBooking();
-        DomainBooking completed = CreateBooking();
-        DomainBooking cancelled = CreateBooking();
-
-        pendingPayment.Approve(BookingTestTime.ApprovedAtUtc);
-
-        paid.Approve(BookingTestTime.ApprovedAtUtc);
-        paid.MarkAsPaid(BookingTestTime.PaidAtUtc);
-
-        completed.Approve(BookingTestTime.ApprovedAtUtc);
-        completed.MarkAsPaid(BookingTestTime.PaidAtUtc);
-        completed.Complete(BookingTestTime.CompletedAtUtc);
-
-        cancelled.Reject(BookingTestTime.CancelledAtUtc);
-
-        // Assert
-        Assert.True(
-            pendingApproval.BlocksInventory);
-
-        Assert.True(
-            pendingPayment.BlocksInventory);
-
-        Assert.True(
-            paid.BlocksInventory);
-
-        Assert.True(
-            completed.BlocksInventory);
-
-        Assert.False(
-            cancelled.BlocksInventory);
-    }
-
-    [Fact]
-    public void Create_WithoutPriceSnapshot_ShouldCreateBookingWithoutSnapshot()
-    {
-        // ARRANGE
-        RentableUnit rentableUnit = CreateRentableUnit();
-        StayPeriod stayPeriod = CreateStayPeriod();
-        GuestCount guestCount = GuestCount.Create(2).Value;
-
-        // ACT
-        var result =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount,
-                CreateGuestDetails(),
-                BookingTestTime.CreatedAtUtc);
-
-        // ASSERT
-        Assert.True(result.IsSuccess);
-
-        Assert.Null(result.Value.PriceSnapshot);
-    }
-
-    private static void AssertInvalidTransition(
-        Result result)
-    {
-        Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            "Booking.InvalidStatusTransition",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.Conflict,
-            result.Error.Type);
-    }
-
-    [Fact]
-    public void Create_WithPriceSnapshot_ShouldStoreSnapshot()
-    {
-        // ARRANGE
-        RentableUnit rentableUnit = CreateRentableUnit();
-        StayPeriod stayPeriod = CreateStayPeriod();
-        GuestCount guestCount = GuestCount.Create(2).Value;
-
-        PriceSnapshot priceSnapshot = CreatePriceSnapshot();
-
-        // ACT
-        var result =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount,
-                CreateGuestDetails(),
-                priceSnapshot,
-                BookingTestTime.CreatedAtUtc);
-
-        // ASSERT
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            priceSnapshot,
-            result.Value.PriceSnapshot);
-
-        Assert.Equal(
-            450m,
-            result.Value
-                .PriceSnapshot!
-                .TotalPrice
-                .Amount);
-
-        Assert.Equal(
-            "USD",
-            result.Value
-                .PriceSnapshot!
-                .TotalPrice
-                .Currency);
-    }
-
-    [Fact]
-    public void Create_WithNullPriceSnapshot_ShouldThrow()
-    {
-        // ARRANGE
-        RentableUnit rentableUnit = CreateRentableUnit();
-        StayPeriod stayPeriod = CreateStayPeriod();
-        GuestCount guestCount = GuestCount.Create(2).Value;
-
-        // ACT
-        void Action()
-        {
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount,
-                null!,
-                BookingTestTime.CreatedAtUtc);
-        }
-
-        // ASSERT
-        Assert.Throws<ArgumentNullException>(Action);
     }
 
     [Fact]
     public void PriceSnapshot_ShouldRemainUnchangedThroughBookingLifecycle()
     {
-        // ARRANGE
-        PriceSnapshot priceSnapshot = CreatePriceSnapshot();
+        PriceSnapshot priceSnapshot =
+            BookingTestData.CreatePriceSnapshot();
 
         DomainBooking booking =
             DomainBooking.Create(
-                CreateRentableUnit(),
-                CreateStayPeriod(),
-                GuestCount.Create(2).Value,
-                CreateGuestDetails(),
-                priceSnapshot,
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+                    CreateRentableUnit(),
+                    CreateStayPeriod(),
+                    GuestCount.Create(2).Value,
+                    BookingTestData.CreateGuestDetails(),
+                    priceSnapshot,
+                    BookingTestTime.CreatedAtUtc,
+                    BookingTestTime.ApprovalDueAtUtc)
+                .Value;
 
-        // ACT
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
-        booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
-        booking.Complete(BookingTestTime.CancelledAtUtc);
+        Assert.True(
+            booking.Approve(
+                    BookingTestTime.ApprovedAtUtc,
+                    BookingTestTime.PaymentDueAtUtc)
+                .IsSuccess);
 
-        // ASSERT
-        Assert.Equal(
-            BookingStatus.Completed,
-            booking.Status);
+        Assert.True(
+            booking.MarkAsPaid(
+                    BookingTestTime.PaidAtUtc)
+                .IsSuccess);
+
+        Assert.True(
+            booking.Complete(
+                    BookingTestTime.CompletedAtUtc)
+                .IsSuccess);
 
         Assert.Equal(
             priceSnapshot,
@@ -712,16 +679,15 @@ public sealed class BookingTests
     [Fact]
     public void Cancel_WhenPendingApproval_ShouldCancelBooking()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
-        // ACT
         Result result =
-            booking.Cancel(BookingTestTime.CancelledAtUtc);
+            booking.Cancel(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Cancelled,
@@ -738,22 +704,15 @@ public sealed class BookingTests
     [Fact]
     public void Cancel_WhenPendingPayment_ShouldCancelBooking()
     {
-        // ARRANGE
         DomainBooking booking =
-            CreateBooking();
+            CreatePendingPaymentBooking();
 
-        Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+        Result result =
+            booking.Cancel(
+                BookingTestTime.CancelledAtUtc);
 
         Assert.True(
-            approvalResult.IsSuccess);
-
-        // ACT
-        Result result =
-            booking.Cancel(BookingTestTime.CancelledAtUtc);
-
-        // ASSERT
-        Assert.True(result.IsSuccess);
+            result.IsSuccess);
 
         Assert.Equal(
             BookingStatus.Cancelled,
@@ -770,30 +729,15 @@ public sealed class BookingTests
     [Fact]
     public void Cancel_WhenPaid_ShouldReturnFailure()
     {
-        // ARRANGE
         DomainBooking booking =
-            CreateBooking();
+            CreatePaidBooking();
 
-        Assert.True(
-            booking.Approve(BookingTestTime.ApprovedAtUtc).IsSuccess);
-
-        Assert.True(
-            booking.MarkAsPaid(BookingTestTime.PaidAtUtc).IsSuccess);
-
-        // ACT
         Result result =
-            booking.Cancel(BookingTestTime.CancelledAtUtc);
+            booking.Cancel(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            "Booking.InvalidStatusTransition",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.Conflict,
-            result.Error.Type);
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.Paid,
@@ -806,27 +750,20 @@ public sealed class BookingTests
     [Fact]
     public void Cancel_WhenAlreadyCancelled_ShouldReturnFailure()
     {
-        // ARRANGE
         DomainBooking booking =
             CreateBooking();
 
         Assert.True(
-            booking.Cancel(BookingTestTime.CancelledAtUtc).IsSuccess);
+            booking.Cancel(
+                    BookingTestTime.CancelledAtUtc)
+                .IsSuccess);
 
-        // ACT
         Result result =
-            booking.Cancel(BookingTestTime.CancelledAtUtc);
+            booking.Cancel(
+                BookingTestTime.CancelledAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            "Booking.InvalidStatusTransition",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.Conflict,
-            result.Error.Type);
+        AssertInvalidTransition(
+            result);
 
         Assert.Equal(
             BookingStatus.Cancelled,
@@ -837,59 +774,132 @@ public sealed class BookingTests
             booking.CancellationReason);
     }
 
-    private static PriceSnapshot CreatePriceSnapshot()
+    [Fact]
+    public void BlocksInventory_ShouldMatchBookingLifecycle()
     {
-        PriceBreakdown priceBreakdown =
-            PriceBreakdown.Create(
-                Money.Create(400m, "USD").Value,
-                Money.Create(50m, "USD").Value)
-            .Value;
+        DomainBooking pendingApproval =
+            CreateBooking();
 
-        return PriceSnapshot.Create(priceBreakdown);
+        DomainBooking pendingPayment =
+            CreatePendingPaymentBooking();
+
+        DomainBooking paid =
+            CreatePaidBooking();
+
+        DomainBooking completed =
+            CreatePaidBooking();
+
+        DomainBooking cancelled =
+            CreateBooking();
+
+        Assert.True(
+            completed.Complete(
+                    BookingTestTime.CompletedAtUtc)
+                .IsSuccess);
+
+        Assert.True(
+            cancelled.Reject(
+                    BookingTestTime.CancelledAtUtc)
+                .IsSuccess);
+
+        Assert.True(
+            pendingApproval.BlocksInventory);
+
+        Assert.True(
+            pendingPayment.BlocksInventory);
+
+        Assert.True(
+            paid.BlocksInventory);
+
+        Assert.True(
+            completed.BlocksInventory);
+
+        Assert.False(
+            cancelled.BlocksInventory);
+    }
+
+    private static void AssertInvalidTransition(
+        Result result)
+    {
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            "Booking.InvalidStatusTransition",
+            result.Error.Code);
+
+        Assert.Equal(
+            ErrorType.Conflict,
+            result.Error.Type);
     }
 
     private static DomainBooking CreateBooking()
     {
         return DomainBooking.Create(
-            CreateRentableUnit(),
-            CreateStayPeriod(),
-            GuestCount.Create(2).Value,
-            CreateGuestDetails(),
-            BookingTestTime.CreatedAtUtc).Value;
+                CreateRentableUnit(),
+                CreateStayPeriod(),
+                GuestCount.Create(2).Value,
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc)
+            .Value;
     }
 
-    private static DomainBooking CreatePaidBooking()
+    private static DomainBooking CreatePendingPaymentBooking()
     {
-        var booking = CreateBooking();
+        DomainBooking booking =
+            CreateBooking();
 
-        booking.Approve(BookingTestTime.ApprovedAtUtc);
-        booking.MarkAsPaid(BookingTestTime.PaidAtUtc);
+        Result result =
+            booking.Approve(
+                BookingTestTime.ApprovedAtUtc,
+                BookingTestTime.PaymentDueAtUtc);
+
+        Assert.True(
+            result.IsSuccess);
 
         return booking;
     }
 
-    private static RentableUnit CreateRentableUnit(int maximumCapacity = 4)
+    private static DomainBooking CreatePaidBooking()
+    {
+        DomainBooking booking =
+            CreatePendingPaymentBooking();
+
+        Result result =
+            booking.MarkAsPaid(
+                BookingTestTime.PaidAtUtc);
+
+        Assert.True(
+            result.IsSuccess);
+
+        return booking;
+    }
+
+    private static RentableUnit CreateRentableUnit(
+        int maximumCapacity = 4)
     {
         return RentableUnit.Create(
-            PropertyId,
-            "Habitación principal",
-            RentableUnitType.Room,
-            maximumCapacity,
-            maxBaseGuests: 2).Value;
+                PropertyId,
+                "Habitación principal",
+                RentableUnitType.Room,
+                maximumCapacity,
+                maxBaseGuests: 2)
+            .Value;
     }
 
     private static StayPeriod CreateStayPeriod()
     {
         return StayPeriod.Create(
-            new DateOnly(2026, 7, 10),
-            new DateOnly(2026, 7, 12)).Value;
-    }
-
-    private static GuestDetails CreateGuestDetails()
-    {
-        return GuestDetails.Create(
-            "John Doe",
-            "john@example.com",
-            "+50377778888").Value;
+                new DateOnly(
+                    2026,
+                    7,
+                    10),
+                new DateOnly(
+                    2026,
+                    7,
+                    12))
+            .Value;
     }
 }

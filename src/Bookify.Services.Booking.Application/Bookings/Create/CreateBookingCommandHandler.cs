@@ -72,25 +72,20 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        Result<StayPeriod> stayPeriodResult =
-            StayPeriod.Create(
-                command.CheckInDate!.Value,
-                command.CheckOutDate!.Value);
+        Result<StayPeriod> stayPeriodResult = StayPeriod.Create(
+            command.CheckInDate!.Value,
+            command.CheckOutDate!.Value);
 
         if (stayPeriodResult.IsFailure)
         {
-            return Result<CreateBookingResult>.Failure(
-                stayPeriodResult.Error);
+            return Result<CreateBookingResult>.Failure(stayPeriodResult.Error);
         }
 
-        Result<GuestCount> guestCountResult =
-            GuestCount.Create(
-                command.GuestCount!.Value);
+        Result<GuestCount> guestCountResult = GuestCount.Create(command.GuestCount!.Value);
 
         if (guestCountResult.IsFailure)
         {
-            return Result<CreateBookingResult>.Failure(
-                guestCountResult.Error);
+            return Result<CreateBookingResult>.Failure(guestCountResult.Error);
         }
 
         Result<GuestDetails> guestDetailsResult = GuestDetails.Create(
@@ -107,37 +102,31 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
         GuestCount guestCount = guestCountResult.Value;
         GuestDetails guestDetails = guestDetailsResult.Value;
 
-        await using ITransaction transaction =
-            await _transactionManager.BeginAsync(cancellationToken);
+        await using ITransaction transaction = await _transactionManager
+            .BeginAsync(cancellationToken);
 
         try
         {
-            bool propertyLocked =
-                await _bookingInventoryLock
-                    .TryAcquireAsync(
-                    command.PropertyId,
-                    cancellationToken);
+            bool propertyLocked = await _bookingInventoryLock.TryAcquireAsync(
+                command.PropertyId,
+                cancellationToken);
 
             if (!propertyLocked)
             {
                 return await RollbackFailureAsync(
                     transaction,
-                    CreateBookingErrors
-                        .PropertyNotFound(command.PropertyId),
+                    CreateBookingErrors.PropertyNotFound(command.PropertyId),
                     cancellationToken);
             }
 
-            Property? property =
-                await _propertyRepository
-                    .GetByIdAsync(command.PropertyId, cancellationToken);
+            Property? property = await _propertyRepository
+                .GetByIdAsync(command.PropertyId, cancellationToken);
 
             if (property is null)
             {
                 return await RollbackFailureAsync(
                     transaction,
-                    CreateBookingErrors
-                        .PropertyNotFound(
-                            command.PropertyId),
+                    CreateBookingErrors.PropertyNotFound(command.PropertyId),
                     cancellationToken);
             }
 
@@ -145,21 +134,18 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
             {
                 return await RollbackFailureAsync(
                     transaction,
-                    CreateBookingErrors
-                        .PropertyInactive(command.PropertyId),
+                    CreateBookingErrors.PropertyInactive(command.PropertyId),
                     cancellationToken);
             }
 
-            RentableUnit? rentableUnit =
-                await _rentableUnitRepository
-                    .GetByIdAsync(command.RentableUnitId, cancellationToken);
+            RentableUnit? rentableUnit = await _rentableUnitRepository
+                .GetByIdAsync(command.RentableUnitId, cancellationToken);
 
             if (rentableUnit is null)
             {
                 return await RollbackFailureAsync(
                     transaction,
-                    CreateBookingErrors
-                        .RentableUnitNotFound(command.RentableUnitId),
+                    CreateBookingErrors.RentableUnitNotFound(command.RentableUnitId),
                     cancellationToken);
             }
 
@@ -167,10 +153,7 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
             {
                 return await RollbackFailureAsync(
                     transaction,
-                    CreateBookingErrors
-                        .RentableUnitPropertyMismatch(
-                            rentableUnit.Id,
-                            property.Id),
+                    CreateBookingErrors.RentableUnitPropertyMismatch(rentableUnit.Id, property.Id),
                     cancellationToken);
             }
 
@@ -180,20 +163,16 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
             {
                 return await RollbackFailureAsync(
                     transaction,
-                    CreateBookingErrors
-                        .PricingNotConfigured(rentableUnit.Id),
+                    CreateBookingErrors.PricingNotConfigured(rentableUnit.Id),
                     cancellationToken);
             }
 
-            Result<PriceBreakdown> priceResult =
-                BookingPricingEngine.CalculatePrice(
-                    pricing.RegularNightlyRate,
-                    pricing.WeekendNightlyRate,
-                    pricing.ExtraGuestNightlyRate,
-                    rentableUnit,
-                    guestCount,
-                    stayPeriod,
-                    rentableUnit.PricingSeasons);
+            Result<PriceBreakdown> priceResult = BookingPricingEngine.CalculatePrice(
+                pricing,
+                rentableUnit.MaxBaseGuests,
+                guestCount,
+                stayPeriod,
+                rentableUnit.PricingSeasons);
 
             if (priceResult.IsFailure)
             {
@@ -207,14 +186,14 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
             DateTimeOffset createdAtUtc = _clock.UtcNow;
             DateTimeOffset approvalDueAtUtc = _deadlinePolicy.GetApprovalDueAtUtc(createdAtUtc);
 
-            Result<DomainBooking> bookingResult =
-                DomainBooking.Create(
-                    rentableUnit,
-                    stayPeriod,
-                    guestCount,
-                    guestDetails,
-                    priceSnapshot,
-                    createdAtUtc);
+            Result<DomainBooking> bookingResult = DomainBooking.Create(
+                rentableUnit,
+                stayPeriod,
+                guestCount,
+                guestDetails,
+                priceSnapshot,
+                createdAtUtc,
+                approvalDueAtUtc);
 
             if (bookingResult.IsFailure)
             {
@@ -224,39 +203,25 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                     cancellationToken);
             }
 
-            bool hasConflict =
-                await _bookingAvailabilityReader
-                    .HasConflictAsync(
-                        property.Id,
-                        rentableUnit.Id,
-                        stayPeriodResult.Value.CheckInDate,
-                        stayPeriodResult.Value.CheckOutDate,
-                        cancellationToken);
+            bool hasConflict = await _bookingAvailabilityReader.HasConflictAsync(
+                property.Id,
+                rentableUnit.Id,
+                stayPeriodResult.Value.CheckInDate,
+                stayPeriodResult.Value.CheckOutDate,
+                cancellationToken);
 
             if (hasConflict)
             {
                 return await RollbackFailureAsync(
                     transaction,
-                    CreateBookingErrors
-                        .NotAvailable,
+                    CreateBookingErrors.NotAvailable,
                     cancellationToken);
             }
 
             DomainBooking booking = bookingResult.Value;
-
-            Result approvalDeadlineResult = booking.ScheduleApprovalDeadline(approvalDueAtUtc);
-
-            if(approvalDeadlineResult.IsFailure)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-
-                return Result<CreateBookingResult>.Failure(approvalDeadlineResult.Error);
-            }
-
             _bookingRepository.Add(booking);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-
             await transaction.CommitAsync(cancellationToken);
 
             var result = new CreateBookingResult(
@@ -279,11 +244,10 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
         }
     }
 
-    private static async Task<Result<CreateBookingResult>>
-        RollbackFailureAsync(
-            ITransaction transaction,
-            Error error,
-            CancellationToken cancellationToken)
+    private static async Task<Result<CreateBookingResult>> RollbackFailureAsync(
+        ITransaction transaction,
+        Error error,
+        CancellationToken cancellationToken)
     {
         await transaction.RollbackAsync(cancellationToken);
 

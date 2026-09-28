@@ -5,7 +5,7 @@ namespace Bookify.Services.Booking.Domain.Bookings.Pricing;
 
 public sealed record PriceBreakdown
 {
-    public PriceBreakdown(
+    private PriceBreakdown(
         Money accommodationPrice,
         Money extraGuestPrice,
         Money totalPrice)
@@ -26,8 +26,7 @@ public sealed record PriceBreakdown
         ArgumentNullException.ThrowIfNull(accommodationPrice);
         ArgumentNullException.ThrowIfNull(extraGuestPrice);
 
-        Result<Money> totalPriceResult =
-            accommodationPrice.Add(extraGuestPrice);
+        Result<Money> totalPriceResult = accommodationPrice.Add(extraGuestPrice);
 
         if (totalPriceResult.IsFailure)
         {

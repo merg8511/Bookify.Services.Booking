@@ -1,4 +1,4 @@
-namespace Bookify.Services.Booking.Application;
+namespace Bookify.Services.Booking.Application.Bookings.ReadModels;
 
 public sealed class BookingDetailsReadModel
 {
@@ -29,5 +29,4 @@ public sealed class BookingDetailsReadModel
     public DateTimeOffset? PaidAtUtc { get; set; }
     public DateTimeOffset? CancelledAtUtc { get; set; }
     public DateTimeOffset? CompletedAtUtc { get; set; }
-    public bool BlocksInventory { get; set; }
 }

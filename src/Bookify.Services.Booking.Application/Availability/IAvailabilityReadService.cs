@@ -11,7 +11,7 @@ public interface IAvailabilityReadService
         DateOnly requestedCheckOutDate,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<AvailableRentableUnitReadModel>> GetAvailableUnitsAsync(
+    Task<IReadOnlyList<AvailableRentableUnitCandidateReadModel>> GetAvailableUnitsAsync(
         Guid propertyId,
         DateOnly requestedCheckInDate,
         DateOnly requestedCheckOutDate,

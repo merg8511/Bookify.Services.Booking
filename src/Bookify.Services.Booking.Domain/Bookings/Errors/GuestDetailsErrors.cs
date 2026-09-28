@@ -16,8 +16,8 @@ public static class GuestDetailsErrors
 
     public static readonly Error EmailRequired =
         Error.Validation(
-            "Booking.GuestEmailInvalid",
-            "The guest email is not valid.");
+            "Booking.GuestEmailRequired",
+            "The guest email is required.");
 
     public static readonly Error EmailTooLong =
         Error.Validation(

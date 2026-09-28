@@ -283,35 +283,31 @@ public sealed class DomainEventTransactionBoundaryTests
     }
 
     private static DomainBooking CreateBooking(
-        RentableUnit rentableUnit)
+    RentableUnit rentableUnit)
     {
         Result<StayPeriod> stayPeriodResult =
             StayPeriod.Create(
                 new DateOnly(2026, 9, 10),
                 new DateOnly(2026, 9, 12));
 
-        Assert.True(
-            stayPeriodResult.IsSuccess);
+        Assert.True(stayPeriodResult.IsSuccess);
 
         Result<GuestCount> guestCountResult =
             GuestCount.Create(2);
 
-        Assert.True(
-            guestCountResult.IsSuccess);
+        Assert.True(guestCountResult.IsSuccess);
 
         Result<DomainBooking> bookingResult =
             DomainBooking.Create(
                 rentableUnit,
                 stayPeriodResult.Value,
                 guestCountResult.Value,
-                GuestDetails.Create(
-                "John Doe",
-                "john@example.com",
-                "+50377778888").Value,
-                BookingTestTime.CreatedAtUtc);
+                BookingTestData.CreateGuestDetails(),
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
-        Assert.True(
-            bookingResult.IsSuccess);
+        Assert.True(bookingResult.IsSuccess);
 
         return bookingResult.Value;
     }

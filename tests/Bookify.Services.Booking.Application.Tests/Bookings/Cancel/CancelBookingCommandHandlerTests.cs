@@ -834,7 +834,7 @@ public sealed class CancelBookingCommandHandlerTests
             CreateBooking();
 
         Result approveResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
 
         Assert.True(
             approveResult.IsSuccess);
@@ -870,18 +870,9 @@ public sealed class CancelBookingCommandHandlerTests
                     12))
             .Value;
 
-        return DomainBooking.Create(
-            rentableUnit,
-            stayPeriod,
-            GuestCount.Create(
-                2)
-            .Value,
-            GuestDetails.Create(
-                "John Doe",
-                "john@example.com",
-                "+50377778888").Value,
-            BookingTestTime.CreatedAtUtc)
-            .Value;
+        return BookingTestData.CreateBooking(
+    rentableUnit,
+    stayPeriod);
     }
 
     private static Payment CreatePayment(

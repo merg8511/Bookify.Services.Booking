@@ -198,7 +198,7 @@ public sealed class CompleteBookingCommandHandlerTests
             CreateBooking();
 
         Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc);
+            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
 
         Assert.True(
             approvalResult.IsSuccess);
@@ -229,16 +229,9 @@ public sealed class CompleteBookingCommandHandlerTests
                         12))
                 .Value;
 
-        return DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                GuestCount.Create(2).Value,
-                GuestDetails.Create(
-                "John Doe",
-                "john@example.com",
-                "+50377778888").Value,
-                BookingTestTime.CreatedAtUtc)
-            .Value;
+        return BookingTestData.CreateBooking(
+     rentableUnit,
+     stayPeriod);
     }
 
     private sealed class StubBookingRepository

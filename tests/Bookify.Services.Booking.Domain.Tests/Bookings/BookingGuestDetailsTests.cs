@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.Domain.Tests.Infrastructure;
+
 using DomainBooking =
     Bookify.Services.Booking.Domain.Bookings.Booking;
 
@@ -11,23 +12,13 @@ namespace Bookify.Services.Booking.Domain.Tests.Bookings;
 public sealed class BookingGuestDetailsTests
 {
     [Fact]
-    public void Create_WithGuestDetails_StoresGuestSnapshot()
+    public void Create_WithGuestDetails_ShouldStoreGuestSnapshot()
     {
-        // ARRANGE
         RentableUnit rentableUnit =
             CreateRentableUnit();
 
         StayPeriod stayPeriod =
-            StayPeriod.Create(
-                    new DateOnly(
-                        2026,
-                        10,
-                        10),
-                    new DateOnly(
-                        2026,
-                        10,
-                        15))
-                .Value;
+            CreateStayPeriod();
 
         GuestCount guestCount =
             GuestCount.Create(2)
@@ -40,17 +31,18 @@ public sealed class BookingGuestDetailsTests
                     "+50377778888")
                 .Value;
 
-        // ACT
         Result<DomainBooking> result =
             DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
                 guestCount,
                 guestDetails,
-                BookingTestTime.CreatedAtUtc);
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.NotNull(
             result.Value.GuestDetails);
@@ -75,47 +67,36 @@ public sealed class BookingGuestDetailsTests
     }
 
     [Fact]
-    public void Create_WithNullGuestDetails_ThrowsArgumentNullException()
+    public void Create_WithNullGuestDetails_ShouldThrowArgumentNullException()
     {
-        // ARRANGE
         RentableUnit rentableUnit =
             CreateRentableUnit();
 
         StayPeriod stayPeriod =
-            StayPeriod.Create(
-                    new DateOnly(
-                        2026,
-                        10,
-                        10),
-                    new DateOnly(
-                        2026,
-                        10,
-                        15))
-                .Value;
+            CreateStayPeriod();
 
         GuestCount guestCount =
             GuestCount.Create(2)
                 .Value;
 
-        // ACT
         void Action()
         {
-            _ = DomainBooking.Create(
+            DomainBooking.Create(
                 rentableUnit,
                 stayPeriod,
                 guestCount,
                 null!,
-                BookingTestTime.CreatedAtUtc);
+                BookingTestData.CreatePriceSnapshot(),
+                BookingTestTime.CreatedAtUtc,
+                BookingTestTime.ApprovalDueAtUtc);
         }
 
-        // ASSERT
         Assert.Throws<
             ArgumentNullException>(
                 Action);
     }
 
-    private static RentableUnit
-        CreateRentableUnit()
+    private static RentableUnit CreateRentableUnit()
     {
         return RentableUnit.Create(
                 Guid.NewGuid(),
@@ -123,6 +104,20 @@ public sealed class BookingGuestDetailsTests
                 RentableUnitType.Room,
                 maximumCapacity: 4,
                 maxBaseGuests: 2)
+            .Value;
+    }
+
+    private static StayPeriod CreateStayPeriod()
+    {
+        return StayPeriod.Create(
+                new DateOnly(
+                    2026,
+                    10,
+                    10),
+                new DateOnly(
+                    2026,
+                    10,
+                    15))
             .Value;
     }
 }

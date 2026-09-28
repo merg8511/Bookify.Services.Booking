@@ -8,6 +8,7 @@ using Bookify.Services.Booking.Application.Bookings.Complete;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
 using Bookify.Services.Booking.Application.Bookings.Get;
+using Bookify.Services.Booking.Application.Bookings.ReadModels;
 using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.DomainEvents;

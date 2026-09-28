@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
@@ -8,10 +6,12 @@ using Bookify.Services.Booking.Domain.Bookings.Services;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Properties.Pricing;
+using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
-
+using System.Net;
+using System.Net.Http.Json;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.IntegrationTests.Bookings;
@@ -293,22 +293,13 @@ public sealed class BookingPricingFlowTests
 
             GuestCount guestCount = GuestCount.Create(4).Value;
 
-            var recalculatedPrice =
-                BookingPricingEngine.CalculatePrice(
-                    updatedRentableUnit
-                        .Pricing
-                        .RegularNightlyRate,
-                    updatedRentableUnit
-                        .Pricing
-                        .WeekendNightlyRate,
-                    updatedRentableUnit
-                        .Pricing
-                        .ExtraGuestNightlyRate,
-                    updatedRentableUnit,
-                    guestCount,
-                    stayPeriod,
-                    updatedRentableUnit
-                        .PricingSeasons);
+            Result<PriceBreakdown> recalculatedPrice =
+    BookingPricingEngine.CalculatePrice(
+        updatedRentableUnit.Pricing,
+        updatedRentableUnit.MaxBaseGuests,
+        guestCount,
+        stayPeriod,
+        updatedRentableUnit.PricingSeasons);
 
             Assert.True(recalculatedPrice.IsSuccess);
 

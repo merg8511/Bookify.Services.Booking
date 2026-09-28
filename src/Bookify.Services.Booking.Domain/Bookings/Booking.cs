@@ -28,6 +28,7 @@ public sealed class Booking : AggregateRoot
         GuestDetails guestDetails,
         PriceSnapshot? priceSnapshot,
         DateTimeOffset createdAtUtc,
+        DateTimeOffset approvalDueAtUtc,
         BookingStatus status)
     {
         Id = id;
@@ -39,6 +40,7 @@ public sealed class Booking : AggregateRoot
         GuestDetails = guestDetails;
         PriceSnapshot = priceSnapshot;
         CreatedAtUtc = createdAtUtc;
+        ApprovalDueAtUtc = approvalDueAtUtc;
         Status = status;
     }
 
@@ -71,48 +73,69 @@ public sealed class Booking : AggregateRoot
         StayPeriod stayPeriod,
         GuestCount guestCount,
         GuestDetails guestDetails,
-        DateTimeOffset createdAtUtc)
-    {
-        return CreateInternal(
-            rentableUnit,
-            stayPeriod,
-            guestCount,
-            guestDetails,
-            priceSnapshot: null,
-            createdAtUtc);
-    }
-
-    public static Result<Booking> Create(
-        RentableUnit rentableUnit,
-        StayPeriod stayPeriod,
-        GuestCount guestCount,
-        GuestDetails guestDetails,
         PriceSnapshot priceSnapshot,
-        DateTimeOffset createdAtUtc)
+        DateTimeOffset createdAtUtc,
+        DateTimeOffset approvalDueAtUtc)
     {
+        ArgumentNullException.ThrowIfNull(rentableUnit);
+        ArgumentNullException.ThrowIfNull(stayPeriod);
+        ArgumentNullException.ThrowIfNull(guestCount);
+        ArgumentNullException.ThrowIfNull(guestDetails);
         ArgumentNullException.ThrowIfNull(priceSnapshot);
 
-        return CreateInternal(
-            rentableUnit,
+        if (!rentableUnit.IsActive)
+        {
+            return Result<Booking>.Failure(BookingErrors.RentableUnitInactive);
+        }
+
+        if (!rentableUnit.CanAccommodate(guestCount))
+        {
+            return Result<Booking>.Failure(BookingErrors.GuestCapacityExceeded);
+        }
+
+        if (approvalDueAtUtc <= createdAtUtc)
+        {
+            return Result<Booking>.Failure(BookingDeadlineErrors.InvalidApprovalDeadline);
+        }
+
+        var booking = new Booking(
+            Guid.NewGuid(),
+            BookingReference.New(),
+            rentableUnit.PropertyId,
+            rentableUnit.Id,
             stayPeriod,
             guestCount,
             guestDetails,
             priceSnapshot,
-            createdAtUtc);
+            createdAtUtc,
+            approvalDueAtUtc,
+            BookingStatus.PendingApproval);
+
+        booking.RaiseDomainEvent(new BookingCreatedDomainEvent(booking.Id));
+
+        return Result<Booking>.Success(booking);
     }
 
-    public Result Approve(DateTimeOffset approvedAtUtc)
+    public Result Approve(
+        DateTimeOffset approvedAtUtc,
+        DateTimeOffset paymentDueAtUtc)
     {
-        Result result = TransitionTo(
-            expectedCurrentStatus: BookingStatus.PendingApproval,
-            targetStatus: BookingStatus.PendingPayment);
-
-        if (result.IsFailure)
+        if (Status != BookingStatus.PendingApproval)
         {
-            return result;
+            return Result.Failure(BookingErrors.InvalidStatusTransition(
+                Status,
+                BookingStatus.PendingPayment));
         }
 
+        if (paymentDueAtUtc <= approvedAtUtc)
+        {
+            return Result.Failure(BookingDeadlineErrors.InvalidPaymentDeadline);
+        }
+
+        Status = BookingStatus.PendingPayment;
+        CancellationReason = null;
         ApprovedAtUtc = approvedAtUtc;
+        PaymentDueAtUtc = paymentDueAtUtc;
 
         RaiseDomainEvent(new BookingApprovedDomainEvent(Id));
 
@@ -165,6 +188,7 @@ public sealed class Booking : AggregateRoot
         }
 
         CompletedAtUtc = completedAtUtc;
+
         return Result.Success();
     }
 
@@ -187,103 +211,7 @@ public sealed class Booking : AggregateRoot
         }
 
         return Result.Failure(
-            BookingErrors.InvalidStatusTransition(
-                Status,
-                BookingStatus.Cancelled));
-    }
-
-    public Result ScheduleApprovalDeadline(DateTimeOffset approvalDueAtUtc)
-    {
-        if (Status != BookingStatus.PendingApproval)
-        {
-            return Result.Failure(
-                BookingDeadlineErrors.InvalidStatusForApprovalDeadline(Status));
-        }
-
-        if (ApprovalDueAtUtc is not null)
-        {
-            return Result.Failure(
-                BookingDeadlineErrors.ApprovalDeadlineAlreadyScheduled);
-        }
-
-        if (CreatedAtUtc is null || approvalDueAtUtc <= CreatedAtUtc.Value)
-        {
-            return Result.Failure(
-                BookingDeadlineErrors.InvalidApprovalDeadline);
-        }
-
-        ApprovalDueAtUtc = approvalDueAtUtc;
-
-        return Result.Success();
-    }
-
-    public Result SchedulePaymentDeadline(DateTimeOffset paymentDueAtUtc)
-    {
-        if (Status != BookingStatus.PendingPayment)
-        {
-            return Result.Failure(
-                BookingDeadlineErrors.InvalidStatusForPaymentDeadline(Status));
-        }
-
-        if (PaymentDueAtUtc is not null)
-        {
-            return Result.Failure(
-                BookingDeadlineErrors.PaymentDeadlineAlreadyScheduled);
-        }
-
-        if (ApprovedAtUtc is null || paymentDueAtUtc <= ApprovedAtUtc.Value)
-        {
-            return Result.Failure(
-                BookingDeadlineErrors.InvalidPaymentDeadline);
-        }
-
-        PaymentDueAtUtc = paymentDueAtUtc;
-
-        return Result.Success();
-    }
-
-    private static Result<Booking> CreateInternal(
-        RentableUnit rentableUnit,
-        StayPeriod stayPeriod,
-        GuestCount guestCount,
-        GuestDetails guestDetails,
-        PriceSnapshot? priceSnapshot,
-        DateTimeOffset createdAtUtc)
-    {
-        ArgumentNullException.ThrowIfNull(rentableUnit);
-        ArgumentNullException.ThrowIfNull(stayPeriod);
-        ArgumentNullException.ThrowIfNull(guestCount);
-        ArgumentNullException.ThrowIfNull(guestDetails);
-
-        if (!rentableUnit.IsActive)
-        {
-            return Result<Booking>.Failure(
-                BookingErrors.RentableUnitInactive);
-        }
-
-        if (!rentableUnit.CanAccommodate(guestCount))
-        {
-            return Result<Booking>.Failure(
-                BookingErrors.GuestCapacityExceeded);
-        }
-
-        BookingReference reference = BookingReference.New();
-
-        var booking = new Booking(
-            Guid.NewGuid(),
-            reference,
-            rentableUnit.PropertyId,
-            rentableUnit.Id,
-            stayPeriod,
-            guestCount,
-            guestDetails,
-            priceSnapshot,
-            createdAtUtc,
-            BookingStatus.PendingApproval);
-
-        booking.RaiseDomainEvent(new BookingCreatedDomainEvent(booking.Id));
-
-        return Result<Booking>.Success(booking);
+            BookingErrors.InvalidStatusTransition(Status, BookingStatus.Cancelled));
     }
 
     private Result TransitionToCancelled(
@@ -291,11 +219,10 @@ public sealed class Booking : AggregateRoot
         BookingCancellationReason cancellationReason,
         DateTimeOffset cancelledAtUtc)
     {
-        Result result =
-            TransitionTo(
-                expectedCurrentStatus,
-                BookingStatus.Cancelled,
-                cancellationReason);
+        Result result = TransitionTo(
+            expectedCurrentStatus,
+            BookingStatus.Cancelled,
+            cancellationReason);
 
         if (result.IsFailure)
         {
@@ -303,11 +230,7 @@ public sealed class Booking : AggregateRoot
         }
 
         CancelledAtUtc = cancelledAtUtc;
-
-        RaiseDomainEvent(
-            new BookingCancelledDomainEvent(
-                Id,
-                cancellationReason));
+        RaiseDomainEvent(new BookingCancelledDomainEvent(Id, cancellationReason));
 
         return Result.Success();
     }
@@ -317,16 +240,11 @@ public sealed class Booking : AggregateRoot
         BookingStatus targetStatus,
         BookingCancellationReason? cancellationReason = null)
     {
-        EnsureCancellationReasonIsConsistent(
-            targetStatus,
-            cancellationReason);
+        EnsureCancellationReasonIsConsistent(targetStatus, cancellationReason);
 
         if (Status != expectedCurrentStatus)
         {
-            return Result.Failure(
-                BookingErrors.InvalidStatusTransition(
-                    Status,
-                    targetStatus));
+            return Result.Failure(BookingErrors.InvalidStatusTransition(Status, targetStatus));
         }
 
         Status = targetStatus;
