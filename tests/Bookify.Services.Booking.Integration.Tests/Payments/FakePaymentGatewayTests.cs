@@ -1,0 +1,341 @@
+using Bookify.Services.Booking.Application.Abstractions.Payments;
+using Bookify.Services.Booking.Domain.Shared;
+using Bookify.Services.Booking.Domain.Shared.ValueObjects;
+using Bookify.Services.Booking.Infrastructure.Payments.Fake;
+
+namespace Bookify.Services.Booking.Integration.Tests.Payments;
+
+public sealed class FakePaymentGatewayTests
+{
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithSuccessScenario_ShouldCreatePendingPayment()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Success);
+
+        CreatePaymentAttemptRequest request =
+            CreateRequest();
+
+        // ACT
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway.CreatePaymentAttemptAsync(
+                request,
+                cancellationToken);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.StartsWith(
+            "fake_",
+            result.Value.ExternalReference,
+            StringComparison.Ordinal);
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(result.Value.ClientSecret));
+
+        Assert.Equal(
+            PaymentGatewayStatus.Pending,
+            result.Value.Status);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithFailureScenario_ShouldReturnProviderRejected()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Failure);
+
+        // ACT
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest(), cancellationToken);
+
+        // ASSERT
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            PaymentGatewayErrors.ProviderRejected,
+            result.Error);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithTimeoutScenario_ShouldReturnProviderTimeout()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Timeout);
+
+        // ACT
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest(), cancellationToken);
+
+        // ASSERT
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            PaymentGatewayErrors.ProviderTimeout,
+            result.Error);
+    }
+
+    [Fact]
+    public async Task GetPaymentStatusAsync_AfterSuccessfulCreation_ShouldReturnPending()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Success);
+
+        Result<CreatePaymentAttemptResponse> createResult =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest(), cancellationToken);
+
+        Assert.True(
+            createResult.IsSuccess);
+
+        // ACT
+        Result<PaymentGatewayResponse> statusResult =
+            await gateway.GetPaymentStatusAsync(
+                createResult.Value.ExternalReference, cancellationToken);
+
+        // ASSERT
+        Assert.True(
+            statusResult.IsSuccess);
+
+        Assert.Equal(
+            createResult.Value.ExternalReference,
+            statusResult.Value.ExternalReference);
+
+        Assert.Equal(
+            PaymentGatewayStatus.Pending,
+            statusResult.Value.Status);
+    }
+
+    [Fact]
+    public async Task GetPaymentStatusAsync_WhenReferenceDoesNotExist_ShouldFail()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Success);
+
+        // ACT
+        Result<PaymentGatewayResponse> result =
+            await gateway.GetPaymentStatusAsync(
+                "missing-reference", cancellationToken);
+
+        // ASSERT
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            PaymentGatewayErrors
+                .ExternalReferenceNotFound(
+                    "missing-reference"),
+            result.Error);
+    }
+
+    [Fact]
+    public async Task CancelPaymentAsync_WhenPaymentIsPending_ShouldCancelPayment()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Success);
+
+        Result<CreatePaymentAttemptResponse> createResult =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest(), cancellationToken);
+
+        Assert.True(
+            createResult.IsSuccess);
+
+        string externalReference =
+            createResult.Value.ExternalReference;
+
+        // ACT
+        Result<PaymentGatewayResponse> cancelResult =
+            await gateway.CancelPaymentAsync(
+                externalReference, cancellationToken);
+
+        // ASSERT
+        Assert.True(
+            cancelResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentGatewayStatus.Cancelled,
+            cancelResult.Value.Status);
+
+        Result<PaymentGatewayResponse> statusResult =
+            await gateway.GetPaymentStatusAsync(
+                externalReference, cancellationToken);
+
+        Assert.True(
+            statusResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentGatewayStatus.Cancelled,
+            statusResult.Value.Status);
+    }
+
+    [Fact]
+    public async Task CancelPaymentAsync_WhenCalledTwice_ShouldBeIdempotent()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Success);
+
+        Result<CreatePaymentAttemptResponse> createResult =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest(), cancellationToken);
+
+        Assert.True(
+            createResult.IsSuccess);
+
+        string externalReference =
+            createResult.Value.ExternalReference;
+
+        Result<PaymentGatewayResponse> firstCancelResult =
+            await gateway.CancelPaymentAsync(
+                externalReference, cancellationToken);
+
+        Assert.True(
+            firstCancelResult.IsSuccess);
+
+        // ACT
+        Result<PaymentGatewayResponse> secondCancelResult =
+            await gateway.CancelPaymentAsync(
+                externalReference, cancellationToken);
+
+        // ASSERT
+        Assert.True(
+            secondCancelResult.IsSuccess);
+
+        Assert.Equal(
+            PaymentGatewayStatus.Cancelled,
+            secondCancelResult.Value.Status);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_ShouldGenerateUniqueExternalReferences()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Success);
+
+        // ACT
+        Result<CreatePaymentAttemptResponse> firstResult =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest(), cancellationToken);
+
+        Result<CreatePaymentAttemptResponse> secondResult =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest(), cancellationToken);
+
+        // ASSERT
+        Assert.True(
+            firstResult.IsSuccess);
+
+        Assert.True(
+            secondResult.IsSuccess);
+
+        Assert.NotEqual(
+            firstResult.Value.ExternalReference,
+            secondResult.Value.ExternalReference);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAttemptAsync_WithSameIdempotencyKey_ShouldReturnSameExternalReferenceAndClientSecret()
+    {
+        // ARRANGE
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        var gateway =
+            new FakePaymentGateway(
+                FakePaymentGatewayScenario.Success);
+
+        Result<Money> moneyResult =
+            Money.Create(
+                150m,
+                "USD");
+
+        Assert.True(
+            moneyResult.IsSuccess);
+
+        string idempotencyKey =
+            Guid.NewGuid()
+                .ToString("N");
+
+        var request =
+            new CreatePaymentAttemptRequest(
+                Guid.NewGuid(),
+                moneyResult.Value,
+                idempotencyKey);
+
+        // ACT
+        Result<CreatePaymentAttemptResponse>
+            firstResult =
+                await gateway
+                    .CreatePaymentAttemptAsync(
+                        request, cancellationToken);
+
+        Result<CreatePaymentAttemptResponse>
+            secondResult =
+                await gateway
+                    .CreatePaymentAttemptAsync(
+                        request, cancellationToken);
+
+        // ASSERT
+        Assert.True(
+            firstResult.IsSuccess);
+
+        Assert.True(
+            secondResult.IsSuccess);
+
+        Assert.Equal(
+            firstResult.Value.ExternalReference,
+            secondResult.Value.ExternalReference);
+
+        Assert.Equal(
+            firstResult.Value.ClientSecret,
+            secondResult.Value.ClientSecret);
+    }
+
+    private static CreatePaymentAttemptRequest
+        CreateRequest()
+    {
+        Result<Money> moneyResult =
+            Money.Create(
+                150m,
+                "USD");
+
+        Assert.True(
+            moneyResult.IsSuccess);
+
+        return new CreatePaymentAttemptRequest(
+            Guid.NewGuid(),
+            moneyResult.Value,
+            Guid.NewGuid().ToString("N"));
+    }
+}
