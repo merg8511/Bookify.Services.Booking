@@ -1,3 +1,4 @@
+
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -15,6 +16,12 @@ public sealed class BookingApiFactory
 
     internal const string StripeWebhookSecret =
         "whsec_bookify_integration_tests";
+
+    internal const string IdentityAuthority =
+        "https://identity.bookify.test/realms/bookify";
+
+    internal const string IdentityAudience =
+        "bookify-booking-api";
 
     private readonly PostgreSqlTestDatabase _database =
         new();
@@ -56,6 +63,18 @@ public sealed class BookingApiFactory
         builder.UseSetting(
             "Payments:Stripe:WebhookToleranceSeconds",
             "300");
+
+        // ==========================================
+        // Identity - Testing
+        // ==========================================
+
+        builder.UseSetting(
+            "Identity:Authority",
+            IdentityAuthority);
+
+        builder.UseSetting(
+            "Identity:Audience",
+            IdentityAudience);
     }
 
     public override async ValueTask DisposeAsync()
@@ -87,12 +106,10 @@ public sealed class BookingApiFactory
             return CreateClient(
                 new WebApplicationFactoryClientOptions
                 {
-                    AllowAutoRedirect =
-                        false,
+                    AllowAutoRedirect = false,
 
                     BaseAddress =
-                        new Uri(
-                            "http://localhost")
+                        new Uri("http://localhost")
                 });
         }
         finally
@@ -110,15 +127,12 @@ public sealed class BookingApiFactory
 
         BookingDbContext dbContext =
             scope.ServiceProvider
-                .GetRequiredService<
-                    BookingDbContext>();
+                .GetRequiredService<BookingDbContext>();
 
-        await dbContext.Database
-            .MigrateAsync();
+        await dbContext.Database.MigrateAsync();
     }
 
-    private static string
-        GetApiContentRoot()
+    private static string GetApiContentRoot()
     {
         var directory =
             new DirectoryInfo(
@@ -131,8 +145,7 @@ public sealed class BookingApiFactory
                 "*.slnx")
             .Length == 0)
         {
-            directory =
-                directory.Parent;
+            directory = directory.Parent;
         }
 
         if (directory == null)
