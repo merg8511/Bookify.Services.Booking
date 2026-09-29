@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Application.Abstractions.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -57,6 +58,7 @@ internal static class IdentityDependencyInjection
                     RequireSignedTokens = true,
                     RequireExpirationTime = true,
                     NameClaimType = "sub",
+                    RoleClaimType = BookifyRoles.ClaimType,
                     ClockSkew = TimeSpan.FromMinutes(1)
                 };
 
