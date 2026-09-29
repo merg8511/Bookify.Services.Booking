@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Infrastructure;
@@ -23,11 +24,25 @@ builder.Services
     .AddApplication()
     .AddInfrastructure(connectionString, builder.Configuration);
 
+// ==========================================
+// Identity & Authentication
+// ==========================================
+builder.Services.AddIdentityAuthentication(builder.Configuration);
+
 var app = builder.Build();
 
-app.UseRouting();
+// ==========================================
+// HTTP Pipeline
+// ==========================================
 
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseMiddleware<IdempotencyMiddleware>();
+
+// ==========================================
+// Health
+// ==========================================
 app.MapGet("/health",
     () => Results.Ok(
         new
@@ -36,7 +51,15 @@ app.MapGet("/health",
             Service = "Bookify.Services.Booking"
         }));
 
+// ==========================================
+// API Endpoints
+// ==========================================
+
 app.MapApiEndpoints();
+
+// ==========================================
+// Development Diagnostics
+// ==========================================
 
 if (app.Environment.IsDevelopment())
 {
