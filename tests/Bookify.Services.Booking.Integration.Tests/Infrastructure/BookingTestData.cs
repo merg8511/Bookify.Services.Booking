@@ -2,13 +2,14 @@ using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared.ValueObjects;
-
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Integration.Tests.Infrastructure;
 
 internal static class BookingTestData
 {
+    public static DateOnly CreateDate(int day, int month = 8, int year = 2026) => new(year, month, day);
+
     public static PriceSnapshot CreatePriceSnapshot(
         decimal accommodationPrice = 200m,
         decimal extraGuestPrice = 0m,
@@ -36,13 +37,11 @@ internal static class BookingTestData
         GuestDetails? guestDetails = null,
         PriceSnapshot? priceSnapshot = null,
         DateTimeOffset? createdAtUtc = null,
-        DateTimeOffset? approvalDueAtUtc = null)
+        DateTimeOffset? approvalDueAtUtc = null,
+        string? customerSubjectId = null)
     {
-        DateTimeOffset creationTime =
-            createdAtUtc ?? BookingTestTime.CreatedAtUtc;
-
-        DateTimeOffset approvalDeadline =
-            approvalDueAtUtc ?? creationTime.AddHours(24);
+        DateTimeOffset creationTime = createdAtUtc ?? BookingTestTime.CreatedAtUtc;
+        DateTimeOffset approvalDeadline = approvalDueAtUtc ?? creationTime.AddHours(24);
 
         return DomainBooking.Create(
             rentableUnit,
@@ -51,7 +50,8 @@ internal static class BookingTestData
             guestDetails ?? CreateGuestDetails(),
             priceSnapshot ?? CreatePriceSnapshot(),
             creationTime,
-            approvalDeadline).Value;
+            approvalDeadline,
+            customerSubjectId).Value;
     }
 
     public static void Approve(
@@ -61,20 +61,13 @@ internal static class BookingTestData
     {
         ArgumentNullException.ThrowIfNull(booking);
 
-        DateTimeOffset approvalTime =
-            approvedAtUtc ?? BookingTestTime.ApprovedAtUtc;
+        DateTimeOffset approvalTime = approvedAtUtc ?? BookingTestTime.ApprovedAtUtc;
+        DateTimeOffset paymentDeadline = paymentDueAtUtc ?? approvalTime.AddMinutes(30);
 
-        DateTimeOffset paymentDeadline =
-            paymentDueAtUtc ?? approvalTime.AddMinutes(30);
-
-        var result = booking.Approve(
-            approvalTime,
-            paymentDeadline);
-
+        var result = booking.Approve(approvalTime, paymentDeadline);
         if (result.IsFailure)
         {
-            throw new InvalidOperationException(
-                $"Test setup could not approve booking: {result.Error.Code}.");
+            throw new InvalidOperationException($"Test setup could not approve booking: {result.Error.Code}.");
         }
     }
 }

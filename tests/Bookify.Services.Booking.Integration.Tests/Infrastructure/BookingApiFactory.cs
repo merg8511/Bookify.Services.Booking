@@ -1,80 +1,84 @@
-
+using System.Net.Http.Headers;
 using Bookify.Services.Booking.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace Bookify.Services.Booking.Integration.Tests.Infrastructure;
 
-public sealed class BookingApiFactory
-    : WebApplicationFactory<Program>,
-      IAsyncLifetime
+public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private const string ConnectionStringVariable =
-        "ConnectionStrings__Database";
+    private const string ConnectionStringVariable = "ConnectionStrings__Database";
+    internal const string StripeWebhookSecret = "whsec_bookify_integration_tests";
+    internal const string IdentityAuthority = "https://identity.bookify.test/realms/bookify";
+    internal const string IdentityAudience = "bookify-booking-api";
 
-    internal const string StripeWebhookSecret =
-        "whsec_bookify_integration_tests";
-
-    internal const string IdentityAuthority =
-        "https://identity.bookify.test/realms/bookify";
-
-    internal const string IdentityAudience =
-        "bookify-booking-api";
-
-    private readonly PostgreSqlTestDatabase _database =
-        new();
-
+    private readonly PostgreSqlTestDatabase _database = new();
     private HttpClient? _client;
 
     public HttpClient Client =>
-        _client ??
-        throw new InvalidOperationException(
-            "The API factory has not been initialized");
+        _client ?? throw new InvalidOperationException("The API factory has not been initialized");
 
     public async ValueTask InitializeAsync()
     {
         await _database.StartAsync();
-
-        _client =
-            CreateApiClient();
-
+        _client = CreateApiClient();
         await ApplyMigrationsAsync();
     }
 
-    protected override void ConfigureWebHost(
-        IWebHostBuilder builder)
+    public HttpClient CreateAuthenticatedClient(string subject, params string[] roles)
     {
-        builder.UseEnvironment(
-            "Testing");
+        HttpClient client = CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false,
+                BaseAddress = new Uri("http://localhost")
+            });
 
-        builder.UseContentRoot(
-            GetApiContentRoot());
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            JwtBearerDefaults.AuthenticationScheme,
+            TestIdentityTokens.Create(subject, roles));
 
-        builder.UseSetting(
-            "Payments:Provider",
-            "Fake");
+        return client;
+    }
 
-        builder.UseSetting(
-            "Payments:Stripe:WebhookSecret",
-            StripeWebhookSecret);
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Testing");
+        builder.UseContentRoot(GetApiContentRoot());
 
-        builder.UseSetting(
-            "Payments:Stripe:WebhookToleranceSeconds",
-            "300");
+        builder.UseSetting("Payments:Provider", "Fake");
+        builder.UseSetting("Payments:Stripe:WebhookSecret", StripeWebhookSecret);
+        builder.UseSetting("Payments:Stripe:WebhookToleranceSeconds", "300");
+        builder.UseSetting("Identity:Authority", IdentityAuthority);
+        builder.UseSetting("Identity:Audience", IdentityAudience);
 
-        // ==========================================
-        // Identity - Testing
-        // ==========================================
+        builder.ConfigureTestServices(services =>
+        {
+            services.PostConfigure<JwtBearerOptions>(
+                JwtBearerDefaults.AuthenticationScheme,
+                options =>
+                {
+                    var configuration = new OpenIdConnectConfiguration
+                    {
+                        Issuer = IdentityAuthority
+                    };
 
-        builder.UseSetting(
-            "Identity:Authority",
-            IdentityAuthority);
+                    configuration.SigningKeys.Add(TestIdentityTokens.SigningKey);
 
-        builder.UseSetting(
-            "Identity:Audience",
-            IdentityAudience);
+                    // Prevent OIDC network discovery in integration tests.
+                    options.Configuration = configuration;
+                    options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
+                    options.TokenValidationParameters.IssuerSigningKey = TestIdentityTokens.SigningKey;
+                    options.TokenValidationParameters.ValidIssuer = IdentityAuthority;
+                    options.TokenValidationParameters.ValidAudience = IdentityAudience;
+                });
+        });
     }
 
     public override async ValueTask DisposeAsync()
@@ -82,7 +86,6 @@ public sealed class BookingApiFactory
         try
         {
             _client?.Dispose();
-
             await base.DisposeAsync();
         }
         finally
@@ -93,13 +96,8 @@ public sealed class BookingApiFactory
 
     private HttpClient CreateApiClient()
     {
-        string? previousConnectionString =
-            Environment.GetEnvironmentVariable(
-                ConnectionStringVariable);
-
-        Environment.SetEnvironmentVariable(
-            ConnectionStringVariable,
-            _database.ConnectionString);
+        string? previousConnectionString = Environment.GetEnvironmentVariable(ConnectionStringVariable);
+        Environment.SetEnvironmentVariable(ConnectionStringVariable, _database.ConnectionString);
 
         try
         {
@@ -107,67 +105,46 @@ public sealed class BookingApiFactory
                 new WebApplicationFactoryClientOptions
                 {
                     AllowAutoRedirect = false,
-
-                    BaseAddress =
-                        new Uri("http://localhost")
+                    BaseAddress = new Uri("http://localhost")
                 });
         }
         finally
         {
-            Environment.SetEnvironmentVariable(
-                ConnectionStringVariable,
-                previousConnectionString);
+            Environment.SetEnvironmentVariable(ConnectionStringVariable, previousConnectionString);
         }
     }
 
     private async Task ApplyMigrationsAsync()
     {
-        await using AsyncServiceScope scope =
-            Services.CreateAsyncScope();
-
-        BookingDbContext dbContext =
-            scope.ServiceProvider
-                .GetRequiredService<BookingDbContext>();
-
+        await using AsyncServiceScope scope = Services.CreateAsyncScope();
+        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
         await dbContext.Database.MigrateAsync();
     }
 
     private static string GetApiContentRoot()
     {
-        var directory =
-            new DirectoryInfo(
-                AppContext.BaseDirectory);
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
-        while (
-            directory != null &&
-            Directory.GetFiles(
-                directory.FullName,
-                "*.slnx")
-            .Length == 0)
+        while (directory != null && Directory.GetFiles(directory.FullName, "*.slnx").Length == 0)
         {
             directory = directory.Parent;
         }
 
         if (directory == null)
         {
-            throw new DirectoryNotFoundException(
-                "The solution root directory could not be found.");
+            throw new DirectoryNotFoundException("The solution root directory could not be found.");
         }
 
-        string[] projectFiles =
-            Directory.GetFiles(
-                directory.FullName,
-                "Bookify.Services.Booking.Api.csproj",
-                SearchOption.AllDirectories);
+        string[] projectFiles = Directory.GetFiles(
+            directory.FullName,
+            "Bookify.Services.Booking.Api.csproj",
+            SearchOption.AllDirectories);
 
         if (projectFiles.Length == 0)
         {
-            throw new DirectoryNotFoundException(
-                "The 'Bookify.Services.Booking.Api.csproj' " +
-                "file could not be found in the solution.");
+            throw new DirectoryNotFoundException("The 'Bookify.Services.Booking.Api.csproj' file could not be found in the solution.");
         }
 
-        return Path.GetDirectoryName(
-            projectFiles[0])!;
+        return Path.GetDirectoryName(projectFiles[0])!;
     }
 }

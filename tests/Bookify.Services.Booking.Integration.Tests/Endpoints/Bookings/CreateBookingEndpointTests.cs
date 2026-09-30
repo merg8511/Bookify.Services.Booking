@@ -1,14 +1,10 @@
-using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
-using Bookify.Services.Booking.Application.Abstractions.Persistence;
-using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
-using Bookify.Services.Booking.Domain.Bookings;
-using Bookify.Services.Booking.Domain.Properties;
-using Bookify.Services.Booking.Domain.Properties.Pricing;
-using Bookify.Services.Booking.Domain.Shared.ValueObjects;
-using Bookify.Services.Booking.Integration.Tests.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
+using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
+using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
+using Bookify.Services.Booking.Domain.Bookings;
+using Bookify.Services.Booking.Integration.Tests.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Integration.Tests.Endpoints.Bookings;
@@ -27,273 +23,119 @@ public sealed class CreateBookingEndpointTests
     [Fact]
     public async Task Post_WithValidRequest_ReturnsCreatedAndPersistsBooking()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        SeedData data = await BookingDatabaseTestSeeder.SeedPropertyWithRoomAsync(_factory, cancellationToken: cancellationToken);
 
-        SeedData data = await SeedPropertyWithRoomAsync(cancellationToken);
+        var request = BookingRequestTestFactory.CreateBookingRequest(
+            data.PropertyId,
+            data.RentableUnitId,
+            Date(10),
+            Date(15),
+            guestCount: 2);
 
-        HttpClient client = _factory.CreateClient();
-
-        var request =
-            new CreateBookingRequest(
-                data.PropertyId,
-                data.RentableUnitId,
-                Date(10),
-                Date(15),
-                GuestCount: 2,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
-
-        // ACT
+        // Act
         HttpResponseMessage response = await PostBookingAsync(request, cancellationToken);
 
-        // ASSERT - HTTP
-        Assert.Equal(
-            HttpStatusCode.Created,
-            response.StatusCode);
+        // Assert - HTTP
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
 
-        Assert.Equal(
-            "application/json",
-            response.Content
-                .Headers
-                .ContentType?
-                .MediaType);
-
-        CreateBookingResponse? body =
-            await response.Content
-                .ReadFromJsonAsync<
-                    CreateBookingResponse>(
-                        cancellationToken);
-
+        CreateBookingResponse? body = await response.Content.ReadFromJsonAsync<CreateBookingResponse>(cancellationToken);
         Assert.NotNull(body);
-
-        Assert.NotEqual(
-            Guid.Empty,
-            body.Id);
-
-        Assert.Equal(
-            BookingStatus
-                .PendingApproval
-                .ToString(),
-            body.Status);
-
-        Assert.NotNull(
-            body.Price);
-
-        Assert.Equal(
-            540m,
-            body.Price.AccommodationPrice);
-
-        Assert.Equal(
-            0m,
-            body.Price.ExtraGuestPrice);
-
-        Assert.Equal(
-            540m,
-            body.Price.TotalPrice);
-
-        Assert.Equal(
-            "USD",
-            body.Price.Currency);
-
+        Assert.NotEqual(Guid.Empty, body.Id);
+        Assert.Equal(BookingStatus.PendingApproval.ToString(), body.Status);
+        Assert.NotNull(body.Price);
+        Assert.Equal(540m, body.Price.AccommodationPrice);
+        Assert.Equal(0m, body.Price.ExtraGuestPrice);
+        Assert.Equal(540m, body.Price.TotalPrice);
+        Assert.Equal("USD", body.Price.Currency);
         Assert.NotNull(response.Headers.Location);
+        Assert.Equal($"/api/v1/bookings/{body.Id}", response.Headers.Location.OriginalString);
 
-        Assert.Equal(
-            $"/api/v1/bookings/{body.Id}",
-            response.Headers
-                .Location
-                .OriginalString);
-
-        // ASSERT - PostgreSQL
+        // Assert - PostgreSQL
         using IServiceScope scope = _factory.Services.CreateScope();
+        IBookingRepository bookingRepository = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
 
-        IBookingRepository bookingRepository =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IBookingRepository>();
-
-        DomainBooking? booking =
-            await bookingRepository
-                .GetByIdAsync(
-                    body.Id,
-                    cancellationToken);
-
+        DomainBooking? booking = await bookingRepository.GetByIdAsync(body.Id, cancellationToken);
         Assert.NotNull(booking);
-
-        Assert.Equal(
-            data.PropertyId,
-            booking.PropertyId);
-
-        Assert.Equal(
-            data.RentableUnitId,
-            booking.RentableUnitId);
-
-        Assert.Equal(
-            Date(10),
-            booking.StayPeriod
-                .CheckInDate);
-
-        Assert.Equal(
-            Date(15),
-            booking.StayPeriod
-                .CheckOutDate);
-
-        Assert.Equal(
-            2,
-            booking.GuestCount.Value);
-
-        Assert.Equal(
-            BookingStatus.PendingApproval,
-            booking.Status);
-
-        Assert.Equal(
-            booking.Status.ToString(),
-            body.Status);
-
+        Assert.Equal(data.PropertyId, booking.PropertyId);
+        Assert.Equal(data.RentableUnitId, booking.RentableUnitId);
+        Assert.Equal(Date(10), booking.StayPeriod.CheckInDate);
+        Assert.Equal(Date(15), booking.StayPeriod.CheckOutDate);
+        Assert.Equal(2, booking.GuestCount.Value);
+        Assert.Equal(BookingStatus.PendingApproval, booking.Status);
+        Assert.Equal(booking.Status.ToString(), body.Status);
         Assert.NotNull(booking.PriceSnapshot);
-
-        Assert.Equal(
-            booking
-                .PriceSnapshot
-                .AccommodationPrice
-                .Amount,
-            body.Price.AccommodationPrice);
-
-        Assert.Equal(
-            booking
-                .PriceSnapshot
-                .ExtraGuestPrice
-                .Amount,
-            body.Price.ExtraGuestPrice);
-
-        Assert.Equal(
-            booking
-                .PriceSnapshot
-                .TotalPrice
-                .Amount,
-            body.Price.TotalPrice);
-
-        Assert.Equal(
-            booking
-                .PriceSnapshot
-                .TotalPrice
-                .Currency,
-            body.Price.Currency);
+        Assert.Equal(booking.PriceSnapshot.AccommodationPrice.Amount, body.Price.AccommodationPrice);
+        Assert.Equal(booking.PriceSnapshot.ExtraGuestPrice.Amount, body.Price.ExtraGuestPrice);
+        Assert.Equal(booking.PriceSnapshot.TotalPrice.Amount, body.Price.TotalPrice);
+        Assert.Equal(booking.PriceSnapshot.TotalPrice.Currency, body.Price.Currency);
     }
 
     [Fact]
     public async Task Post_WithInvalidGuestCount_ReturnsBadRequest()
     {
-        // ARRANGE
-        SeedData data = await SeedPropertyWithRoomAsync(TestContext.Current.CancellationToken);
-        HttpClient client = _factory.CreateClient();
+        // Arrange
+        SeedData data = await BookingDatabaseTestSeeder.SeedPropertyWithRoomAsync(_factory, cancellationToken: TestContext.Current.CancellationToken);
 
-        var request =
-            new CreateBookingRequest(
-                data.PropertyId,
-                data.RentableUnitId,
-                Date(10),
-                Date(15),
-                GuestCount: 0,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
+        var request = BookingRequestTestFactory.CreateBookingRequest(
+            data.PropertyId,
+            data.RentableUnitId,
+            Date(10),
+            Date(15),
+            guestCount: 0);
 
-        // ACT
+        // Act
         HttpResponseMessage response = await PostBookingAsync(request, TestContext.Current.CancellationToken);
 
-        // ASSERT
-        Assert.Equal(
-            HttpStatusCode.BadRequest,
-            response.StatusCode);
-
-        Assert.Equal(
-            "application/problem+json",
-            response.Content
-                .Headers
-                .ContentType?
-                .MediaType);
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
 
     [Fact]
     public async Task Post_WithMissingProperty_ReturnsNotFound()
     {
-        // ARRANGE
-        HttpClient client = _factory.CreateClient();
+        // Arrange
+        var request = BookingRequestTestFactory.CreateBookingRequest(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Date(10),
+            Date(15),
+            guestCount: 2);
 
-        var request =
-            new CreateBookingRequest(
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                Date(10),
-                Date(15),
-                GuestCount: 2,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
-
-        // ACT
+        // Act
         HttpResponseMessage response = await PostBookingAsync(request, TestContext.Current.CancellationToken);
 
-        // ASSERT
-        Assert.Equal(
-            HttpStatusCode.NotFound,
-            response.StatusCode);
-
-        Assert.Equal(
-            "application/problem+json",
-            response.Content
-                .Headers
-                .ContentType?
-                .MediaType);
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
 
     [Fact]
     public async Task Post_WhenUnitIsAlreadyBooked_ReturnsConflict()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        SeedData data = await BookingDatabaseTestSeeder.SeedPropertyWithRoomAsync(_factory, cancellationToken: cancellationToken);
 
-        SeedData data = await SeedPropertyWithRoomAsync(cancellationToken);
-
-        HttpClient client = _factory.CreateClient();
-
-        var request =
-            new CreateBookingRequest(
-                data.PropertyId,
-                data.RentableUnitId,
-                Date(10),
-                Date(15),
-                GuestCount: 2,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
+        var request = BookingRequestTestFactory.CreateBookingRequest(
+            data.PropertyId,
+            data.RentableUnitId,
+            Date(10),
+            Date(15),
+            guestCount: 2);
 
         HttpResponseMessage firstResponse = await PostBookingAsync(request, cancellationToken);
+        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
 
-        Assert.Equal(
-            HttpStatusCode.Created,
-            firstResponse.StatusCode);
-
-        // ACT
+        // Act
         HttpResponseMessage secondResponse = await PostBookingAsync(request, cancellationToken);
 
-        // ASSERT
-        Assert.Equal(
-            HttpStatusCode.Conflict,
-            secondResponse.StatusCode);
-
-        Assert.Equal(
-            "application/problem+json",
-            secondResponse.Content
-                .Headers
-                .ContentType?
-                .MediaType);
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
+        Assert.Equal("application/problem+json", secondResponse.Content.Headers.ContentType?.MediaType);
     }
 
     private async Task<HttpResponseMessage> PostBookingAsync(
@@ -302,97 +144,12 @@ public sealed class CreateBookingEndpointTests
     {
         HttpClient client = _factory.CreateClient();
 
-        using var message =
-            new HttpRequestMessage(
-                HttpMethod.Post,
-                "/api/v1/bookings");
-
-        message.Headers
-            .Add("Idempotency-Key",
-                Guid.NewGuid()
-                    .ToString("N"));
-
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/api/v1/bookings");
+        message.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
         message.Content = JsonContent.Create(request);
 
-        return await client.SendAsync(
-            message,
-            cancellationToken);
-    }
-    private async Task<SeedData> SeedPropertyWithRoomAsync(CancellationToken cancellationToken)
-    {
-        Property property =
-            Property.Create(
-                    $"Booking API Test " +
-                    $"{Guid.NewGuid():N}",
-                    "America/El_Salvador",
-                    new TimeOnly(
-                        15,
-                        0),
-                    new TimeOnly(
-                        11,
-                        0))
-            .Value;
-
-        RentableUnit rentableUnit =
-            RentableUnit.Create(
-                    property.Id,
-                    "Room A",
-                    RentableUnitType.Room,
-                    maximumCapacity: 4,
-                    maxBaseGuests: 2)
-                .Value;
-
-        rentableUnit.ConfigurePricing(
-    RentableUnitPricing.Create(
-        Money.Create(
-            100m,
-            "USD")
-        .Value,
-        Money.Create(
-            140m,
-            "USD")
-        .Value,
-        Money.Create(
-            25m,
-            "USD")
-        .Value)
-    .Value);
-
-        using IServiceScope scope = _factory.Services.CreateScope();
-
-        IPropertyRepository propertyRepository =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IPropertyRepository>();
-
-        IRentableUnitRepository
-            rentableUnitRepository =
-                scope.ServiceProvider
-                    .GetRequiredService<
-                        IRentableUnitRepository>();
-
-        IUnitOfWork unitOfWork =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IUnitOfWork>();
-
-        propertyRepository.Add(property);
-        rentableUnitRepository.Add(rentableUnit);
-
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return new SeedData(property.Id, rentableUnit.Id);
+        return await client.SendAsync(message, cancellationToken);
     }
 
-    private static DateOnly Date(int day)
-    {
-        return new DateOnly(
-            2026,
-            8,
-            day);
-    }
-
-    private sealed record SeedData(
-        Guid PropertyId,
-        Guid RentableUnitId);
+    private static DateOnly Date(int day) => BookingTestData.CreateDate(day);
 }

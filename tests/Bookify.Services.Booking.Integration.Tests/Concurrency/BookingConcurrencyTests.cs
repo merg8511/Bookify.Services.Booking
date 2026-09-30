@@ -40,80 +40,51 @@ public sealed class BookingConcurrencyTests
             includeSecondRoom: false,
             cancellationToken);
 
-        var request =
-            new CreateBookingRequest(
-                data.PropertyId,
-                data.RoomAId,
-                Date(10),
-                Date(15),
-                GuestCount: 2,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
+        CreateBookingRequest request = BookingRequestTestFactory.CreateBookingRequest(
+            propertyId: data.PropertyId,
+            rentableUnitId: data.RoomAId,
+            checkInDate: Date(10),
+            checkOutDate: Date(15),
+            guestCount: 2);
 
         // ACT
-        BookingAttempt[] attempts =
-            await SendConcurrentlyAsync(
-                request,
-                ConcurrentRequestCount,
-                cancellationToken);
+        BookingAttempt[] attempts = await SendConcurrentlyAsync(
+            request,
+            ConcurrentRequestCount,
+            cancellationToken);
 
         // ASSERT - HTTP
-        BookingAttempt created =
-            Assert.Single(
-                attempts,
-                attempt =>
-                    attempt.StatusCode == HttpStatusCode.Created);
+        BookingAttempt created = Assert.Single(
+            attempts,
+            attempt => attempt.StatusCode == HttpStatusCode.Created);
 
         Assert.NotNull(created.BookingId);
+        Assert.NotEqual(Guid.Empty, created.BookingId.Value);
 
-        Assert.NotEqual(
-            Guid.Empty,
-            created.BookingId.Value);
+        BookingAttempt[] conflicts = attempts
+            .Where(attempt => attempt.StatusCode == HttpStatusCode.Conflict)
+            .ToArray();
 
-        BookingAttempt[] conflicts =
-            attempts
-                .Where(
-                    attempt =>
-                       attempt.StatusCode == HttpStatusCode.Conflict)
-                .ToArray();
-
-        Assert.Equal(
-            ConcurrentRequestCount - 1,
-            conflicts.Length);
-
-        Assert.All(
-            conflicts,
-            conflict =>
-                Assert.Equal(
-                    "Booking.NotAvailable",
-                    conflict.ErrorCode));
+        Assert.Equal(ConcurrentRequestCount - 1, conflicts.Length);
+        Assert.All(conflicts, conflict => Assert.Equal("Booking.NotAvailable", conflict.ErrorCode));
 
         // ASSERT - POSTGRESQL
-        long persistedBookings =
-            await CountBlockingBookingsAsync(
-                data.PropertyId,
-                Date(10),
-                Date(15),
-                cancellationToken);
+        long persistedBookings = await CountBlockingBookingsAsync(
+            data.PropertyId,
+            Date(10),
+            Date(15),
+            cancellationToken);
 
-        Assert.Equal(
-            1,
-            persistedBookings);
+        Assert.Equal(1, persistedBookings);
 
-        long roomABookings =
-            await CountBlockingBookingsForUnitAsync(
-                data.PropertyId,
-                data.RoomAId,
-                Date(10),
-                Date(15),
-                cancellationToken);
+        long roomABookings = await CountBlockingBookingsForUnitAsync(
+            data.PropertyId,
+            data.RoomAId,
+            Date(10),
+            Date(15),
+            cancellationToken);
 
-        Assert.Equal(
-            1,
-            roomABookings);
-
+        Assert.Equal(1, roomABookings);
     }
 
     [Fact]
@@ -122,76 +93,44 @@ public sealed class BookingConcurrencyTests
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        TestProperty data =
-            await SeedPropertyAsync(
-                includeSecondRoom: false,
-                cancellationToken);
+        TestProperty data = await SeedPropertyAsync(
+            includeSecondRoom: false,
+            cancellationToken);
 
-        var roomRequest =
-            new CreateBookingRequest(
-                data.PropertyId,
-                data.RoomAId,
-                Date(20),
-                Date(25),
-                GuestCount: 2,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
+        CreateBookingRequest roomRequest = BookingRequestTestFactory.CreateBookingRequest(
+            propertyId: data.PropertyId,
+            rentableUnitId: data.RoomAId,
+            checkInDate: Date(20),
+            checkOutDate: Date(25),
+            guestCount: 2);
 
-        var entirePropertyRequest =
-            new CreateBookingRequest(
-                data.PropertyId,
-                data.EntirePropertyId,
-                Date(20),
-                Date(25),
-                GuestCount: 2,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
+        CreateBookingRequest entirePropertyRequest = BookingRequestTestFactory.CreateBookingRequest(
+            propertyId: data.PropertyId,
+            rentableUnitId: data.EntirePropertyId,
+            checkInDate: Date(20),
+            checkOutDate: Date(25),
+            guestCount: 2);
 
         // ACT
-        BookingAttempt[] attempts =
-            await SendConcurrentlyAsync(
-                [
-                    roomRequest,
-                    entirePropertyRequest
-                ],
-                cancellationToken);
+        BookingAttempt[] attempts = await SendConcurrentlyAsync(
+            [roomRequest, entirePropertyRequest],
+            cancellationToken);
 
         // ASSERT - HTTP
-        BookingAttempt created =
-            Assert.Single(
-                attempts,
-                attempt =>
-                    attempt.StatusCode ==
-                    HttpStatusCode.Created);
-
-        BookingAttempt conflict =
-            Assert.Single(
-                attempts,
-                attempt =>
-                    attempt.StatusCode ==
-                    HttpStatusCode.Conflict);
+        BookingAttempt created = Assert.Single(attempts, attempt => attempt.StatusCode == HttpStatusCode.Created);
+        BookingAttempt conflict = Assert.Single(attempts, attempt => attempt.StatusCode == HttpStatusCode.Conflict);
 
         Assert.NotNull(created.BookingId);
-
-        Assert.Equal(
-            "Booking.NotAvailable",
-            conflict.ErrorCode);
+        Assert.Equal("Booking.NotAvailable", conflict.ErrorCode);
 
         // ASSERT - PostgreSQL
-        long persistedBookings =
-            await CountBlockingBookingsAsync(
-                data.PropertyId,
-                Date(20),
-                Date(25),
-                cancellationToken);
+        long persistedBookings = await CountBlockingBookingsAsync(
+            data.PropertyId,
+            Date(20),
+            Date(25),
+            cancellationToken);
 
-        Assert.Equal(
-            1,
-            persistedBookings);
+        Assert.Equal(1, persistedBookings);
     }
 
     [Fact]
@@ -200,100 +139,61 @@ public sealed class BookingConcurrencyTests
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        TestProperty data =
-            await SeedPropertyAsync(
-                includeSecondRoom: true,
-                cancellationToken);
+        TestProperty data = await SeedPropertyAsync(
+            includeSecondRoom: true,
+            cancellationToken);
 
         Assert.True(data.RoomBId.HasValue);
-
         Guid roomBId = data.RoomBId.Value;
 
-        var roomARequest =
-            new CreateBookingRequest(
-                data.PropertyId,
-                data.RoomAId,
-                Date(26),
-                Date(30),
-                GuestCount: 2,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
+        CreateBookingRequest roomARequest = BookingRequestTestFactory.CreateBookingRequest(
+            propertyId: data.PropertyId,
+            rentableUnitId: data.RoomAId,
+            checkInDate: Date(26),
+            checkOutDate: Date(30),
+            guestCount: 2);
 
-        var roomBRequest =
-            new CreateBookingRequest(
-                data.PropertyId,
-                roomBId,
-                Date(26),
-                Date(30),
-                GuestCount: 2,
-                new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
+        CreateBookingRequest roomBRequest = BookingRequestTestFactory.CreateBookingRequest(
+            propertyId: data.PropertyId,
+            rentableUnitId: roomBId,
+            checkInDate: Date(26),
+            checkOutDate: Date(30),
+            guestCount: 2);
 
         // ACT
-        BookingAttempt[] attempts =
-            await SendConcurrentlyAsync(
-                [
-                    roomARequest,
-                    roomBRequest
-                ],
-                cancellationToken);
+        BookingAttempt[] attempts = await SendConcurrentlyAsync(
+            [roomARequest, roomBRequest],
+            cancellationToken);
 
         // ASSERT - HTTP
-        Assert.All(
-            attempts,
-            attempt =>
-                Assert.Equal(
-                    HttpStatusCode.Created,
-                    attempt.StatusCode));
-
-        Assert.Equal(
-            2,
-            attempts
-                .Select(
-                    attempt =>
-                        attempt.BookingId)
-                .Distinct()
-                .Count());
+        Assert.All(attempts, attempt => Assert.Equal(HttpStatusCode.Created, attempt.StatusCode));
+        Assert.Equal(2, attempts.Select(attempt => attempt.BookingId).Distinct().Count());
 
         // ASSERT - PostgreSQL
-        long persistedBookings =
-            await CountBlockingBookingsAsync(
-                data.PropertyId,
-                Date(26),
-                Date(30),
-                cancellationToken);
+        long persistedBookings = await CountBlockingBookingsAsync(
+            data.PropertyId,
+            Date(26),
+            Date(30),
+            cancellationToken);
 
-        Assert.Equal(
-            2,
-            persistedBookings);
+        Assert.Equal(2, persistedBookings);
 
-        long roomABookings =
-            await CountBlockingBookingsForUnitAsync(
-                data.PropertyId,
-                data.RoomAId,
-                Date(26),
-                Date(30),
-                cancellationToken);
+        long roomABookings = await CountBlockingBookingsForUnitAsync(
+            data.PropertyId,
+            data.RoomAId,
+            Date(26),
+            Date(30),
+            cancellationToken);
 
-        long roomBBookings =
-            await CountBlockingBookingsForUnitAsync(
-                data.PropertyId,
-                roomBId,
-                Date(26),
-                Date(30),
-                cancellationToken);
+        long roomBBookings = await CountBlockingBookingsForUnitAsync(
+            data.PropertyId,
+            roomBId,
+            Date(26),
+            Date(30),
+            cancellationToken);
 
-        Assert.Equal(
-            1,
-            roomABookings);
-
-        Assert.Equal(
-            1,
-            roomBBookings);
+        Assert.Equal(1, roomABookings);
+        Assert.Equal(1, roomBBookings);
     }
 
     [Fact]
@@ -306,30 +206,24 @@ public sealed class BookingConcurrencyTests
             includeSecondRoom: false,
             cancellationToken);
 
-        var request = new CreateBookingRequest(
-            data.PropertyId,
-            data.RoomAId,
-            Date(10),
-            Date(15),
-            GuestCount: 2,
-            new CreateBookingGuestRequest(
-            "John Doe",
-            "john@example.com",
-            "+50377778888"));
+        CreateBookingRequest request = BookingRequestTestFactory.CreateBookingRequest(
+            propertyId: data.PropertyId,
+            rentableUnitId: data.RoomAId,
+            checkInDate: Date(10),
+            checkOutDate: Date(15),
+            guestCount: 2);
 
         using var message = new HttpRequestMessage(HttpMethod.Post, BookingsEndpoint);
         message.Content = JsonContent.Create(request);
 
         // ACT
-        using HttpResponseMessage response =
-            await _client.SendAsync(message, cancellationToken);
+        using HttpResponseMessage response = await _client.SendAsync(message, cancellationToken);
 
         // ASSERT
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        ProblemDetailsResponse problem =
-            Assert.IsType<ProblemDetailsResponse>(
-                await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(cancellationToken));
+        ProblemDetailsResponse problem = Assert.IsType<ProblemDetailsResponse>(
+            await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(cancellationToken));
 
         Assert.Equal("Idempotency.KeyRequired", problem.Code);
 
@@ -348,41 +242,25 @@ public sealed class BookingConcurrencyTests
         int requestCount,
         CancellationToken cancellationToken)
     {
-        CreateBookingRequest[] requests =
-            Enumerable
-                .Repeat(
-                    request,
-                    requestCount)
-                .ToArray();
-
-        return await SendConcurrentlyAsync(
-            requests,
-            cancellationToken);
+        CreateBookingRequest[] requests = Enumerable.Repeat(request, requestCount).ToArray();
+        return await SendConcurrentlyAsync(requests, cancellationToken);
     }
 
     private async Task<BookingAttempt[]> SendConcurrentlyAsync(
-        IReadOnlyCollection<
-            CreateBookingRequest> requests,
+        IReadOnlyCollection<CreateBookingRequest> requests,
         CancellationToken cancellationToken)
     {
-        var startGate = new TaskCompletionSource<
-            bool>(
-                TaskCreationOptions
-                    .RunContinuationsAsynchronously);
+        var startGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        Task<BookingAttempt>[] tasks =
-            requests
-                .Select(
-                    request =>
-                        SendAfterGateAsync(
-                            request,
-                            Guid.NewGuid().ToString("N"),
-                            startGate.Task,
-                            cancellationToken))
-                .ToArray();
+        Task<BookingAttempt>[] tasks = requests
+            .Select(request => SendAfterGateAsync(
+                request,
+                Guid.NewGuid().ToString("N"),
+                startGate.Task,
+                cancellationToken))
+            .ToArray();
 
         startGate.SetResult(true);
-
         return await Task.WhenAll(tasks);
     }
 
@@ -395,137 +273,87 @@ public sealed class BookingConcurrencyTests
         await startGate.WaitAsync(cancellationToken);
 
         using var requestMessage = new HttpRequestMessage(HttpMethod.Post, BookingsEndpoint);
-
         requestMessage.Headers.TryAddWithoutValidation("Idempotency-key", idempotencyKey);
         requestMessage.Content = JsonContent.Create(request);
 
-        using HttpResponseMessage response =
-            await _client.SendAsync(requestMessage, cancellationToken);
+        using HttpResponseMessage response = await _client.SendAsync(requestMessage, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.Created)
         {
-            CreateBookingResponse body =
-                Assert.IsType<
-                    CreateBookingResponse>(
-                        await response.Content
-                            .ReadFromJsonAsync<
-                                CreateBookingResponse>(cancellationToken));
+            CreateBookingResponse body = Assert.IsType<CreateBookingResponse>(
+                await response.Content.ReadFromJsonAsync<CreateBookingResponse>(cancellationToken));
 
-            return new BookingAttempt(
-                response.StatusCode,
-                body.Id,
-                ErrorCode: null);
+            return new BookingAttempt(response.StatusCode, body.Id, ErrorCode: null);
         }
 
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
-            ProblemDetailsResponse problem =
-                Assert.IsType<
-                    ProblemDetailsResponse>(
-                        await response.Content
-                            .ReadFromJsonAsync<
-                                ProblemDetailsResponse>(cancellationToken));
+            ProblemDetailsResponse problem = Assert.IsType<ProblemDetailsResponse>(
+                await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(cancellationToken));
 
-            return new BookingAttempt(
-                response.StatusCode,
-                BookingId: null,
-                problem.Code);
+            return new BookingAttempt(response.StatusCode, BookingId: null, problem.Code);
         }
 
         string unexpectedBody = await response.Content.ReadAsStringAsync(cancellationToken);
-
         throw new InvalidOperationException(
-            $"Unexpected HTTP status code " +
-            $"{(int)response.StatusCode} " +
-            $"({response.StatusCode}). " +
-            $"Body: {unexpectedBody}");
+            $"Unexpected HTTP status code {(int)response.StatusCode} ({response.StatusCode}). Body: {unexpectedBody}");
     }
 
-    private static void ConfigurePricing(
-    RentableUnit rentableUnit)
+    private static void ConfigurePricing(RentableUnit rentableUnit)
     {
         rentableUnit.ConfigurePricing(
             RentableUnitPricing.Create(
-                Money.Create(
-                    100m,
-                    "USD")
-                .Value,
-                Money.Create(
-                    140m,
-                    "USD")
-                .Value,
-                Money.Create(
-                    25m,
-                    "USD")
-                .Value)
-            .Value);
+                Money.Create(100m, "USD").Value,
+                Money.Create(140m, "USD").Value,
+                Money.Create(25m, "USD").Value).Value);
     }
+
     private async Task<TestProperty> SeedPropertyAsync(
         bool includeSecondRoom,
         CancellationToken cancellationToken)
     {
-        Property property =
-            Property.Create(
-                $"Concurrency Test {Guid.NewGuid():N}",
-                "America/El_Salvador",
-                new TimeOnly(
-                    15,
-                    0),
-                new TimeOnly(
-                    11,
-                    0)).Value;
+        Property property = Property.Create(
+            $"Concurrency Test {Guid.NewGuid():N}",
+            "America/El_Salvador",
+            new TimeOnly(15, 0),
+            new TimeOnly(11, 0),
+            ownerSubjectId: "test-owner-subject").Value;
 
-        RentableUnit roomA =
-            RentableUnit.Create(
+        RentableUnit roomA = RentableUnit.Create(
+            property.Id,
+            "Room A",
+            RentableUnitType.Room,
+            maximumCapacity: 4,
+            maxBaseGuests: 2).Value;
+
+        RentableUnit entireProperty = RentableUnit.Create(
+            property.Id,
+            "Entire Property",
+            RentableUnitType.EntireProperty,
+            maximumCapacity: 10,
+            maxBaseGuests: 6).Value;
+
+        RentableUnit? roomB = includeSecondRoom
+            ? RentableUnit.Create(
                 property.Id,
-                "Room A",
+                "Room B",
                 RentableUnitType.Room,
                 maximumCapacity: 4,
-                maxBaseGuests: 2).Value;
+                maxBaseGuests: 2).Value
+            : null;
 
-        RentableUnit entireProperty =
-            RentableUnit.Create(
-                property.Id,
-                "Entire Property",
-                RentableUnitType.EntireProperty,
-                maximumCapacity: 10,
-                maxBaseGuests: 6).Value;
-
-        RentableUnit? roomB =
-            includeSecondRoom
-                ? RentableUnit.Create(
-                    property.Id,
-                    "Room B",
-                    RentableUnitType.Room,
-                    maximumCapacity: 4,
-                    maxBaseGuests: 2).Value
-                : null;
-
-        ConfigurePricing(
-    roomA);
-
-        ConfigurePricing(
-            entireProperty);
+        ConfigurePricing(roomA);
+        ConfigurePricing(entireProperty);
 
         if (roomB is not null)
         {
-            ConfigurePricing(
-                roomB);
+            ConfigurePricing(roomB);
         }
 
         using IServiceScope scope = _factory.Services.CreateScope();
-
-        IPropertyRepository propertyRepository = scope
-            .ServiceProvider
-                .GetRequiredService<IPropertyRepository>();
-
-        IRentableUnitRepository rentableUnitRepository = scope
-            .ServiceProvider
-                .GetRequiredService<IRentableUnitRepository>();
-
-        IUnitOfWork unitOfWork = scope
-            .ServiceProvider
-                .GetRequiredService<IUnitOfWork>();
+        IPropertyRepository propertyRepository = scope.ServiceProvider.GetRequiredService<IPropertyRepository>();
+        IRentableUnitRepository rentableUnitRepository = scope.ServiceProvider.GetRequiredService<IRentableUnitRepository>();
+        IUnitOfWork unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
         propertyRepository.Add(property);
         rentableUnitRepository.Add(roomA);
@@ -613,30 +441,18 @@ public sealed class BookingConcurrencyTests
         object parameters,
         CancellationToken cancellationToken)
     {
-        IDbConnectionFactory connectionFactory =
-            _factory.Services
-                .GetRequiredService<IDbConnectionFactory>();
+        IDbConnectionFactory connectionFactory = _factory.Services.GetRequiredService<IDbConnectionFactory>();
+        await using DbConnection connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
 
-        await using DbConnection connection =
-            await connectionFactory
-                .OpenConnectionAsync(cancellationToken);
-
-        var command =
-            new CommandDefinition(
-                sql,
-                parameters,
-                cancellationToken: cancellationToken);
+        var command = new CommandDefinition(
+            sql,
+            parameters,
+            cancellationToken: cancellationToken);
 
         return await connection.ExecuteScalarAsync<long>(command);
     }
 
-    private static DateOnly Date(int day)
-    {
-        return new DateOnly(
-            2026,
-            8,
-            day);
-    }
+    private static DateOnly Date(int day) => new(2026, 8, day);
 
     private sealed record TestProperty(
         Guid PropertyId,

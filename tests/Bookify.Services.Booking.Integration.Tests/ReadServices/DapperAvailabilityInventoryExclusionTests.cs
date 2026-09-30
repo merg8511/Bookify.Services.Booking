@@ -14,8 +14,7 @@ public sealed class DapperAvailabilityInventoryExclusionTests
 {
     private readonly BookingApiFactory _factory;
 
-    public DapperAvailabilityInventoryExclusionTests(
-        BookingApiFactory factory)
+    public DapperAvailabilityInventoryExclusionTests(BookingApiFactory factory)
     {
         _factory = factory;
     }
@@ -24,401 +23,265 @@ public sealed class DapperAvailabilityInventoryExclusionTests
     public async Task GetInventoryConclictCandidatesAsync_AppliesInventoryExclusionMatrix()
     {
         // ARRANGE
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        TestData data = await SeedAsync(cancellationToken);
 
-        TestData data =
-            await SeedAsync(
-                cancellationToken);
+        using IServiceScope scope = _factory.Services.CreateScope();
+        IAvailabilityReadService readService = scope.ServiceProvider.GetRequiredService<IAvailabilityReadService>();
 
-        using IServiceScope scope =
-            _factory.Services.CreateScope();
-
-        IAvailabilityReadService readService =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IAvailabilityReadService>();
-
-        DateOnly requestedCheckInDate =
-            Date(10);
-
-        DateOnly requestedCheckOutDate =
-            Date(15);
+        DateOnly requestedCheckInDate = Date(10);
+        DateOnly requestedCheckOutDate = Date(15);
 
         // ACT
-        IReadOnlyList<OverlappingBookingReadModel>
-            roomAResult =
-                await readService
-                    .GetInventoryConflictsAsync(
-                        data.PropertyId,
-                        data.RoomAId,
-                        requestedCheckInDate,
-                        requestedCheckOutDate,
-                        cancellationToken);
+        IReadOnlyList<OverlappingBookingReadModel> roomAResult = await readService.GetInventoryConflictsAsync(
+            data.PropertyId,
+            data.RoomAId,
+            requestedCheckInDate,
+            requestedCheckOutDate,
+            cancellationToken);
 
-        IReadOnlyList<OverlappingBookingReadModel>
-            roomBResult =
-                await readService
-                    .GetInventoryConflictsAsync(
-                        data.PropertyId,
-                        data.RoomBId,
-                        requestedCheckInDate,
-                        requestedCheckOutDate,
-                        cancellationToken);
+        IReadOnlyList<OverlappingBookingReadModel> roomBResult = await readService.GetInventoryConflictsAsync(
+            data.PropertyId,
+            data.RoomBId,
+            requestedCheckInDate,
+            requestedCheckOutDate,
+            cancellationToken);
 
-        IReadOnlyList<OverlappingBookingReadModel>
-            entirePropertyResult =
-                await readService
-                    .GetInventoryConflictsAsync(
-                        data.PropertyId,
-                        data.EntirePropertyId,
-                        requestedCheckInDate,
-                        requestedCheckOutDate,
-                        cancellationToken);
+        IReadOnlyList<OverlappingBookingReadModel> entirePropertyResult = await readService.GetInventoryConflictsAsync(
+            data.PropertyId,
+            data.EntirePropertyId,
+            requestedCheckInDate,
+            requestedCheckOutDate,
+            cancellationToken);
 
         // ASSERT
-        AssertBookingIds(
-            roomAResult,
-            data.RoomABookingId,
-            data.EntirePropertyBookingId);
+        AssertBookingIds(roomAResult, data.RoomABookingId, data.EntirePropertyBookingId);
+        AssertBookingIds(roomBResult, data.RoomBBookingId, data.EntirePropertyBookingId);
+        AssertBookingIds(entirePropertyResult, data.RoomABookingId, data.RoomBBookingId, data.EntirePropertyBookingId);
 
-        AssertBookingIds(
-            roomBResult,
-            data.RoomBBookingId,
-            data.EntirePropertyBookingId);
-
-        AssertBookingIds(
-            entirePropertyResult,
-            data.RoomABookingId,
-            data.RoomBBookingId,
-            data.EntirePropertyBookingId);
-
-        Assert.DoesNotContain(
-            entirePropertyResult,
-            booking =>
-                booking.BookingId ==
-                data.AdjacentBookingId);
-
-        Assert.DoesNotContain(
-            entirePropertyResult,
-            booking =>
-                booking.BookingId ==
-                data.OtherPropertyBookingId);
-
-        Assert.DoesNotContain(
-            roomAResult,
-            booking =>
-                booking.BookingId ==
-                data.CancelledEntirePropertyBookingId);
-
-        Assert.DoesNotContain(
-            roomBResult,
-            booking =>
-                booking.BookingId ==
-                data.CancelledEntirePropertyBookingId);
-
-        Assert.DoesNotContain(
-            entirePropertyResult,
-            booking =>
-                booking.BookingId ==
-                data.CancelledEntirePropertyBookingId);
+        Assert.DoesNotContain(entirePropertyResult, booking => booking.BookingId == data.AdjacentBookingId);
+        Assert.DoesNotContain(entirePropertyResult, booking => booking.BookingId == data.OtherPropertyBookingId);
+        Assert.DoesNotContain(roomAResult, booking => booking.BookingId == data.CancelledEntirePropertyBookingId);
+        Assert.DoesNotContain(roomBResult, booking => booking.BookingId == data.CancelledEntirePropertyBookingId);
+        Assert.DoesNotContain(entirePropertyResult, booking => booking.BookingId == data.CancelledEntirePropertyBookingId);
     }
 
-    private async Task<TestData> SeedAsync(
-        CancellationToken cancellationToken)
+    private async Task<TestData> SeedAsync(CancellationToken cancellationToken)
     {
-        Guid propertyId =
-            Guid.NewGuid();
+        Guid propertyId = Guid.NewGuid();
+        Guid otherPropertyId = Guid.NewGuid();
+        Guid roomAId = Guid.NewGuid();
+        Guid roomBId = Guid.NewGuid();
+        Guid entirePropertyId = Guid.NewGuid();
+        Guid otherPropertyRoomId = Guid.NewGuid();
+        Guid roomABookingId = Guid.NewGuid();
+        Guid roomBBookingId = Guid.NewGuid();
+        Guid entirePropertyBookingId = Guid.NewGuid();
+        Guid cancelledEntirePropertyBookingId = Guid.NewGuid();
+        Guid adjacentBookingId = Guid.NewGuid();
+        Guid otherPropertyBookingId = Guid.NewGuid();
 
-        Guid otherPropertyId =
-            Guid.NewGuid();
+        IDbConnectionFactory connectionFactory = _factory.Services.GetRequiredService<IDbConnectionFactory>();
+        await using DbConnection connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
 
-        Guid roomAId =
-            Guid.NewGuid();
+        var command = new CommandDefinition(
+            """
+            INSERT INTO properties
+            (
+                id,
+                name,
+                time_zone_id,
+                check_in_time,
+                check_out_time,
+                is_active,
+                owner_subject_id
+            )
+            VALUES
+            (
+                @PropertyId,
+                'Inventory Property',
+                'America/El_Salvador',
+                '15:00',
+                '11:00',
+                TRUE,
+                'test-owner-subject'
+            ),
+            (
+                @OtherPropertyId,
+                'Other Property',
+                'America/El_Salvador',
+                '15:00',
+                '11:00',
+                TRUE,
+                'test-owner-subject'
+            );
 
-        Guid roomBId =
-            Guid.NewGuid();
+            INSERT INTO rentable_units
+            (
+                id,
+                property_id,
+                name,
+                type,
+                maximum_capacity,
+                max_base_guests,
+                is_active
+            )
+            VALUES
+            (
+                @RoomAId,
+                @PropertyId,
+                'Room A',
+                'Room',
+                4,
+                2,
+                TRUE
+            ),
+            (
+                @RoomBId,
+                @PropertyId,
+                'Room B',
+                'Room',
+                4,
+                2,
+                TRUE
+            ),
+            (
+                @EntirePropertyId,
+                @PropertyId,
+                'Entire Property',
+                'EntireProperty',
+                20,
+                10,
+                TRUE
+            ),
+            (
+                @OtherPropertyRoomId,
+                @OtherPropertyId,
+                'Other Property Room',
+                'Room',
+                4,
+                2,
+                TRUE
+            );
 
-        Guid entirePropertyId =
-            Guid.NewGuid();
+            INSERT INTO bookings
+            (
+                id,
+                booking_reference,
+                property_id,
+                rentable_unit_id,
+                check_in_date,
+                check_out_date,
+                guest_count,
+                status,
+                cancellation_reason,
+                guest_access_token_hash
+            )
+            VALUES
+            (
+                @RoomABookingId,
+                @RoomABookingReference,
+                @PropertyId,
+                @RoomAId,
+                @RequestedCheckInDate,
+                @RequestedCheckOutDate,
+                2,
+                'PendingApproval',
+                NULL,
+                repeat('A', 64)
+            ),
+            (
+                @RoomBBookingId,
+                @RoomBBookingReference,
+                @PropertyId,
+                @RoomBId,
+                @ContainedCheckInDate,
+                @ContainedCheckOutDate,
+                2,
+                'Paid',
+                NULL,
+                repeat('A', 64)
+            ),
+            (
+                @EntirePropertyBookingId,
+                @EntirePropertyBookingReference,
+                @PropertyId,
+                @EntirePropertyId,
+                @EntireCheckInDate,
+                @EntireCheckOutDate,
+                2,
+                'PendingPayment',
+                NULL,
+                repeat('A', 64)
+            ),
+            (
+                @CancelledEntirePropertyBookingId,
+                @CancelledEntirePropertyBookingReference,
+                @PropertyId,
+                @EntirePropertyId,
+                @EntireCheckInDate,
+                @EntireCheckOutDate,
+                2,
+                'Cancelled',
+                'PaymentExpired',
+                repeat('A', 64)
+            ),
+            (
+                @AdjacentBookingId,
+                @AdjacentBookingReference,
+                @PropertyId,
+                @RoomAId,
+                @AdjacentCheckInDate,
+                @RequestedCheckInDate,
+                2,
+                'Paid',
+                NULL,
+                repeat('A', 64)
+            ),
+            (
+                @OtherPropertyBookingId,
+                @OtherPropertyBookingReference,
+                @OtherPropertyId,
+                @OtherPropertyRoomId,
+                @ContainedCheckInDate,
+                @ContainedCheckOutDate,
+                2,
+                'Paid',
+                NULL,
+                repeat('A', 64)
+            );
+            """,
+            new
+            {
+                PropertyId = propertyId,
+                OtherPropertyId = otherPropertyId,
+                RoomAId = roomAId,
+                RoomBId = roomBId,
+                EntirePropertyId = entirePropertyId,
+                OtherPropertyRoomId = otherPropertyRoomId,
+                RoomABookingId = roomABookingId,
+                RoomABookingReference = BookingTestReference.From(roomABookingId),
+                RoomBBookingId = roomBBookingId,
+                RoomBBookingReference = BookingTestReference.From(roomBBookingId),
+                EntirePropertyBookingId = entirePropertyBookingId,
+                EntirePropertyBookingReference = BookingTestReference.From(entirePropertyBookingId),
+                CancelledEntirePropertyBookingId = cancelledEntirePropertyBookingId,
+                CancelledEntirePropertyBookingReference = BookingTestReference.From(cancelledEntirePropertyBookingId),
+                AdjacentBookingId = adjacentBookingId,
+                AdjacentBookingReference = BookingTestReference.From(adjacentBookingId),
+                OtherPropertyBookingId = otherPropertyBookingId,
+                OtherPropertyBookingReference = BookingTestReference.From(otherPropertyBookingId),
+                RequestedCheckInDate = Date(10),
+                RequestedCheckOutDate = Date(15),
+                ContainedCheckInDate = Date(11),
+                ContainedCheckOutDate = Date(14),
+                EntireCheckInDate = Date(12),
+                EntireCheckOutDate = Date(13),
+                AdjacentCheckInDate = Date(5)
+            },
+            cancellationToken: cancellationToken);
 
-        Guid otherPropertyRoomId =
-            Guid.NewGuid();
-
-        Guid roomABookingId =
-            Guid.NewGuid();
-
-        Guid roomBBookingId =
-            Guid.NewGuid();
-
-        Guid entirePropertyBookingId =
-            Guid.NewGuid();
-
-        Guid cancelledEntirePropertyBookingId =
-            Guid.NewGuid();
-
-        Guid adjacentBookingId =
-            Guid.NewGuid();
-
-        Guid otherPropertyBookingId =
-            Guid.NewGuid();
-
-        IDbConnectionFactory connectionFactory =
-            _factory.Services
-                .GetRequiredService<
-                    IDbConnectionFactory>();
-
-        await using DbConnection connection =
-            await connectionFactory
-                .OpenConnectionAsync(
-                    cancellationToken);
-
-        var command =
-            new CommandDefinition(
-                """
-                INSERT INTO properties
-                (
-                    id,
-                    name,
-                    time_zone_id,
-                    check_in_time,
-                    check_out_time,
-                    is_active
-                )
-                VALUES
-                (
-                    @PropertyId,
-                    'Inventory Property',
-                    'America/El_Salvador',
-                    '15:00',
-                    '11:00',
-                    TRUE
-                ),
-                (
-                    @OtherPropertyId,
-                    'Other Property',
-                    'America/El_Salvador',
-                    '15:00',
-                    '11:00',
-                    TRUE
-                );
-
-                INSERT INTO rentable_units
-                (
-                    id,
-                    property_id,
-                    name,
-                    type,
-                    maximum_capacity,
-                    max_base_guests,
-                    is_active
-                )
-                VALUES
-                (
-                    @RoomAId,
-                    @PropertyId,
-                    'Room A',
-                    'Room',
-                    4,
-                    2,
-                    TRUE
-                ),
-                (
-                    @RoomBId,
-                    @PropertyId,
-                    'Room B',
-                    'Room',
-                    4,
-                    2,
-                    TRUE
-                ),
-                (
-                    @EntirePropertyId,
-                    @PropertyId,
-                    'Entire Property',
-                    'EntireProperty',
-                    20,
-                    10,
-                    TRUE
-                ),
-                (
-                    @OtherPropertyRoomId,
-                    @OtherPropertyId,
-                    'Other Property Room',
-                    'Room',
-                    4,
-                    2,
-                    TRUE
-                );
-
-                INSERT INTO bookings
-                (
-                    id,
-                    booking_reference,
-                    property_id,
-                    rentable_unit_id,
-                    check_in_date,
-                    check_out_date,
-                    guest_count,
-                    status,
-                    cancellation_reason
-                )
-                VALUES
-                (
-                    @RoomABookingId,
-                    @RoomABookingReference,
-                    @PropertyId,
-                    @RoomAId,
-                    @RequestedCheckInDate,
-                    @RequestedCheckOutDate,
-                    2,
-                    'PendingApproval',
-                    NULL
-                ),
-                (
-                    @RoomBBookingId,
-                    @RoomBBookingReference,
-                    @PropertyId,
-                    @RoomBId,
-                    @ContainedCheckInDate,
-                    @ContainedCheckOutDate,
-                    2,
-                    'Paid',
-                    NULL
-                ),
-                (
-                    @EntirePropertyBookingId,
-                    @EntirePropertyBookingReference,
-                    @PropertyId,
-                    @EntirePropertyId,
-                    @EntireCheckInDate,
-                    @EntireCheckOutDate,
-                    2,
-                    'PendingPayment',
-                    NULL
-                ),
-                (
-                    @CancelledEntirePropertyBookingId,
-                    @CancelledEntirePropertyBookingReference,
-                    @PropertyId,
-                    @EntirePropertyId,
-                    @EntireCheckInDate,
-                    @EntireCheckOutDate,
-                    2,
-                    'Cancelled',
-                    'PaymentExpired'
-                ),
-                (
-                    @AdjacentBookingId,
-                    @AdjacentBookingReference,
-                    @PropertyId,
-                    @RoomAId,
-                    @AdjacentCheckInDate,
-                    @RequestedCheckInDate,
-                    2,
-                    'Paid',
-                    NULL
-                ),
-                (
-                    @OtherPropertyBookingId,
-                    @OtherPropertyBookingReference,
-                    @OtherPropertyId,
-                    @OtherPropertyRoomId,
-                    @ContainedCheckInDate,
-                    @ContainedCheckOutDate,
-                    2,
-                    'Paid',
-                    NULL
-                );
-                """,
-                new
-                {
-                    PropertyId =
-                        propertyId,
-
-                    OtherPropertyId =
-                        otherPropertyId,
-
-                    RoomAId =
-                        roomAId,
-
-                    RoomBId =
-                        roomBId,
-
-                    EntirePropertyId =
-                        entirePropertyId,
-
-                    OtherPropertyRoomId =
-                        otherPropertyRoomId,
-
-                    RoomABookingId =
-                        roomABookingId,
-
-                    RoomABookingReference =
-                        BookingTestReference.From(
-                            roomABookingId),
-
-                    RoomBBookingId =
-                        roomBBookingId,
-
-                    RoomBBookingReference =
-                        BookingTestReference.From(
-                            roomBBookingId),
-
-                    EntirePropertyBookingId =
-                        entirePropertyBookingId,
-
-                    EntirePropertyBookingReference =
-                        BookingTestReference.From(
-                            entirePropertyBookingId),
-
-                    CancelledEntirePropertyBookingId =
-                        cancelledEntirePropertyBookingId,
-
-                    CancelledEntirePropertyBookingReference =
-                        BookingTestReference.From(
-                            cancelledEntirePropertyBookingId),
-
-                    AdjacentBookingId =
-                        adjacentBookingId,
-
-                    AdjacentBookingReference =
-                        BookingTestReference.From(
-                            adjacentBookingId),
-
-                    OtherPropertyBookingId =
-                        otherPropertyBookingId,
-
-                    OtherPropertyBookingReference =
-                        BookingTestReference.From(
-                            otherPropertyBookingId),
-
-                    RequestedCheckInDate =
-                        Date(10),
-
-                    RequestedCheckOutDate =
-                        Date(15),
-
-                    ContainedCheckInDate =
-                        Date(11),
-
-                    ContainedCheckOutDate =
-                        Date(14),
-
-                    EntireCheckInDate =
-                        Date(12),
-
-                    EntireCheckOutDate =
-                        Date(13),
-
-                    AdjacentCheckInDate =
-                        Date(5)
-                },
-                cancellationToken:
-                    cancellationToken);
-
-        await connection.ExecuteAsync(
-            command);
+        await connection.ExecuteAsync(command);
 
         return new TestData(
             propertyId,
@@ -437,30 +300,12 @@ public sealed class DapperAvailabilityInventoryExclusionTests
         IReadOnlyList<OverlappingBookingReadModel> result,
         params Guid[] expectedBookingsIds)
     {
-        HashSet<Guid> actualBookingIds =
-            result
-                .Select(
-                    booking =>
-                        booking.BookingId)
-                .ToHashSet();
-
-        HashSet<Guid> expected =
-            expectedBookingsIds
-                .ToHashSet();
-
-        Assert.Equal(
-            expected,
-            actualBookingIds);
+        HashSet<Guid> actualBookingIds = result.Select(booking => booking.BookingId).ToHashSet();
+        HashSet<Guid> expected = expectedBookingsIds.ToHashSet();
+        Assert.Equal(expected, actualBookingIds);
     }
 
-    private static DateOnly Date(
-        int day)
-    {
-        return new DateOnly(
-            2026,
-            8,
-            day);
-    }
+    private static DateOnly Date(int day) => new(2026, 8, day);
 
     private sealed record TestData(
         Guid PropertyId,

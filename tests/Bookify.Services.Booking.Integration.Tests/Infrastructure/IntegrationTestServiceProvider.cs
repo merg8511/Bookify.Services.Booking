@@ -18,12 +18,9 @@ internal static class IntegrationTestServiceProvider
         var services = new ServiceCollection();
 
         services.AddLogging();
-
         services
             .AddApplication()
-            .AddInfrastructure(
-                connectionString,
-                configuration);
+            .AddInfrastructure(connectionString, configuration);
 
         return services.BuildServiceProvider(
             new ServiceProviderOptions
@@ -35,18 +32,14 @@ internal static class IntegrationTestServiceProvider
 
     public static ServiceProvider Create(string connectionString)
     {
-        IConfiguration configuration =
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
-                    [$"{PaymentOptions.SectionName}:Provider"] = PaymentProvider.Fake.ToString()
-                })
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{PaymentOptions.SectionName}:Provider"] = PaymentProvider.Fake.ToString()
+            })
             .Build();
 
-        return Create(
-            connectionString,
-            configuration);
+        return Create(connectionString, configuration);
     }
 
     public static async Task ApplyMigrationsAsync(
@@ -55,12 +48,8 @@ internal static class IntegrationTestServiceProvider
     {
         ArgumentNullException.ThrowIfNull(serviceProvider);
 
-        await using AsyncServiceScope scope =
-            serviceProvider.CreateAsyncScope();
-
-        BookingDbContext dbContext =
-            scope.ServiceProvider
-                .GetRequiredService<BookingDbContext>();
+        await using AsyncServiceScope scope = serviceProvider.CreateAsyncScope();
+        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
 
         await dbContext.Database.MigrateAsync(cancellationToken);
     }

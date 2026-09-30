@@ -8,28 +8,16 @@ internal sealed class PostgreSqlTestDatabase : IAsyncDisposable
 
     public PostgreSqlTestDatabase()
     {
-        _container =
-            new PostgreSqlBuilder(
-                "postgres:18.4-alpine")
-            .WithDatabase(
-                "bookify_booking_tests")
-            .WithUsername(
-                "bookify")
-            .WithPassword(
-                "bookify-integration-tests")
+        _container = new PostgreSqlBuilder("postgres:18.4-alpine")
+            .WithDatabase("bookify_booking_tests")
+            .WithUsername("bookify")
+            .WithPassword("bookify-integration-tests")
             .Build();
     }
 
-    public string ConnectionString =>
-        _container.GetConnectionString();
+    public string ConnectionString => _container.GetConnectionString();
 
-    public Task StartAsync(CancellationToken cancellationToken = default)
-    {
-        return _container.StartAsync(cancellationToken);
-    }
+    public Task StartAsync(CancellationToken cancellationToken = default) => _container.StartAsync(cancellationToken);
 
-    public ValueTask DisposeAsync()
-    {
-        return _container.DisposeAsync();
-    }
+    public ValueTask DisposeAsync() => _container.DisposeAsync();
 }

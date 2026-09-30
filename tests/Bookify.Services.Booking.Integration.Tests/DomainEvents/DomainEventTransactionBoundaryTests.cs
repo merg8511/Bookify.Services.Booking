@@ -1,15 +1,11 @@
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
-using Bookify.Services.Booking.Domain.Shared;
-using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Integration.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-
-using DomainBooking =
-    Bookify.Services.Booking.Domain.Bookings.Booking;
+using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Integration.Tests.DomainEvents;
 
@@ -18,13 +14,9 @@ public sealed class DomainEventTransactionBoundaryTests
 {
     private readonly BookingApiFactory _factory;
 
-    public DomainEventTransactionBoundaryTests(
-        BookingApiFactory factory)
+    public DomainEventTransactionBoundaryTests(BookingApiFactory factory)
     {
-        _factory =
-            factory ??
-            throw new ArgumentNullException(
-                nameof(factory));
+        _factory = factory ?? throw new ArgumentNullException(nameof(factory));
     }
 
     [Fact]
@@ -32,52 +24,26 @@ public sealed class DomainEventTransactionBoundaryTests
     {
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        RentableUnit rentableUnit = await CreatePersistedRentableUnitAsync(cancellationToken);
+        DomainBooking booking = CreateBooking(rentableUnit);
 
-        using IServiceScope scope =
-            _factory.Services.CreateScope();
+        using IServiceScope scope = _factory.Services.CreateScope();
+        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        IUnitOfWork unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-        BookingDbContext dbContext =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    BookingDbContext>();
-
-        IUnitOfWork unitOfWork =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IUnitOfWork>();
-
-        RentableUnit rentableUnit =
-            await CreatePersistedRentableUnitAsync(
-                dbContext,
-                unitOfWork);
-
-        DomainBooking booking =
-            CreateBooking(
-                rentableUnit);
-
-        Assert.Single(
-            booking.GetDomainEvents());
-
-        dbContext.Bookings.Add(
-            booking);
+        Assert.Single(booking.GetDomainEvents());
+        dbContext.Bookings.Add(booking);
 
         // ACT
-        await unitOfWork
-            .SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // ASSERT
-        Assert.Empty(
-            booking.GetDomainEvents());
+        Assert.Empty(booking.GetDomainEvents());
 
-        bool bookingExists =
-            await dbContext.Bookings
-                .AnyAsync(
-                    current =>
-                        current.Id ==
-                        booking.Id, cancellationToken);
+        bool bookingExists = await dbContext.Bookings
+            .AnyAsync(current => current.Id == booking.Id, cancellationToken);
 
-        Assert.True(
-            bookingExists);
+        Assert.True(bookingExists);
     }
 
     [Fact]
@@ -85,79 +51,39 @@ public sealed class DomainEventTransactionBoundaryTests
     {
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        using IServiceScope scope =
-            _factory.Services.CreateScope();
+        RentableUnit rentableUnit = await CreatePersistedRentableUnitAsync(cancellationToken);
+        DomainBooking booking = CreateBooking(rentableUnit);
 
-        BookingDbContext dbContext =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    BookingDbContext>();
+        using IServiceScope scope = _factory.Services.CreateScope();
+        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        IUnitOfWork unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        ITransactionManager transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
 
-        IUnitOfWork unitOfWork =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IUnitOfWork>();
-
-        ITransactionManager
-            transactionManager =
-                scope.ServiceProvider
-                    .GetRequiredService<
-                        ITransactionManager>();
-
-        RentableUnit rentableUnit =
-            await CreatePersistedRentableUnitAsync(
-                dbContext,
-                unitOfWork);
-
-        DomainBooking booking =
-            CreateBooking(
-                rentableUnit);
-
-        await using ITransaction transaction =
-            await transactionManager
-                .BeginAsync(cancellationToken);
-
-        dbContext.Bookings.Add(
-            booking);
+        await using ITransaction transaction = await transactionManager.BeginAsync(cancellationToken);
+        dbContext.Bookings.Add(booking);
 
         // ACT
-        await unitOfWork
-            .SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // ASSERT
-        Assert.Single(
-            booking.GetDomainEvents());
+        Assert.Single(booking.GetDomainEvents());
 
         // ACT
-        await transaction
-            .CommitAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         // ASSERT
-        Assert.Empty(
-            booking.GetDomainEvents());
+        Assert.Empty(booking.GetDomainEvents());
 
-        Guid bookingId =
-            booking.Id;
+        Guid bookingId = booking.Id;
 
-        using IServiceScope verificationScope =
-            _factory.Services.CreateScope();
+        using IServiceScope verificationScope = _factory.Services.CreateScope();
+        BookingDbContext verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<BookingDbContext>();
 
-        BookingDbContext verificationDbContext =
-            verificationScope.ServiceProvider
-                .GetRequiredService<
-                    BookingDbContext>();
+        bool bookingExists = await verificationDbContext.Bookings
+            .AsNoTracking()
+            .AnyAsync(current => current.Id == bookingId, cancellationToken);
 
-        bool bookingExists =
-            await verificationDbContext
-                .Bookings
-                .AsNoTracking()
-                .AnyAsync(
-                    current =>
-                        current.Id ==
-                        bookingId, cancellationToken);
-
-        Assert.True(
-            bookingExists);
+        Assert.True(bookingExists);
     }
 
     [Fact]
@@ -165,150 +91,54 @@ public sealed class DomainEventTransactionBoundaryTests
     {
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        using IServiceScope scope =
-            _factory.Services.CreateScope();
+        RentableUnit rentableUnit = await CreatePersistedRentableUnitAsync(cancellationToken);
+        DomainBooking booking = CreateBooking(rentableUnit);
+        Guid bookingId = booking.Id;
 
-        BookingDbContext dbContext =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    BookingDbContext>();
+        using IServiceScope scope = _factory.Services.CreateScope();
+        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        IUnitOfWork unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        ITransactionManager transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
 
-        IUnitOfWork unitOfWork =
-            scope.ServiceProvider
-                .GetRequiredService<
-                    IUnitOfWork>();
+        await using ITransaction transaction = await transactionManager.BeginAsync(cancellationToken);
+        dbContext.Bookings.Add(booking);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        ITransactionManager
-            transactionManager =
-                scope.ServiceProvider
-                    .GetRequiredService<
-                        ITransactionManager>();
-
-        RentableUnit rentableUnit =
-            await CreatePersistedRentableUnitAsync(
-                dbContext,
-                unitOfWork);
-
-        DomainBooking booking =
-            CreateBooking(
-                rentableUnit);
-
-        Guid bookingId =
-            booking.Id;
-
-        await using ITransaction transaction =
-            await transactionManager
-                .BeginAsync(cancellationToken);
-
-        dbContext.Bookings.Add(
-            booking);
-
-        await unitOfWork
-            .SaveChangesAsync(cancellationToken);
-
-        Assert.Single(
-            booking.GetDomainEvents());
+        Assert.Single(booking.GetDomainEvents());
 
         // ACT
-        await transaction
-            .RollbackAsync(cancellationToken);
+        await transaction.RollbackAsync(cancellationToken);
 
         // ASSERT
-        Assert.Empty(
-            booking.GetDomainEvents());
+        Assert.Empty(booking.GetDomainEvents());
 
-        using IServiceScope verificationScope =
-            _factory.Services.CreateScope();
+        using IServiceScope verificationScope = _factory.Services.CreateScope();
+        BookingDbContext verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<BookingDbContext>();
 
-        BookingDbContext verificationDbContext =
-            verificationScope.ServiceProvider
-                .GetRequiredService<
-                    BookingDbContext>();
+        bool bookingExists = await verificationDbContext.Bookings
+            .AsNoTracking()
+            .AnyAsync(current => current.Id == bookingId, cancellationToken);
 
-        bool bookingExists =
-            await verificationDbContext
-                .Bookings
-                .AsNoTracking()
-                .AnyAsync(
-                    current =>
-                        current.Id ==
-                        bookingId, cancellationToken);
-
-        Assert.False(
-            bookingExists);
+        Assert.False(bookingExists);
     }
 
-    private static async Task<RentableUnit>
-        CreatePersistedRentableUnitAsync(
-            BookingDbContext dbContext,
-            IUnitOfWork unitOfWork)
+    private async Task<RentableUnit> CreatePersistedRentableUnitAsync(CancellationToken cancellationToken)
     {
-        Result<Property> propertyResult =
-            Property.Create(
-                "Domain event property",
-                "UTC",
-                new TimeOnly(15, 0),
-                new TimeOnly(11, 0));
+        SeedData seedData = await BookingDatabaseTestSeeder.SeedPropertyWithRoomAsync(
+            _factory.Services,
+            propertyName: "Domain event property",
+            roomName: "Domain event unit",
+            cancellationToken: cancellationToken);
 
-        Assert.True(
-            propertyResult.IsSuccess);
-
-        Property property =
-            propertyResult.Value;
-
-        Result<RentableUnit> rentableUnitResult =
-            RentableUnit.Create(
-                property.Id,
-                "Domain event unit",
-                RentableUnitType.EntireProperty,
-                maximumCapacity: 4,
-                maxBaseGuests: 2);
-
-        Assert.True(
-            rentableUnitResult.IsSuccess);
-
-        RentableUnit rentableUnit =
-            rentableUnitResult.Value;
-
-        dbContext.Properties.Add(
-            property);
-
-        dbContext.RentableUnits.Add(
-            rentableUnit);
-
-        await unitOfWork
-            .SaveChangesAsync();
-
-        return rentableUnit;
+        return seedData.RentableUnit;
     }
 
-    private static DomainBooking CreateBooking(
-    RentableUnit rentableUnit)
+    private static DomainBooking CreateBooking(RentableUnit rentableUnit)
     {
-        Result<StayPeriod> stayPeriodResult =
-            StayPeriod.Create(
-                new DateOnly(2026, 9, 10),
-                new DateOnly(2026, 9, 12));
+        StayPeriod stayPeriod = StayPeriod.Create(
+            new DateOnly(2026, 9, 10),
+            new DateOnly(2026, 9, 12)).Value;
 
-        Assert.True(stayPeriodResult.IsSuccess);
-
-        Result<GuestCount> guestCountResult =
-            GuestCount.Create(2);
-
-        Assert.True(guestCountResult.IsSuccess);
-
-        Result<DomainBooking> bookingResult =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriodResult.Value,
-                guestCountResult.Value,
-                BookingTestData.CreateGuestDetails(),
-                BookingTestData.CreatePriceSnapshot(),
-                BookingTestTime.CreatedAtUtc,
-                BookingTestTime.ApprovalDueAtUtc);
-
-        Assert.True(bookingResult.IsSuccess);
-
-        return bookingResult.Value;
+        return BookingTestData.CreateBooking(rentableUnit, stayPeriod);
     }
 }

@@ -14,8 +14,7 @@ public sealed class RentableUnitPricingPersistenceTests
 {
     private readonly BookingApiFactory _factory;
 
-    public RentableUnitPricingPersistenceTests(
-        BookingApiFactory factory)
+    public RentableUnitPricingPersistenceTests(BookingApiFactory factory)
     {
         _factory = factory;
     }
@@ -24,148 +23,57 @@ public sealed class RentableUnitPricingPersistenceTests
     public async Task SaveAndReload_WithConfiguredPricing_ShouldPreservePricing()
     {
         // ARRANGE
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        Property property =
-            Property.Create(
-                "Pricing Persistence Property",
-                "America/El_Salvador",
-                new TimeOnly(
-                    15,
-                    0),
-                new TimeOnly(
-                    11,
-                    0))
-            .Value;
+        Property property = Property.Create(
+            "Pricing Persistence Property",
+            "America/El_Salvador",
+            new TimeOnly(15, 0),
+            new TimeOnly(11, 0),
+            ownerSubjectId: "test-owner-subject").Value;
 
-        RentableUnit rentableUnit =
-            RentableUnit.Create(
-                property.Id,
-                "Room A",
-                RentableUnitType.Room,
-                maximumCapacity: 4,
-                maxBaseGuests: 2)
-            .Value;
+        RentableUnit rentableUnit = RentableUnit.Create(
+            property.Id,
+            "Room A",
+            RentableUnitType.Room,
+            maximumCapacity: 4,
+            maxBaseGuests: 2).Value;
 
-        RentableUnitPricing pricing =
-            RentableUnitPricing.Create(
-                Money.Create(
-                    100m,
-                    "USD")
-                .Value,
-                Money.Create(
-                    140m,
-                    "USD")
-                .Value,
-                Money.Create(
-                    25m,
-                    "USD")
-                .Value)
-            .Value;
+        RentableUnitPricing pricing = RentableUnitPricing.Create(
+            Money.Create(100m, "USD").Value,
+            Money.Create(140m, "USD").Value,
+            Money.Create(25m, "USD").Value).Value;
 
-        rentableUnit.ConfigurePricing(
-            pricing);
+        rentableUnit.ConfigurePricing(pricing);
 
-        using (
-            IServiceScope seedScope =
-                _factory.Services.CreateScope())
+        using (IServiceScope seedScope = _factory.Services.CreateScope())
         {
-            IPropertyRepository propertyRepository =
-                seedScope
-                    .ServiceProvider
-                    .GetRequiredService<
-                        IPropertyRepository>();
+            IPropertyRepository propertyRepository = seedScope.ServiceProvider.GetRequiredService<IPropertyRepository>();
+            IRentableUnitRepository rentableUnitRepository = seedScope.ServiceProvider.GetRequiredService<IRentableUnitRepository>();
+            IUnitOfWork unitOfWork = seedScope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-            IRentableUnitRepository rentableUnitRepository =
-                seedScope
-                    .ServiceProvider
-                    .GetRequiredService<
-                        IRentableUnitRepository>();
-
-            IUnitOfWork unitOfWork =
-                seedScope
-                    .ServiceProvider
-                    .GetRequiredService<
-                        IUnitOfWork>();
-
-            propertyRepository.Add(
-                property);
-
-            rentableUnitRepository.Add(
-                rentableUnit);
-
-            await unitOfWork.SaveChangesAsync(
-                cancellationToken);
+            propertyRepository.Add(property);
+            rentableUnitRepository.Add(rentableUnit);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         // ACT
         RentableUnit? persistedRentableUnit;
 
-        using (
-            IServiceScope assertionScope =
-                _factory.Services.CreateScope())
+        using (IServiceScope assertionScope = _factory.Services.CreateScope())
         {
-            IRentableUnitRepository rentableUnitRepository =
-                assertionScope
-                    .ServiceProvider
-                    .GetRequiredService<
-                        IRentableUnitRepository>();
-
-            persistedRentableUnit =
-                await rentableUnitRepository
-                    .GetByIdAsync(
-                        rentableUnit.Id,
-                        cancellationToken);
+            IRentableUnitRepository rentableUnitRepository = assertionScope.ServiceProvider.GetRequiredService<IRentableUnitRepository>();
+            persistedRentableUnit = await rentableUnitRepository.GetByIdAsync(rentableUnit.Id, cancellationToken);
         }
 
         // ASSERT
-        Assert.NotNull(
-            persistedRentableUnit);
-
-        Assert.NotNull(
-            persistedRentableUnit.Pricing);
-
-        Assert.Equal(
-            100m,
-            persistedRentableUnit
-                .Pricing
-                .RegularNightlyRate
-                .Amount);
-
-        Assert.Equal(
-            "USD",
-            persistedRentableUnit
-                .Pricing
-                .RegularNightlyRate
-                .Currency);
-
-        Assert.Equal(
-            140m,
-            persistedRentableUnit
-                .Pricing
-                .WeekendNightlyRate
-                .Amount);
-
-        Assert.Equal(
-            "USD",
-            persistedRentableUnit
-                .Pricing
-                .WeekendNightlyRate
-                .Currency);
-
-        Assert.Equal(
-            25m,
-            persistedRentableUnit
-                .Pricing
-                .ExtraGuestNightlyRate
-                .Amount);
-
-        Assert.Equal(
-            "USD",
-            persistedRentableUnit
-                .Pricing
-                .ExtraGuestNightlyRate
-                .Currency);
+        Assert.NotNull(persistedRentableUnit);
+        Assert.NotNull(persistedRentableUnit.Pricing);
+        Assert.Equal(100m, persistedRentableUnit.Pricing.RegularNightlyRate.Amount);
+        Assert.Equal("USD", persistedRentableUnit.Pricing.RegularNightlyRate.Currency);
+        Assert.Equal(140m, persistedRentableUnit.Pricing.WeekendNightlyRate.Amount);
+        Assert.Equal("USD", persistedRentableUnit.Pricing.WeekendNightlyRate.Currency);
+        Assert.Equal(25m, persistedRentableUnit.Pricing.ExtraGuestNightlyRate.Amount);
+        Assert.Equal("USD", persistedRentableUnit.Pricing.ExtraGuestNightlyRate.Currency);
     }
 }

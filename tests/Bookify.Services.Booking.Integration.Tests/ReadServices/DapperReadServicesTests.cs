@@ -27,99 +27,54 @@ public sealed class DapperReadServicesTests
     [Fact]
     public async Task ReadServices_ReturnExpectedProjections()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
-
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         TestData data = TestData.Create();
 
         await SeedAsync(data, cancellationToken);
 
-        using IServiceScope scope =
-            _factory.Services.CreateScope();
+        using IServiceScope scope = _factory.Services.CreateScope();
+        IPropertyReadService propertyReadService = scope.ServiceProvider.GetRequiredService<IPropertyReadService>();
+        IRentableUnitReadService unitReadService = scope.ServiceProvider.GetRequiredService<IRentableUnitReadService>();
+        IBookingReadService bookingReadService = scope.ServiceProvider.GetRequiredService<IBookingReadService>();
 
-        IPropertyReadService propertyReadService =
-            scope.ServiceProvider.GetRequiredService<IPropertyReadService>();
-
-        IRentableUnitReadService unitReadService =
-            scope.ServiceProvider.GetRequiredService<IRentableUnitReadService>();
-
-        IBookingReadService bookingReadService =
-            scope.ServiceProvider.GetRequiredService<IBookingReadService>();
-
-        PropertyDetailsReadModel? property =
-            await propertyReadService.GetByIdAsync(
-                data.PropertyId,
-                cancellationToken);
-
+        PropertyDetailsReadModel? property = await propertyReadService.GetByIdAsync(data.PropertyId, cancellationToken);
         Assert.NotNull(property);
         Assert.Equal(data.PropertyId, property.Id);
         Assert.Equal("Rancho Costa Azul", property.Name);
 
-        IReadOnlyList<RentableUnitListItemReadModel> units =
-            await unitReadService.GetActiveByPropertyIdAsync(
-                data.PropertyId,
-                cancellationToken);
-
+        IReadOnlyList<RentableUnitListItemReadModel> units = await unitReadService.GetActiveByPropertyIdAsync(data.PropertyId, cancellationToken);
         Assert.Equal(2, units.Count);
 
-        RentableUnitListItemReadModel entireProperty =
-            Assert.Single(
-                units,
-                unit => unit.Id == data.EntirePropertyUnitId);
-
+        RentableUnitListItemReadModel entireProperty = Assert.Single(units, unit => unit.Id == data.EntirePropertyUnitId);
         Assert.True(entireProperty.IsEntireProperty);
 
-        RentableUnitListItemReadModel room =
-            Assert.Single(
-                units,
-                unit => unit.Id == data.RoomUnitId);
-
+        RentableUnitListItemReadModel room = Assert.Single(units, unit => unit.Id == data.RoomUnitId);
         Assert.False(room.IsEntireProperty);
 
-        BookingDetailsReadModel? booking =
-            await bookingReadService.GetByIdAsync(
-                data.VisibleBookingId,
-                cancellationToken);
-
+        BookingDetailsReadModel? booking = await bookingReadService.GetByIdAsync(data.VisibleBookingId, cancellationToken);
         Assert.NotNull(booking);
-
-        Assert.Equal(
-            BookingTestReference.From(data.VisibleBookingId),
-            booking.BookingReference);
-
+        Assert.Equal(BookingTestReference.From(data.VisibleBookingId), booking.BookingReference);
         Assert.Equal(data.PropertyId, booking.PropertyId);
         Assert.Equal(data.RoomUnitId, booking.RentableUnitId);
         Assert.Equal(3, booking.NumberOfNights);
         Assert.Equal(2, booking.GuestCount);
         Assert.Equal("PendingApproval", booking.Status);
 
-        IReadOnlyList<BookingCalendarItemReadModel> calendar =
-            await bookingReadService.GetCalendarAsync(
-                data.PropertyId,
-                new DateOnly(2026, 8, 10),
-                new DateOnly(2026, 8, 20),
-                cancellationToken);
+        IReadOnlyList<BookingCalendarItemReadModel> calendar = await bookingReadService.GetCalendarAsync(
+            data.PropertyId,
+            new DateOnly(2026, 8, 10),
+            new DateOnly(2026, 8, 20),
+            cancellationToken);
 
-        BookingCalendarItemReadModel calendarBooking =
-            Assert.Single(calendar);
-
-        Assert.Equal(
-            data.VisibleBookingId,
-            calendarBooking.BookingId);
-
+        BookingCalendarItemReadModel calendarBooking = Assert.Single(calendar);
+        Assert.Equal(data.VisibleBookingId, calendarBooking.BookingId);
         Assert.True(calendarBooking.BlocksInventory);
     }
 
-    private async Task SeedAsync(
-        TestData data,
-        CancellationToken cancellationToken)
+    private async Task SeedAsync(TestData data, CancellationToken cancellationToken)
     {
-        IDbConnectionFactory connectionFactory =
-            _factory.Services.GetRequiredService<IDbConnectionFactory>();
-
-        await using DbConnection connection =
-            await connectionFactory.OpenConnectionAsync(
-                cancellationToken);
+        IDbConnectionFactory connectionFactory = _factory.Services.GetRequiredService<IDbConnectionFactory>();
+        await using DbConnection connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
 
         var insertProperty = new CommandDefinition(
             """
@@ -130,7 +85,8 @@ public sealed class DapperReadServicesTests
                 time_zone_id,
                 check_in_time,
                 check_out_time,
-                is_active
+                is_active,
+                owner_subject_id
             )
             VALUES
             (
@@ -139,7 +95,8 @@ public sealed class DapperReadServicesTests
                 @TimeZoneId,
                 @CheckInTime,
                 @CheckOutTime,
-                TRUE
+                TRUE,
+                'test-owner-subject'
             );
             """,
             new
@@ -208,7 +165,8 @@ public sealed class DapperReadServicesTests
                 check_out_date,
                 guest_count,
                 status,
-                cancellation_reason
+                cancellation_reason,
+                guest_access_token_hash
             )
             VALUES
             (
@@ -220,7 +178,8 @@ public sealed class DapperReadServicesTests
                 @VisibleCheckOut,
                 2,
                 'PendingApproval',
-                NULL
+                NULL,
+                repeat('A', 64)
             ),
             (
                 @OutsideBookingId,
@@ -231,24 +190,18 @@ public sealed class DapperReadServicesTests
                 @OutsideCheckOut,
                 2,
                 'PendingApproval',
-                NULL
+                NULL,
+                repeat('A', 64)
             );
             """,
             new
             {
                 data.VisibleBookingId,
-
-                VisibleBookingReference =
-                    BookingTestReference.From(data.VisibleBookingId),
-
+                VisibleBookingReference = BookingTestReference.From(data.VisibleBookingId),
                 data.OutsideBookingId,
-
-                OutsideBookingReference =
-                    BookingTestReference.From(data.OutsideBookingId),
-
+                OutsideBookingReference = BookingTestReference.From(data.OutsideBookingId),
                 data.PropertyId,
                 data.RoomUnitId,
-
                 VisibleCheckIn = new DateOnly(2026, 8, 12),
                 VisibleCheckOut = new DateOnly(2026, 8, 15),
                 OutsideCheckIn = new DateOnly(2026, 9, 1),
@@ -266,12 +219,11 @@ public sealed class DapperReadServicesTests
         Guid VisibleBookingId,
         Guid OutsideBookingId)
     {
-        public static TestData Create() =>
-            new(
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                Guid.NewGuid());
+        public static TestData Create() => new(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid());
     }
 }
