@@ -30,21 +30,18 @@ public sealed class CreatePropertyCommandHandler
             command.Name,
             command.TimeZoneId,
             command.CheckInTime,
-            command.CheckOutTime);
+            command.CheckOutTime,
+            command.OwnerSubjectId);
 
         if (propertyResult.IsFailure)
         {
-            return Result<Guid>.Failure(
-                propertyResult.Error);
+            return Result<Guid>.Failure(propertyResult.Error);
         }
 
         Property property = propertyResult.Value;
 
         _propertyRepository.Add(property);
-
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return Result<Guid>.Success(
-            property.Id);
+        return Result<Guid>.Success(property.Id);
     }
 }

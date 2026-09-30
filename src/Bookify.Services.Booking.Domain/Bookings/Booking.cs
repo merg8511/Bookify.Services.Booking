@@ -11,6 +11,7 @@ namespace Bookify.Services.Booking.Domain.Bookings;
 
 public sealed class Booking : AggregateRoot
 {
+    private string? _unissuedGuestAccessToken;
     private Booking()
     {
         Reference = null!;
@@ -29,7 +30,9 @@ public sealed class Booking : AggregateRoot
         PriceSnapshot? priceSnapshot,
         DateTimeOffset createdAtUtc,
         DateTimeOffset approvalDueAtUtc,
-        BookingStatus status)
+        BookingStatus status,
+        string? customerSubjectId,
+        GuestBookingCredential? guestCredential)
     {
         Id = id;
         Reference = reference;
@@ -42,6 +45,10 @@ public sealed class Booking : AggregateRoot
         CreatedAtUtc = createdAtUtc;
         ApprovalDueAtUtc = approvalDueAtUtc;
         Status = status;
+
+        CustomerSubjectId = customerSubjectId;
+        GuestAccessTokenHash = guestCredential?.Hash;
+        _unissuedGuestAccessToken = guestCredential?.RawToken;
     }
 
     public Guid Id { get; private set; }
@@ -52,6 +59,8 @@ public sealed class Booking : AggregateRoot
     public GuestCount GuestCount { get; private set; }
     public GuestDetails? GuestDetails { get; private set; }
     public PriceSnapshot? PriceSnapshot { get; private set; }
+    public string? CustomerSubjectId { get; private set; }
+    public string? GuestAccessTokenHash { get; private set; }
     public BookingStatus Status { get; private set; }
     public BookingCancellationReason? CancellationReason { get; private set; }
     public DateTimeOffset? CreatedAtUtc { get; private set; }
@@ -75,13 +84,22 @@ public sealed class Booking : AggregateRoot
         GuestDetails guestDetails,
         PriceSnapshot priceSnapshot,
         DateTimeOffset createdAtUtc,
-        DateTimeOffset approvalDueAtUtc)
+        DateTimeOffset approvalDueAtUtc,
+        string? customerSubjectId = null)
     {
         ArgumentNullException.ThrowIfNull(rentableUnit);
         ArgumentNullException.ThrowIfNull(stayPeriod);
         ArgumentNullException.ThrowIfNull(guestCount);
         ArgumentNullException.ThrowIfNull(guestDetails);
         ArgumentNullException.ThrowIfNull(priceSnapshot);
+
+        if (customerSubjectId is not null &&
+            (string.IsNullOrWhiteSpace(customerSubjectId) ||
+            customerSubjectId.Length > 255 ||
+            !string.Equals(customerSubjectId, customerSubjectId.Trim(), StringComparison.Ordinal)))
+        {
+            return Result<Booking>.Failure(BookingErrors.InvalidCustomerSubjectId);
+        }
 
         if (!rentableUnit.IsActive)
         {
@@ -98,6 +116,10 @@ public sealed class Booking : AggregateRoot
             return Result<Booking>.Failure(BookingDeadlineErrors.InvalidApprovalDeadline);
         }
 
+        GuestBookingCredential? guestCredential = customerSubjectId is null
+            ? GuestBookingCredential.Generate()
+            : null;
+
         var booking = new Booking(
             Guid.NewGuid(),
             BookingReference.New(),
@@ -109,11 +131,31 @@ public sealed class Booking : AggregateRoot
             priceSnapshot,
             createdAtUtc,
             approvalDueAtUtc,
-            BookingStatus.PendingApproval);
+            BookingStatus.PendingApproval,
+            customerSubjectId,
+            guestCredential);
 
         booking.RaiseDomainEvent(new BookingCreatedDomainEvent(booking.Id));
 
         return Result<Booking>.Success(booking);
+    }
+
+    public string? TakeGuestAccessToken()
+    {
+        string? token = _unissuedGuestAccessToken;
+        _unissuedGuestAccessToken = null;
+
+        return token;
+    }
+
+    public bool VerifyGuestAccessToken(string? rawToken)
+    {
+        if (CustomerSubjectId is not null)
+        {
+            return false;
+        }
+
+        return GuestBookingCredential.Verify(rawToken, GuestAccessTokenHash);
     }
 
     public Result Approve(

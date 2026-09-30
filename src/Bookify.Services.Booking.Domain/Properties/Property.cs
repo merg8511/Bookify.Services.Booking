@@ -9,6 +9,7 @@ public sealed class Property
     {
         Name = string.Empty;
         TimeZoneId = string.Empty;
+        OwnerSubjectId = string.Empty;
     }
 
     private Property(
@@ -16,13 +17,15 @@ public sealed class Property
         string name,
         string timeZoneId,
         TimeOnly checkInTime,
-        TimeOnly checkOutTime)
+        TimeOnly checkOutTime,
+        string ownerSubjectId)
     {
         Id = id;
         Name = name;
         TimeZoneId = timeZoneId;
         CheckInTime = checkInTime;
         CheckOutTime = checkOutTime;
+        OwnerSubjectId = ownerSubjectId;
         IsActive = true;
     }
 
@@ -31,28 +34,35 @@ public sealed class Property
     public string TimeZoneId { get; private set; }
     public TimeOnly CheckInTime { get; private set; }
     public TimeOnly CheckOutTime { get; private set; }
+    public string OwnerSubjectId { get; private set; }
     public bool IsActive { get; private set; }
 
     public static Result<Property> Create(
         string name,
         string timeZoneId,
         TimeOnly checkInTime,
-        TimeOnly checkOutTime)
+        TimeOnly checkOutTime,
+        string ownerSubjectId)
     {
         string? normalizedName = name?.Trim();
 
         if (string.IsNullOrWhiteSpace(normalizedName))
         {
-            return Result<Property>.Failure(
-                PropertyErrors.InvalidName);
+            return Result<Property>.Failure(PropertyErrors.InvalidName);
         }
 
         string? normalizedTimeZoneId = timeZoneId?.Trim();
 
         if (string.IsNullOrWhiteSpace(normalizedTimeZoneId))
         {
-            return Result<Property>.Failure(
-                PropertyErrors.InvalidTimeZoneId);
+            return Result<Property>.Failure(PropertyErrors.InvalidTimeZoneId);
+        }
+
+        if (string.IsNullOrWhiteSpace(ownerSubjectId) ||
+            ownerSubjectId.Length > 255 ||
+            !string.Equals(ownerSubjectId, ownerSubjectId.Trim(), StringComparison.Ordinal))
+        {
+            return Result<Property>.Failure(PropertyErrors.InvalidOwnerSubjectId);
         }
 
         var property = new Property(
@@ -60,7 +70,8 @@ public sealed class Property
             normalizedName,
             normalizedTimeZoneId,
             checkInTime,
-            checkOutTime);
+            checkOutTime,
+            ownerSubjectId);
 
         return Result<Property>.Success(property);
     }

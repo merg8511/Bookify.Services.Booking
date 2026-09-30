@@ -193,7 +193,8 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                 guestDetails,
                 priceSnapshot,
                 createdAtUtc,
-                approvalDueAtUtc);
+                approvalDueAtUtc,
+                command.CustomerSubjectId);
 
             if (bookingResult.IsFailure)
             {
@@ -224,6 +225,8 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
+            string? guestAccessToken = booking.TakeGuestAccessToken();
+
             var result = new CreateBookingResult(
                 booking.Id,
                 booking.Reference.Value,
@@ -232,7 +235,8 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
                 priceSnapshot.AccommodationPrice.Amount,
                 priceSnapshot.ExtraGuestPrice.Amount,
                 priceSnapshot.TotalPrice.Amount,
-                priceSnapshot.TotalPrice.Currency);
+                priceSnapshot.TotalPrice.Currency,
+                guestAccessToken);
 
 
             return Result<CreateBookingResult>.Success(result);
