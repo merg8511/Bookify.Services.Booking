@@ -10,182 +10,90 @@ public sealed class DomainEventDispatcherTests
     [Fact]
     public async Task DispatchAsync_WithSingleHandler_ShouldInvokeHandler()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var serviceProvider = new TestServiceProvider();
+        var handler = new RecordingHandler("first", []);
+        serviceProvider.AddHandlers<BookingCreatedDomainEvent>(handler);
 
-        var serviceProvider =
-            new TestServiceProvider();
+        var dispatcher = new DomainEventDispatcher(serviceProvider);
+        var domainEvent = new BookingCreatedDomainEvent(Guid.NewGuid());
 
-        var handler =
-            new RecordingHandler(
-                "first",
-                []);
+        // Act
+        await dispatcher.DispatchAsync([domainEvent], cancellationToken);
 
-        serviceProvider.AddHandlers<
-            BookingCreatedDomainEvent>(
-                handler);
-
-        var dispatcher =
-            new DomainEventDispatcher(
-                serviceProvider);
-
-        var domainEvent =
-            new BookingCreatedDomainEvent(
-                Guid.NewGuid());
-
-        // ACT
-        await dispatcher.DispatchAsync(
-            [domainEvent], cancellationToken);
-
-        // ASSERT
-        Assert.Equal(
-            1,
-            handler.InvocationCount);
-
-        Assert.Same(
-            domainEvent,
-            handler.LastDomainEvent);
+        // Assert
+        Assert.Equal(1, handler.InvocationCount);
+        Assert.Same(domainEvent, handler.LastDomainEvent);
     }
 
     [Fact]
     public async Task DispatchAsync_WithMultipleHandlers_ShouldInvokeAllInOrder()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var invocations = new List<string>();
+        var firstHandler = new RecordingHandler("first", invocations);
+        var secondHandler = new RecordingHandler("second", invocations);
 
-        var invocations =
-            new List<string>();
+        var serviceProvider = new TestServiceProvider();
+        serviceProvider.AddHandlers<BookingCreatedDomainEvent>(firstHandler, secondHandler);
 
-        var firstHandler =
-            new RecordingHandler(
-                "first",
-                invocations);
+        var dispatcher = new DomainEventDispatcher(serviceProvider);
+        var domainEvent = new BookingCreatedDomainEvent(Guid.NewGuid());
 
-        var secondHandler =
-            new RecordingHandler(
-                "second",
-                invocations);
+        // Act
+        await dispatcher.DispatchAsync([domainEvent], cancellationToken);
 
-        var serviceProvider =
-            new TestServiceProvider();
-
-        serviceProvider.AddHandlers<
-            BookingCreatedDomainEvent>(
-                firstHandler,
-                secondHandler);
-
-        var dispatcher =
-            new DomainEventDispatcher(
-                serviceProvider);
-
-        var domainEvent =
-            new BookingCreatedDomainEvent(
-                Guid.NewGuid());
-
-        // ACT
-        await dispatcher.DispatchAsync(
-            [domainEvent], cancellationToken);
-
-        // ASSERT
-        Assert.Equal(
-            ["first", "second"],
-            invocations);
+        // Assert
+        Assert.Equal(["first", "second"], invocations);
     }
 
     [Fact]
     public async Task DispatchAsync_WithoutHandlers_ShouldCompleteSuccessfully()
     {
-        // ARRANGE
-        var serviceProvider =
-            new TestServiceProvider();
+        // Arrange
+        var serviceProvider = new TestServiceProvider();
+        var dispatcher = new DomainEventDispatcher(serviceProvider);
+        var domainEvent = new BookingCreatedDomainEvent(Guid.NewGuid());
 
-        var dispatcher =
-            new DomainEventDispatcher(
-                serviceProvider);
+        // Act
+        Task Action() => dispatcher.DispatchAsync([domainEvent]);
 
-        var domainEvent =
-            new BookingCreatedDomainEvent(
-                Guid.NewGuid());
-
-        // ACT
-        Task Action()
-        {
-            return dispatcher.DispatchAsync(
-                [domainEvent]);
-        }
-
-        // ASSERT
+        // Assert
         await Action();
     }
 
     [Fact]
     public async Task DispatchAsync_WhenHandlerThrows_ShouldPropagateExceptionAndStopDispatching()
     {
-        // ARRANGE
-        var invocations =
-            new List<string>();
+        // Arrange
+        var invocations = new List<string>();
+        var throwingHandler = new ThrowingHandler(invocations);
+        var subsequentHandler = new RecordingHandler("subsequent", invocations);
 
-        var throwingHandler =
-            new ThrowingHandler(
-                invocations);
+        var serviceProvider = new TestServiceProvider();
+        serviceProvider.AddHandlers<BookingCreatedDomainEvent>(throwingHandler, subsequentHandler);
 
-        var subsequentHandler =
-            new RecordingHandler(
-                "subsequent",
-                invocations);
+        var dispatcher = new DomainEventDispatcher(serviceProvider);
+        var domainEvent = new BookingCreatedDomainEvent(Guid.NewGuid());
 
-        var serviceProvider =
-            new TestServiceProvider();
+        // Act
+        Task Action() => dispatcher.DispatchAsync([domainEvent]);
 
-        serviceProvider.AddHandlers<
-            BookingCreatedDomainEvent>(
-                throwingHandler,
-                subsequentHandler);
-
-        var dispatcher =
-            new DomainEventDispatcher(
-                serviceProvider);
-
-        var domainEvent =
-            new BookingCreatedDomainEvent(
-                Guid.NewGuid());
-
-        // ACT
-        Task Action()
-        {
-            return dispatcher.DispatchAsync(
-                [domainEvent]);
-        }
-
-        // ASSERT
-        InvalidOperationException exception =
-            await Assert.ThrowsAsync<
-                InvalidOperationException>(
-                    Action);
-
-        Assert.Equal(
-            "Domain event handler failed.",
-            exception.Message);
-
-        Assert.Equal(
-            ["throwing"],
-            invocations);
-
-        Assert.Equal(
-            0,
-            subsequentHandler.InvocationCount);
+        // Assert
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(Action);
+        Assert.Equal("Domain event handler failed.", exception.Message);
+        Assert.Equal(["throwing"], invocations);
+        Assert.Equal(0, subsequentHandler.InvocationCount);
     }
 
-    private sealed class RecordingHandler
-        : IDomainEventHandler<
-            BookingCreatedDomainEvent>
+    private sealed class RecordingHandler : IDomainEventHandler<BookingCreatedDomainEvent>
     {
         private readonly string _name;
         private readonly List<string> _invocations;
 
-        public RecordingHandler(
-            string name,
-            List<string> invocations)
+        public RecordingHandler(string name, List<string> invocations)
         {
             _name = name;
             _invocations = invocations;
@@ -193,38 +101,28 @@ public sealed class DomainEventDispatcherTests
 
         public int InvocationCount { get; private set; }
 
-        public BookingCreatedDomainEvent?
-            LastDomainEvent
-        { get; private set; }
+        public BookingCreatedDomainEvent? LastDomainEvent { get; private set; }
 
         public Task HandleAsync(
             BookingCreatedDomainEvent domainEvent,
             CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull(
-                domainEvent);
-
-            cancellationToken
-                .ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(domainEvent);
+            cancellationToken.ThrowIfCancellationRequested();
 
             InvocationCount++;
             LastDomainEvent = domainEvent;
-
-            _invocations.Add(
-                _name);
+            _invocations.Add(_name);
 
             return Task.CompletedTask;
         }
     }
 
-    private sealed class ThrowingHandler
-        : IDomainEventHandler<
-            BookingCreatedDomainEvent>
+    private sealed class ThrowingHandler : IDomainEventHandler<BookingCreatedDomainEvent>
     {
         private readonly List<string> _invocations;
 
-        public ThrowingHandler(
-            List<string> invocations)
+        public ThrowingHandler(List<string> invocations)
         {
             _invocations = invocations;
         }
@@ -233,63 +131,37 @@ public sealed class DomainEventDispatcherTests
             BookingCreatedDomainEvent domainEvent,
             CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull(
-                domainEvent);
+            ArgumentNullException.ThrowIfNull(domainEvent);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            _invocations.Add(
-                "throwing");
-
-            throw new InvalidOperationException(
-                "Domain event handler failed.");
+            _invocations.Add("throwing");
+            throw new InvalidOperationException("Domain event handler failed.");
         }
     }
 
-    private sealed class TestServiceProvider
-        : IServiceProvider
+    private sealed class TestServiceProvider : IServiceProvider
     {
-        private readonly Dictionary<Type, object>
-            _services = [];
+        private readonly Dictionary<Type, object> _services = [];
 
-        public void AddHandlers<TDomainEvent>(
-            params IDomainEventHandler<
-                TDomainEvent>[] handlers)
+        public void AddHandlers<TDomainEvent>(params IDomainEventHandler<TDomainEvent>[] handlers)
             where TDomainEvent : IDomainEvent
         {
-            _services[
-                typeof(
-                    IEnumerable<
-                        IDomainEventHandler<
-                            TDomainEvent>>)] =
-                handlers;
+            _services[typeof(IEnumerable<IDomainEventHandler<TDomainEvent>>)] = handlers;
         }
 
-        public object? GetService(
-            Type serviceType)
+        public object? GetService(Type serviceType)
         {
-            ArgumentNullException.ThrowIfNull(
-                serviceType);
+            ArgumentNullException.ThrowIfNull(serviceType);
 
-            if (_services.TryGetValue(
-                    serviceType,
-                    out object? service))
+            if (_services.TryGetValue(serviceType, out object? service))
             {
                 return service;
             }
 
-            if (serviceType.IsGenericType &&
-                serviceType.GetGenericTypeDefinition() ==
-                typeof(IEnumerable<>))
+            if (serviceType.IsGenericType && serviceType.GetGenericTypeDefinition() == typeof(IEnumerable<>))
             {
-                Type elementType =
-                    serviceType
-                        .GetGenericArguments()[0];
-
-                return Array.CreateInstance(
-                    elementType,
-                    0);
+                Type elementType = serviceType.GetGenericArguments()[0];
+                return Array.CreateInstance(elementType, 0);
             }
 
             return null;

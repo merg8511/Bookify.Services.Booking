@@ -16,15 +16,8 @@ public sealed class PagedResultTests
         int pageSize,
         long expectedTotalPages)
     {
-        var result =
-            new PagedResult<int>(
-                [],
-                1,
-                pageSize,
-                totalRecords);
+        var result = new PagedResult<int>([], 1, pageSize, totalRecords);
 
-        Assert.Equal(
-            expectedTotalPages,
-            result.TotalPages);
+        Assert.Equal(expectedTotalPages, result.TotalPages);
     }
 }
