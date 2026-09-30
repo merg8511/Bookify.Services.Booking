@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using Bookify.Services.Booking.Application.Abstractions.Security;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -21,8 +22,7 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
     private readonly PostgreSqlTestDatabase _database = new();
     private HttpClient? _client;
 
-    public HttpClient Client =>
-        _client ?? throw new InvalidOperationException("The API factory has not been initialized");
+    public HttpClient Client => _client ?? throw new InvalidOperationException("The API factory has not been initialized");
 
     public async ValueTask InitializeAsync()
     {
@@ -33,12 +33,11 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     public HttpClient CreateAuthenticatedClient(string subject, params string[] roles)
     {
-        HttpClient client = CreateClient(
-            new WebApplicationFactoryClientOptions
-            {
-                AllowAutoRedirect = false,
-                BaseAddress = new Uri("http://localhost")
-            });
+        HttpClient client = CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("http://localhost")
+        });
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             JwtBearerDefaults.AuthenticationScheme,
@@ -47,38 +46,52 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
         return client;
     }
 
+    public HttpClient CreateOwnerClient(string subject = TestIdentitySubjects.Owner)
+    {
+        return CreateAuthenticatedClient(subject, BookifyRoles.Owner);
+    }
+
+    public HttpClient CreateCustomerClient(string subject = TestIdentitySubjects.Customer)
+    {
+        return CreateAuthenticatedClient(subject, BookifyRoles.Customer);
+    }
+
+    public HttpClient CreateAdminClient(string subject = TestIdentitySubjects.Admin)
+    {
+        return CreateAuthenticatedClient(subject, BookifyRoles.Admin);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseContentRoot(GetApiContentRoot());
-
         builder.UseSetting("Payments:Provider", "Fake");
         builder.UseSetting("Payments:Stripe:WebhookSecret", StripeWebhookSecret);
         builder.UseSetting("Payments:Stripe:WebhookToleranceSeconds", "300");
         builder.UseSetting("Identity:Authority", IdentityAuthority);
         builder.UseSetting("Identity:Audience", IdentityAudience);
 
-        builder.ConfigureTestServices(services =>
-        {
-            services.PostConfigure<JwtBearerOptions>(
-                JwtBearerDefaults.AuthenticationScheme,
-                options =>
-                {
-                    var configuration = new OpenIdConnectConfiguration
+        builder.ConfigureTestServices(
+            services =>
+            {
+                services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme,
+                    options =>
                     {
-                        Issuer = IdentityAuthority
-                    };
+                        var configuration = new OpenIdConnectConfiguration
+                        {
+                            Issuer = IdentityAuthority
+                        };
 
-                    configuration.SigningKeys.Add(TestIdentityTokens.SigningKey);
+                        configuration.SigningKeys.Add(TestIdentityTokens.SigningKey);
 
-                    // Prevent OIDC network discovery in integration tests.
-                    options.Configuration = configuration;
-                    options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
-                    options.TokenValidationParameters.IssuerSigningKey = TestIdentityTokens.SigningKey;
-                    options.TokenValidationParameters.ValidIssuer = IdentityAuthority;
-                    options.TokenValidationParameters.ValidAudience = IdentityAudience;
-                });
-        });
+                        // Prevent OIDC network discovery in integration tests.
+                        options.Configuration = configuration;
+                        options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
+                        options.TokenValidationParameters.IssuerSigningKey = TestIdentityTokens.SigningKey;
+                        options.TokenValidationParameters.ValidIssuer = IdentityAuthority;
+                        options.TokenValidationParameters.ValidAudience = IdentityAudience;
+                    });
+            });
     }
 
     public override async ValueTask DisposeAsync()
@@ -101,12 +114,11 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         try
         {
-            return CreateClient(
-                new WebApplicationFactoryClientOptions
-                {
-                    AllowAutoRedirect = false,
-                    BaseAddress = new Uri("http://localhost")
-                });
+            return CreateClient(new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false,
+                BaseAddress = new Uri("http://localhost")
+            });
         }
         finally
         {
@@ -118,6 +130,7 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
     {
         await using AsyncServiceScope scope = Services.CreateAsyncScope();
         BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+
         await dbContext.Database.MigrateAsync();
     }
 
@@ -135,10 +148,7 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
             throw new DirectoryNotFoundException("The solution root directory could not be found.");
         }
 
-        string[] projectFiles = Directory.GetFiles(
-            directory.FullName,
-            "Bookify.Services.Booking.Api.csproj",
-            SearchOption.AllDirectories);
+        string[] projectFiles = Directory.GetFiles(directory.FullName, "Bookify.Services.Booking.Api.csproj", SearchOption.AllDirectories);
 
         if (projectFiles.Length == 0)
         {

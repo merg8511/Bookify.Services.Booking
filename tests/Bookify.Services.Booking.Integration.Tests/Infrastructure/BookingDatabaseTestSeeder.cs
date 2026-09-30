@@ -23,7 +23,7 @@ internal static class BookingDatabaseTestSeeder
         IServiceProvider serviceProvider,
         string? propertyName = null,
         string? roomName = null,
-        string ownerSubjectId = "test-owner-subject",
+        string ownerSubjectId = TestIdentitySubjects.Owner,
         decimal weekdayPrice = 100m,
         decimal weekendPrice = 140m,
         decimal extraGuestPrice = 25m,
@@ -70,7 +70,7 @@ internal static class BookingDatabaseTestSeeder
         BookingApiFactory factory,
         string? propertyName = null,
         string? roomName = null,
-        string ownerSubjectId = "test-owner-subject",
+        string ownerSubjectId = TestIdentitySubjects.Owner,
         decimal weekdayPrice = 100m,
         decimal weekendPrice = 140m,
         decimal extraGuestPrice = 25m,
@@ -101,7 +101,7 @@ internal static class BookingDatabaseTestSeeder
         StayPeriod? stayPeriod = null,
         GuestCount? guestCount = null,
         PriceSnapshot? priceSnapshot = null,
-        string ownerSubjectId = "test-owner-subject",
+        string ownerSubjectId = TestIdentitySubjects.Owner,
         string? customerSubjectId = null,
         CancellationToken cancellationToken = default)
     {
@@ -172,7 +172,7 @@ internal static class BookingDatabaseTestSeeder
         StayPeriod? stayPeriod = null,
         GuestCount? guestCount = null,
         PriceSnapshot? priceSnapshot = null,
-        string ownerSubjectId = "test-owner-subject",
+        string ownerSubjectId = TestIdentitySubjects.Owner,
         string? customerSubjectId = null,
         CancellationToken cancellationToken = default)
     {

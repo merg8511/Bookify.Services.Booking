@@ -1,12 +1,13 @@
-using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Get;
 using Bookify.Services.Booking.Api.Endpoints.Payments.Initiate;
+using Bookify.Services.Booking.Application.Abstractions.Security;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Integration.Tests.Contracts;
 using Bookify.Services.Booking.Integration.Tests.Infrastructure;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Bookify.Services.Booking.Integration.Tests.Endpoints.Bookings;
 
@@ -31,7 +32,7 @@ public sealed class GetBookingEndpointTests
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
         CreatedBooking created = await CreateBookingAsync(cancellationToken);
-        await ApproveBookingAsync(created.Response.Id, cancellationToken);
+        await ApproveBookingAsync(created.Response.Id, created.Seed.Property.OwnerSubjectId, cancellationToken);
         await InitiatePaymentAsync(created.Response.Id, cancellationToken);
 
         // Act
@@ -191,9 +192,11 @@ public sealed class GetBookingEndpointTests
         return new CreatedBooking(seed, body, location);
     }
 
-    private async Task ApproveBookingAsync(Guid bookingId, CancellationToken cancellationToken)
+    private async Task ApproveBookingAsync(Guid bookingId, string ownerSubjectId, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await _client.PostAsync(
+        using HttpClient ownerClient = _factory.CreateAuthenticatedClient(ownerSubjectId, BookifyRoles.Owner);
+
+        using HttpResponseMessage response = await ownerClient.PostAsync(
             $"/api/v1/bookings/{bookingId}/approve",
             content: null,
             cancellationToken);

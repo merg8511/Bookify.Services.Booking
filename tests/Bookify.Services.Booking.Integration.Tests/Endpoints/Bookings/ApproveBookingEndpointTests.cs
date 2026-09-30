@@ -33,7 +33,7 @@ public sealed class ApproveBookingEndpointTests
             BookingStatus.PendingApproval,
             cancellationToken: cancellationToken);
 
-        HttpClient client = _factory.CreateClient();
+        HttpClient client = _factory.CreateOwnerClient();
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
@@ -66,7 +66,7 @@ public sealed class ApproveBookingEndpointTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         Guid bookingId = Guid.NewGuid();
-        HttpClient client = _factory.CreateClient();
+        HttpClient client = _factory.CreateOwnerClient();
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
@@ -94,7 +94,7 @@ public sealed class ApproveBookingEndpointTests
             BookingStatus.PendingPayment,
             cancellationToken: cancellationToken);
 
-        HttpClient client = _factory.CreateClient();
+        HttpClient client = _factory.CreateOwnerClient();
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
@@ -124,7 +124,7 @@ public sealed class ApproveBookingEndpointTests
     {
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        HttpClient client = _factory.CreateClient();
+        HttpClient client = _factory.CreateOwnerClient();
 
         // Act
         HttpResponseMessage response = await client.PostAsync(
