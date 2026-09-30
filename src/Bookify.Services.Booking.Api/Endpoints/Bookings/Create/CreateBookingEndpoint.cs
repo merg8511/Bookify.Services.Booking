@@ -10,6 +10,7 @@ namespace Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
 
 internal static class CreateBookingEndpoint
 {
+    private const string GuestTokenHeader = "Booking-Guest-Token";
     public static void Map(RouteGroupBuilder bookingsGroup)
     {
         bookingsGroup
@@ -19,23 +20,23 @@ internal static class CreateBookingEndpoint
             .WithMetadata(IdempotencyRequiredMetadata.Instance)
             .Accepts<CreateBookingRequest>("application/json")
             .Produces<CreateBookingResponse>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status415UnsupportedMediaType)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
-            .Produces(StatusCodes.Status415UnsupportedMediaType)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
-    private static async Task<Results<Created<
-        CreateBookingResponse>,
-        ProblemHttpResult>> HandleAsync(
+    private static async Task<Results<Created<CreateBookingResponse>, ProblemHttpResult>> HandleAsync(
             CreateBookingRequest request,
-            ICommandExecutor<
-                CreateBookingCommand,
-                CreateBookingResult> commandExecutor,
+            ICommandExecutor<CreateBookingCommand, CreateBookingResult> commandExecutor,
             HttpContext httpContext,
             CancellationToken cancellationToken)
     {
+        string? customerSubjectId = httpContext.User.Identity?.IsAuthenticated == true
+            ? httpContext.User.FindFirst("sub")?.Value
+            : null;
+
         var command =
             new CreateBookingCommand(
                 request.PropertyId,
@@ -45,7 +46,8 @@ internal static class CreateBookingEndpoint
                 request.GuestCount,
                 request.Guest?.FullName,
                 request.Guest?.Email,
-                request.Guest?.Phone);
+                request.Guest?.Phone,
+                customerSubjectId);
 
         Result<CreateBookingResult> result = await commandExecutor.ExecuteAsync(command, cancellationToken);
 
@@ -53,6 +55,14 @@ internal static class CreateBookingEndpoint
             httpContext,
             booking =>
             {
+                httpContext.Response.Headers.CacheControl = "no-store";
+                httpContext.Response.Headers.Pragma = "no-cache";
+
+                if (booking.GuestAccessToken is not null)
+                {
+                    httpContext.Response.Headers[GuestTokenHeader] = booking.GuestAccessToken;
+                }
+
                 var price = new CreateBookingPriceResponse(
                     booking.AccommodationPrice,
                     booking.ExtraGuestPrice,
