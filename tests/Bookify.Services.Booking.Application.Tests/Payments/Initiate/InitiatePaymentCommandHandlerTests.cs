@@ -6,29 +6,16 @@ using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Payments.Reconciliation;
 using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
-using Bookify.Services.Booking.Domain.Bookings.Pricing;
-using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Payments;
 using Bookify.Services.Booking.Domain.Payments.Errors;
-using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
-using Bookify.Services.Booking.Domain.Shared.ValueObjects;
-
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Application.Tests.Payments.Initiate;
 
 public sealed class InitiatePaymentCommandHandlerTests
 {
-    private static readonly DateTimeOffset UtcNow =
-        new(
-            2026,
-            8,
-            25,
-            18,
-            0,
-            0,
-            TimeSpan.Zero);
+    private static readonly DateTimeOffset UtcNow = new(2026, 8, 25, 18, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFound()
@@ -42,12 +29,11 @@ public sealed class InitiatePaymentCommandHandlerTests
         var paymentGateway = new SpyPaymentGateway();
         var unitOfWork = new SpyUnitOfWork();
 
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
         var command = new InitiatePaymentCommand(bookingId, "operation-001");
 
@@ -56,19 +42,9 @@ public sealed class InitiatePaymentCommandHandlerTests
 
         // Assert
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            InitiatePaymentErrors.BookingNotFound(
-                bookingId),
-            result.Error);
-
-        Assert.Equal(
-            0,
-            paymentGateway.CreateCallCount);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
+        Assert.Equal(InitiatePaymentErrors.BookingNotFound(bookingId), result.Error);
+        Assert.Equal(0, paymentGateway.CreateCallCount);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
@@ -77,57 +53,28 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking(
-                approve: false);
+        DomainBooking booking = BookingTestFactory.CreateValidBooking();
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository();
+        var paymentGateway = new SpyPaymentGateway();
+        var unitOfWork = new SpyUnitOfWork();
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var paymentRepository =
-            new SpyPaymentRepository();
-
-        var paymentGateway =
-            new SpyPaymentGateway();
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "operation-001");
+        var command = new InitiatePaymentCommand(booking.Id, "operation-001");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            InitiatePaymentErrors
-                .BookingNotPendingPayment(
-                    BookingStatus.PendingApproval),
-            result.Error);
-
-        Assert.Equal(
-            0,
-            paymentGateway.CreateCallCount);
-
-        Assert.Null(
-            paymentRepository.AddedPayment);
+        Assert.True(result.IsFailure);
+        Assert.Equal(InitiatePaymentErrors.BookingNotPendingPayment(BookingStatus.PendingApproval), result.Error);
+        Assert.Equal(0, paymentGateway.CreateCallCount);
+        Assert.Null(paymentRepository.AddedPayment);
     }
 
     [Fact]
@@ -136,56 +83,28 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository();
+        var paymentGateway = new SpyPaymentGateway();
+        var unitOfWork = new SpyUnitOfWork();
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var paymentRepository =
-            new SpyPaymentRepository();
-
-        var paymentGateway =
-            new SpyPaymentGateway();
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "   ");
+        var command = new InitiatePaymentCommand(booking.Id, "   ");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            InitiatePaymentErrors
-                .IdempotencyKeyRequired,
-            result.Error);
-
-        Assert.Equal(
-            0,
-            paymentGateway.CreateCallCount);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
+        Assert.True(result.IsFailure);
+        Assert.Equal(InitiatePaymentErrors.IdempotencyKeyRequired, result.Error);
+        Assert.Equal(0, paymentGateway.CreateCallCount);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
@@ -194,107 +113,48 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository();
+        var paymentGateway = new SpyPaymentGateway(
+            new CreatePaymentAttemptResponse(
+                "fake_external_001",
+                PaymentGatewayStatus.Pending,
+                "fake_external_001_client_secret"));
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
+        var unitOfWork = new SpyUnitOfWork();
 
-        var paymentRepository =
-            new SpyPaymentRepository();
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var paymentGateway =
-            new SpyPaymentGateway(
-                new CreatePaymentAttemptResponse(
-                    "fake_external_001",
-                    PaymentGatewayStatus.Pending,
-                    "fake_external_001_client_secret"));
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "operation-001");
+        var command = new InitiatePaymentCommand(booking.Id, "operation-001");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsSuccess);
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(paymentRepository.AddedPayment);
 
-        Assert.NotNull(
-            paymentRepository.AddedPayment);
+        Payment payment = paymentRepository.AddedPayment!;
+        Assert.Equal(booking.Id, payment.BookingId);
+        Assert.Single(payment.Attempts);
 
-        Payment payment =
-            paymentRepository.AddedPayment!;
-
-        Assert.Equal(
-            booking.Id,
-            payment.BookingId);
-
-        Assert.Single(
-            payment.Attempts);
-
-        PaymentAttempt attempt =
-            Assert.Single(
-                payment.Attempts);
-
-        Assert.Equal(
-            "fake_external_001",
-            attempt.ExternalReference);
-
-        Assert.Equal("fake_external_001_client_secret",
-            result.Value.ClientSecret);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Pending,
-            attempt.Status);
-
-        Assert.Equal(
-            payment.Id,
-            result.Value.PaymentId);
-
-        Assert.Equal(
-            attempt.Id,
-            result.Value.PaymentAttemptId);
-
-        Assert.Equal(
-            attempt.ExternalReference,
-            result.Value.ExternalReference);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Pending,
-            result.Value.Status);
-
-        Assert.Equal(
-            payment.Amount.Amount,
-            result.Value.Amount);
-
-        Assert.Equal(
-            payment.Amount.Currency,
-            result.Value.Currency);
-
-        Assert.Equal(
-            1,
-            paymentGateway.CreateCallCount);
-
-        Assert.Equal(
-            2,
-            unitOfWork.SaveChangesCallCount);
+        PaymentAttempt attempt = Assert.Single(payment.Attempts);
+        Assert.Equal("fake_external_001", attempt.ExternalReference);
+        Assert.Equal("fake_external_001_client_secret", result.Value.ClientSecret);
+        Assert.Equal(PaymentAttemptStatus.Pending, attempt.Status);
+        Assert.Equal(payment.Id, result.Value.PaymentId);
+        Assert.Equal(attempt.Id, result.Value.PaymentAttemptId);
+        Assert.Equal(attempt.ExternalReference, result.Value.ExternalReference);
+        Assert.Equal(PaymentAttemptStatus.Pending, result.Value.Status);
+        Assert.Equal(payment.Amount.Amount, result.Value.Amount);
+        Assert.Equal(payment.Amount.Currency, result.Value.Currency);
+        Assert.Equal(1, paymentGateway.CreateCallCount);
+        Assert.Equal(2, unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
@@ -303,87 +163,42 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository();
+        var paymentGateway = new SpyPaymentGateway(
+            new CreatePaymentAttemptResponse(
+                "fake_external_succeeded",
+                PaymentGatewayStatus.Succeeded,
+                "fake_external_001_client_secret"));
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
+        var unitOfWork = new SpyUnitOfWork();
 
-        var paymentRepository =
-            new SpyPaymentRepository();
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var paymentGateway =
-            new SpyPaymentGateway(
-                new CreatePaymentAttemptResponse(
-                    "fake_external_succeeded",
-                    PaymentGatewayStatus.Succeeded,
-                    "fake_external_001_client_secret"));
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "operation-succeeded");
+        var command = new InitiatePaymentCommand(booking.Id, "operation-succeeded");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsSuccess);
+        Assert.True(result.IsSuccess);
 
-        Payment payment =
-            Assert.IsType<Payment>(
-                paymentRepository.AddedPayment);
+        Payment payment = Assert.IsType<Payment>(paymentRepository.AddedPayment);
+        PaymentAttempt attempt = Assert.Single(payment.Attempts);
 
-        PaymentAttempt attempt =
-            Assert.Single(
-                payment.Attempts);
-
-        Assert.Equal(
-            PaymentStatus.Succeeded,
-            payment.Status);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Succeeded,
-            attempt.Status);
-
-        Assert.Equal(
-            UtcNow,
-            payment.CompletedAtUtc);
-
-        Assert.Equal(
-            UtcNow,
-            attempt.CompletedAtUtc);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Succeeded,
-            result.Value.Status);
-
-        Assert.Equal(
-            PaymentStatus.Succeeded,
-            payment.Status);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Succeeded,
-            payment.Attempts.Single().Status);
-
-        Assert.Equal(
-            BookingStatus.Paid,
-            booking.Status);
+        Assert.Equal(PaymentStatus.Succeeded, payment.Status);
+        Assert.Equal(PaymentAttemptStatus.Succeeded, attempt.Status);
+        Assert.Equal(UtcNow, payment.CompletedAtUtc);
+        Assert.Equal(UtcNow, attempt.CompletedAtUtc);
+        Assert.Equal(PaymentAttemptStatus.Succeeded, result.Value.Status);
+        Assert.Equal(PaymentStatus.Succeeded, payment.Status);
+        Assert.Equal(PaymentAttemptStatus.Succeeded, payment.Attempts.Single().Status);
+        Assert.Equal(BookingStatus.Paid, booking.Status);
     }
 
     [Fact]
@@ -392,74 +207,39 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository();
+        var paymentGateway = new SpyPaymentGateway(
+            new CreatePaymentAttemptResponse(
+                "fake_external_failed",
+                PaymentGatewayStatus.Failed,
+                "fake_external_001_client_secret"));
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
+        var unitOfWork = new SpyUnitOfWork();
 
-        var paymentRepository =
-            new SpyPaymentRepository();
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var paymentGateway =
-            new SpyPaymentGateway(
-                new CreatePaymentAttemptResponse(
-                    "fake_external_failed",
-                    PaymentGatewayStatus.Failed,
-                    "fake_external_001_client_secret"));
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "operation-failed");
+        var command = new InitiatePaymentCommand(booking.Id, "operation-failed");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsSuccess);
+        Assert.True(result.IsSuccess);
 
-        Payment payment =
-            Assert.IsType<Payment>(
-                paymentRepository.AddedPayment);
+        Payment payment = Assert.IsType<Payment>(paymentRepository.AddedPayment);
+        PaymentAttempt attempt = Assert.Single(payment.Attempts);
 
-        PaymentAttempt attempt =
-            Assert.Single(
-                payment.Attempts);
-
-        Assert.Equal(
-            PaymentStatus.Failed,
-            payment.Status);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Failed,
-            attempt.Status);
-
-        Assert.Null(
-            payment.CompletedAtUtc);
-
-        Assert.Equal(
-            UtcNow,
-            attempt.CompletedAtUtc);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Failed,
-            result.Value.Status);
+        Assert.Equal(PaymentStatus.Failed, payment.Status);
+        Assert.Equal(PaymentAttemptStatus.Failed, attempt.Status);
+        Assert.Null(payment.CompletedAtUtc);
+        Assert.Equal(UtcNow, attempt.CompletedAtUtc);
+        Assert.Equal(PaymentAttemptStatus.Failed, result.Value.Status);
     }
 
     [Fact]
@@ -468,7 +248,7 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking = CreateBooking(approve: true); // Booking = PendingPayment
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
         Payment payment = CreatePayment(booking);
 
         string oldOperationKey = CreateExpectedOperationKey(booking.Id, "operation-cancelled");
@@ -501,14 +281,12 @@ public sealed class InitiatePaymentCommandHandlerTests
 
         // Assert
         Assert.True(result.IsSuccess);
-
         Assert.Equal(PaymentStatus.Pending, payment.Status);
         Assert.Equal(2, payment.Attempts.Count);
 
         var attemptsList = payment.Attempts.ToList();
         Assert.Equal(PaymentAttemptStatus.Cancelled, attemptsList[0].Status);
         Assert.Equal(PaymentAttemptStatus.Pending, attemptsList[1].Status);
-
         Assert.Equal(payment.Id, result.Value.PaymentId);
         Assert.Equal(attemptsList[1].Id, result.Value.PaymentAttemptId);
         Assert.Equal("fake_external_new", result.Value.ExternalReference);
@@ -521,64 +299,30 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository();
+        var paymentGateway = new SpyPaymentGateway(PaymentGatewayErrors.ProviderTimeout);
+        var unitOfWork = new SpyUnitOfWork();
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var paymentRepository =
-            new SpyPaymentRepository();
-
-        var paymentGateway =
-            new SpyPaymentGateway(
-                PaymentGatewayErrors.ProviderTimeout);
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "operation-001");
+        var command = new InitiatePaymentCommand(booking.Id, "operation-001");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            PaymentGatewayErrors.ProviderTimeout,
-            result.Error);
-
-        Assert.NotNull(
-            paymentRepository.AddedPayment);
-
-        Assert.Empty(
-            paymentRepository
-                .AddedPayment!
-                .Attempts);
-
-        Assert.Equal(
-            1,
-            paymentGateway.CreateCallCount);
-
-        Assert.Equal(
-            1,
-            unitOfWork.SaveChangesCallCount);
+        Assert.True(result.IsFailure);
+        Assert.Equal(PaymentGatewayErrors.ProviderTimeout, result.Error);
+        Assert.NotNull(paymentRepository.AddedPayment);
+        Assert.Empty(paymentRepository.AddedPayment!.Attempts);
+        Assert.Equal(1, paymentGateway.CreateCallCount);
+        Assert.Equal(1, unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
@@ -587,93 +331,43 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        Payment payment = CreatePayment(booking);
 
-        Payment payment =
-            CreatePayment(
-                booking);
+        string operationKey = CreateExpectedOperationKey(booking.Id, "operation-001");
+        Result<PaymentAttempt> attemptResult = payment.AddAttempt(operationKey, "fake_external_001", UtcNow);
+        Assert.True(attemptResult.IsSuccess);
 
-        string operationKey =
-            CreateExpectedOperationKey(
-                booking.Id,
-                "operation-001");
-
-        Result<PaymentAttempt> attemptResult =
-            payment.AddAttempt(
-                operationKey,
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository(payment);
+        var paymentGateway = new SpyPaymentGateway(
+            new CreatePaymentAttemptResponse(
                 "fake_external_001",
-                UtcNow);
+                PaymentGatewayStatus.Pending,
+                "fake_external_001_client_secret"));
 
-        Assert.True(
-            attemptResult.IsSuccess);
+        var unitOfWork = new SpyUnitOfWork();
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var paymentRepository =
-            new SpyPaymentRepository(
-                payment);
-
-        var paymentGateway =
-            new SpyPaymentGateway(
-                new CreatePaymentAttemptResponse(
-                    "fake_external_001",
-                    PaymentGatewayStatus.Pending,
-                    "fake_external_001_client_secret"));
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "operation-001");
+        var command = new InitiatePaymentCommand(booking.Id, "operation-001");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            1,
-            paymentGateway.CreateCallCount);
-
-        Assert.Equal(
-            "fake_external_001_client_secret",
-            result.Value.ClientSecret);
-
-        Assert.Single(
-            payment.Attempts);
-
-        Assert.Equal(
-            payment.Id,
-            result.Value.PaymentId);
-
-        Assert.Equal(
-            attemptResult.Value.Id,
-            result.Value.PaymentAttemptId);
-
-        Assert.Equal(
-            "fake_external_001",
-            result.Value.ExternalReference);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, paymentGateway.CreateCallCount);
+        Assert.Equal("fake_external_001_client_secret", result.Value.ClientSecret);
+        Assert.Single(payment.Attempts);
+        Assert.Equal(payment.Id, result.Value.PaymentId);
+        Assert.Equal(attemptResult.Value.Id, result.Value.PaymentAttemptId);
+        Assert.Equal("fake_external_001", result.Value.ExternalReference);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
@@ -682,274 +376,139 @@ public sealed class InitiatePaymentCommandHandlerTests
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        Payment payment = CreatePayment(booking);
 
-        Payment payment =
-            CreatePayment(
-                booking);
+        Result<PaymentAttempt> attemptResult = payment.AddAttempt("existing-operation", "fake_external_001", UtcNow);
+        Assert.True(attemptResult.IsSuccess);
 
-        Result<PaymentAttempt> attemptResult =
-            payment.AddAttempt(
-                "existing-operation",
-                "fake_external_001",
-                UtcNow);
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository(payment);
+        var paymentGateway = new SpyPaymentGateway();
+        var unitOfWork = new SpyUnitOfWork();
 
-        Assert.True(
-            attemptResult.IsSuccess);
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
-
-        var paymentRepository =
-            new SpyPaymentRepository(
-                payment);
-
-        var paymentGateway =
-            new SpyPaymentGateway();
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "different-operation");
+        var command = new InitiatePaymentCommand(booking.Id, "different-operation");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            PaymentErrors.ActiveAttemptAlreadyExists,
-            result.Error);
-
-        Assert.Equal(
-            0,
-            paymentGateway.CreateCallCount);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
+        Assert.True(result.IsFailure);
+        Assert.Equal(PaymentErrors.ActiveAttemptAlreadyExists, result.Error);
+        Assert.Equal(0, paymentGateway.CreateCallCount);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
     public async Task HandleAsync_WithSameIdempotencyKeyAndDifferentProviderReference_ShouldReturnFailure()
     {
         // Arrange
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        Payment payment = CreatePayment(booking);
 
-        Payment payment =
-            CreatePayment(
-                booking);
+        string operationKey = CreateExpectedOperationKey(booking.Id, "operation-001");
+        Result<PaymentAttempt> attemptResult = payment.AddAttempt(operationKey, "fake_external_original", UtcNow);
+        Assert.True(attemptResult.IsSuccess);
 
-        string operationKey =
-            CreateExpectedOperationKey(
-                booking.Id,
-                "operation-001");
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository(payment);
+        var paymentGateway = new SpyPaymentGateway(
+            new CreatePaymentAttemptResponse(
+                "fake_external_different",
+                PaymentGatewayStatus.Pending,
+                "fake_external_different_client_secret"));
 
-        Result<PaymentAttempt> attemptResult =
-            payment.AddAttempt(
-                operationKey,
-                "fake_external_original",
-                UtcNow);
+        var unitOfWork = new SpyUnitOfWork();
 
-        Assert.True(
-            attemptResult.IsSuccess);
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
-
-        var paymentRepository =
-            new SpyPaymentRepository(
-                payment);
-
-        var paymentGateway =
-            new SpyPaymentGateway(
-                new CreatePaymentAttemptResponse(
-                    "fake_external_different",
-                    PaymentGatewayStatus.Pending,
-                    "fake_external_different_client_secret"));
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        var handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                "operation-001");
+        var command = new InitiatePaymentCommand(booking.Id, "operation-001");
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            PaymentGatewayErrors
-                .IdempotencyResultMismatch,
-            result.Error);
-
-        Assert.Single(
-            payment.Attempts);
+        Assert.True(result.IsFailure);
+        Assert.Equal(PaymentGatewayErrors.IdempotencyResultMismatch, result.Error);
+        Assert.Single(payment.Attempts);
     }
 
     [Fact]
     public async Task HandleAsync_WithSameIdempotencyKeyAfterSuccessfulReconciliation_ShouldReturnExistingPaymentSession()
     {
         // Arrange
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking = CreateBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        Payment payment = CreatePayment(booking);
 
-        Payment payment =
-            CreatePayment(
-                booking);
+        const string incomingIdempotencyKey = "successful-payment-operation";
+        string operationKey = CreateExpectedOperationKey(booking.Id, incomingIdempotencyKey);
 
-        const string incomingIdempotencyKey =
-            "successful-payment-operation";
+        Result<PaymentAttempt> attemptResult = payment.AddAttempt(operationKey, "fake-successful-reference", UtcNow);
+        Assert.True(attemptResult.IsSuccess);
 
-        string operationKey =
-            CreateExpectedOperationKey(
-                booking.Id,
-                incomingIdempotencyKey);
+        PaymentAttempt attempt = attemptResult.Value;
+        Result reconciliationResult = PaymentReconciler.Reconcile(
+            payment,
+            attempt,
+            booking,
+            PaymentGatewayStatus.Succeeded,
+            UtcNow.AddMinutes(1));
 
-        Result<PaymentAttempt> attemptResult =
-            payment.AddAttempt(
-                operationKey,
+        Assert.True(reconciliationResult.IsSuccess);
+        Assert.Equal(BookingStatus.Paid, booking.Status);
+        Assert.Equal(PaymentStatus.Succeeded, payment.Status);
+
+        var bookingRepository = new StubBookingRepository(booking);
+        var paymentRepository = new SpyPaymentRepository(payment);
+        var paymentGateway = new SpyPaymentGateway(
+            new CreatePaymentAttemptResponse(
                 "fake-successful-reference",
-                UtcNow);
-
-        Assert.True(
-            attemptResult.IsSuccess);
-
-        PaymentAttempt attempt =
-            attemptResult.Value;
-
-        Result reconciliationResult =
-            PaymentReconciler.Reconcile(
-                payment,
-                attempt,
-                booking,
                 PaymentGatewayStatus.Succeeded,
-                UtcNow.AddMinutes(1));
+                "fake-successful-reference_client_secret"));
 
-        Assert.True(
-            reconciliationResult.IsSuccess);
+        var unitOfWork = new SpyUnitOfWork();
 
-        Assert.Equal(
-            BookingStatus.Paid,
-            booking.Status);
+        InitiatePaymentCommandHandler handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            paymentGateway,
+            unitOfWork);
 
-        Assert.Equal(
-            PaymentStatus.Succeeded,
-            payment.Status);
-
-        var bookingRepository =
-            new StubBookingRepository(
-                booking);
-
-        var paymentRepository =
-            new SpyPaymentRepository(
-                payment);
-
-        var paymentGateway =
-            new SpyPaymentGateway(
-                new CreatePaymentAttemptResponse(
-                    "fake-successful-reference",
-                    PaymentGatewayStatus.Succeeded,
-                    "fake-successful-reference_client_secret"));
-
-        var unitOfWork =
-            new SpyUnitOfWork();
-
-        InitiatePaymentCommandHandler handler =
-            CreateHandler(
-                bookingRepository,
-                paymentRepository,
-                paymentGateway,
-                unitOfWork);
-
-        var command =
-            new InitiatePaymentCommand(
-                booking.Id,
-                incomingIdempotencyKey);
+        var command = new InitiatePaymentCommand(booking.Id, incomingIdempotencyKey);
 
         // Act
-        Result<InitiatePaymentResponse> result =
-            await handler.HandleAsync(
-                command,
-                cancellationToken);
+        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
 
         // Assert
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            payment.Id,
-            result.Value.PaymentId);
-
-        Assert.Equal(
-            attempt.Id,
-            result.Value.PaymentAttemptId);
-
-        Assert.Equal(
-            attempt.ExternalReference,
-            result.Value.ExternalReference);
-
-        Assert.Equal(
-            "fake-successful-reference_client_secret",
-            result.Value.ClientSecret);
-
-        Assert.Equal(
-            BookingStatus.Paid,
-            booking.Status);
-
-        Assert.Equal(
-            PaymentStatus.Succeeded,
-            payment.Status);
-
-        Assert.Single(
-            payment.Attempts);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(payment.Id, result.Value.PaymentId);
+        Assert.Equal(attempt.Id, result.Value.PaymentAttemptId);
+        Assert.Equal(attempt.ExternalReference, result.Value.ExternalReference);
+        Assert.Equal("fake-successful-reference_client_secret", result.Value.ClientSecret);
+        Assert.Equal(BookingStatus.Paid, booking.Status);
+        Assert.Equal(PaymentStatus.Succeeded, payment.Status);
+        Assert.Single(payment.Attempts);
     }
 
-    private static InitiatePaymentCommandHandler
-        CreateHandler(
-            IBookingRepository bookingRepository,
-            IPaymentRepository paymentRepository,
-            IPaymentGateway paymentGateway,
-            IUnitOfWork unitOfWork)
+    private static InitiatePaymentCommandHandler CreateHandler(
+        IBookingRepository bookingRepository,
+        IPaymentRepository paymentRepository,
+        IPaymentGateway paymentGateway,
+        IUnitOfWork unitOfWork)
     {
         return new InitiatePaymentCommandHandler(
             bookingRepository,
@@ -961,389 +520,177 @@ public sealed class InitiatePaymentCommandHandlerTests
             new StubClock(UtcNow));
     }
 
-    private static Payment CreatePayment(
-        DomainBooking booking)
+    private static Payment CreatePayment(DomainBooking booking)
     {
-        Result<Payment> result =
-            Payment.Create(
-                booking.Id,
-                booking.PriceSnapshot!.TotalPrice,
-                UtcNow.AddMinutes(-1));
-
-        Assert.True(
-            result.IsSuccess);
-
-        return result.Value;
+        return BookingTestFactory.CreatePayment(
+            booking,
+            amount: booking.PriceSnapshot!.TotalPrice.Amount,
+            currency: booking.PriceSnapshot!.TotalPrice.Currency,
+            createdAtUtc: UtcNow.AddMinutes(-1));
     }
 
-    private static DomainBooking CreateBooking(
-        bool approve = true)
+    private static string CreateExpectedOperationKey(Guid bookingId, string idempotencyKey)
     {
-        RentableUnit rentableUnit =
-            CreateRentableUnit();
-
-        StayPeriod stayPeriod =
-            StayPeriod.Create(
-                new DateOnly(
-                    2026,
-                    9,
-                    10),
-                new DateOnly(
-                    2026,
-                    9,
-                    12))
-            .Value;
-
-        GuestCount guestCount =
-            GuestCount.Create(
-                2)
-            .Value;
-
-        PriceSnapshot priceSnapshot =
-            CreatePriceSnapshot();
-
-        Result<DomainBooking> bookingResult =
-            DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount,
-                GuestDetails.Create(
-                "John Doe",
-                "john@example.com",
-                "+50377778888").Value,
-                priceSnapshot,
-                BookingTestTime.CreatedAtUtc,
-                BookingTestTime.ApprovalDueAtUtc);
-
-        Assert.True(
-            bookingResult.IsSuccess);
-
-        DomainBooking booking =
-            bookingResult.Value;
-
-        if (approve)
-        {
-            Result approveResult =
-                booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
-
-            Assert.True(
-                approveResult.IsSuccess);
-        }
-
-        return booking;
+        string value = $"{bookingId:N}:{idempotencyKey}";
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(value);
+        byte[] hash = System.Security.Cryptography.SHA256.HashData(bytes);
+        return $"bookify-payment-{Convert.ToHexString(hash).ToLowerInvariant()}";
     }
 
-    private static RentableUnit
-        CreateRentableUnit()
-    {
-        return RentableUnit.Create(
-            Guid.NewGuid(),
-            "Room A",
-            RentableUnitType.Room,
-            maximumCapacity: 4,
-            maxBaseGuests: 2)
-            .Value;
-    }
-
-    private static PriceSnapshot
-        CreatePriceSnapshot()
-    {
-        Money accommodationPrice =
-            Money.Create(
-                200m,
-                "USD")
-            .Value;
-
-        Money extraGuestPrice =
-            Money.Create(
-                0m,
-                "USD")
-            .Value;
-
-        Money totalPrice =
-            Money.Create(
-                200m,
-                "USD")
-            .Value;
-
-        var result = PriceBreakdown.Create(
-                accommodationPrice,
-                extraGuestPrice).Value;
-
-        return PriceSnapshot.Create(result);
-    }
-
-    private static string
-        CreateExpectedOperationKey(
-            Guid bookingId,
-            string idempotencyKey)
-    {
-        string value =
-            $"{bookingId:N}:{idempotencyKey}";
-
-        byte[] bytes =
-            System.Text.Encoding.UTF8
-                .GetBytes(
-                    value);
-
-        byte[] hash =
-            System.Security.Cryptography
-                .SHA256.HashData(
-                    bytes);
-
-        return
-            $"bookify-payment-{Convert.ToHexString(hash).ToLowerInvariant()}";
-    }
-
-    private sealed class StubBookingRepository
-        : IBookingRepository
+    private sealed class StubBookingRepository : IBookingRepository
     {
         private readonly DomainBooking? _booking;
 
-        public StubBookingRepository(
-            DomainBooking? booking = null)
+        public StubBookingRepository(DomainBooking? booking = null)
         {
-            _booking =
-                booking;
+            _booking = booking;
         }
 
-        public Task<DomainBooking?> GetByIdAsync(
-            Guid bookingId,
-            CancellationToken cancellationToken = default)
+        public Task<DomainBooking?> GetByIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            DomainBooking? result =
-                _booking?.Id ==
-                bookingId
-                    ? _booking
-                    : null;
-
-            return Task.FromResult(
-                result);
+            cancellationToken.ThrowIfCancellationRequested();
+            DomainBooking? result = _booking?.Id == bookingId ? _booking : null;
+            return Task.FromResult(result);
         }
 
-        public void Add(
-            DomainBooking booking)
+        public void Add(DomainBooking booking)
         {
             throw new NotSupportedException();
         }
     }
 
-    private sealed class SpyPaymentRepository
-        : IPaymentRepository
+    private sealed class SpyPaymentRepository : IPaymentRepository
     {
         private readonly Payment? _payment;
 
-        public SpyPaymentRepository(
-            Payment? payment = null)
+        public SpyPaymentRepository(Payment? payment = null)
         {
-            _payment =
-                payment;
+            _payment = payment;
         }
 
-        public Payment? AddedPayment
+        public Payment? AddedPayment { get; private set; }
+
+        public Task<Payment?> GetByBookingIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
-            get;
-            private set;
+            cancellationToken.ThrowIfCancellationRequested();
+            Payment? result = _payment?.BookingId == bookingId ? _payment : null;
+            return Task.FromResult(result);
         }
 
-        public Task<Payment?>
-            GetByBookingIdAsync(
-                Guid bookingId,
-                CancellationToken cancellationToken = default)
+        public void Add(Payment payment)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            Payment? result =
-                _payment?.BookingId ==
-                bookingId
-                    ? _payment
-                    : null;
-
-            return Task.FromResult(
-                result);
-        }
-
-        public void Add(
-            Payment payment)
-        {
-            AddedPayment =
-                payment;
+            AddedPayment = payment;
         }
     }
 
-    private sealed class SpyPaymentGateway
-        : IPaymentGateway
+    private sealed class SpyPaymentGateway : IPaymentGateway
     {
-        private readonly
-            CreatePaymentAttemptResponse?
-            _createResponse;
-
-        private readonly Error?
-            _createError;
+        private readonly CreatePaymentAttemptResponse? _createResponse;
+        private readonly Error? _createError;
 
         public SpyPaymentGateway()
         {
         }
 
-        public SpyPaymentGateway(
-            CreatePaymentAttemptResponse
-                createResponse)
+        public SpyPaymentGateway(CreatePaymentAttemptResponse createResponse)
         {
-            _createResponse =
-                createResponse;
+            _createResponse = createResponse;
         }
 
-        public SpyPaymentGateway(
-            Error createError)
+        public SpyPaymentGateway(Error createError)
         {
-            _createError =
-                createError;
+            _createError = createError;
         }
 
-        public int CreateCallCount
-        {
-            get;
-            private set;
-        }
+        public int CreateCallCount { get; private set; }
 
-        public Task<
-            Result<CreatePaymentAttemptResponse>>
-            CreatePaymentAttemptAsync(
-                CreatePaymentAttemptRequest request,
-                CancellationToken cancellationToken = default)
+        public Task<Result<CreatePaymentAttemptResponse>> CreatePaymentAttemptAsync(
+            CreatePaymentAttemptRequest request,
+            CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             CreateCallCount++;
 
             if (_createError is not null)
             {
-                return Task.FromResult(
-                    Result<CreatePaymentAttemptResponse>
-                        .Failure(
-                            _createError));
+                return Task.FromResult(Result<CreatePaymentAttemptResponse>.Failure(_createError));
             }
 
-            CreatePaymentAttemptResponse response =
-                _createResponse
+            CreatePaymentAttemptResponse response = _createResponse
                 ?? new CreatePaymentAttemptResponse(
                     "fake_default",
                     PaymentGatewayStatus.Pending,
                     "fake_external_001_client_secret");
 
-            return Task.FromResult(
-                Result<CreatePaymentAttemptResponse>
-                    .Success(
-                        response));
+            return Task.FromResult(Result<CreatePaymentAttemptResponse>.Success(response));
         }
 
-        public Task<
-            Result<PaymentGatewayResponse>>
-            GetPaymentStatusAsync(
-                string externalReference,
-                CancellationToken cancellationToken = default)
+        public Task<Result<PaymentGatewayResponse>> GetPaymentStatusAsync(
+            string externalReference,
+            CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
-        public Task<
-            Result<PaymentGatewayResponse>>
-            CancelPaymentAsync(
-                string externalReference,
-                CancellationToken cancellationToken = default)
+        public Task<Result<PaymentGatewayResponse>> CancelPaymentAsync(
+            string externalReference,
+            CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
     }
 
-    private sealed class SpyUnitOfWork
-        : IUnitOfWork
+    private sealed class SpyUnitOfWork : IUnitOfWork
     {
-        public int SaveChangesCallCount
-        {
-            get;
-            private set;
-        }
+        public int SaveChangesCallCount { get; private set; }
 
-        public Task SaveChangesAsync(
-            CancellationToken cancellationToken = default)
+        public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             SaveChangesCallCount++;
-
             return Task.CompletedTask;
         }
     }
 
-    private sealed class StubClock
-        : IClock
+    private sealed class StubClock : IClock
     {
-        public StubClock(
-            DateTimeOffset utcNow)
+        public StubClock(DateTimeOffset utcNow)
         {
-            UtcNow =
-                utcNow;
+            UtcNow = utcNow;
         }
 
-        public DateTimeOffset UtcNow
-        {
-            get;
-        }
+        public DateTimeOffset UtcNow { get; }
     }
 
-    private sealed class StubPaymentInitiationLock
-    : IPaymentInitiationLock
+    private sealed class StubPaymentInitiationLock : IPaymentInitiationLock
     {
-        public Task<bool> TryAcquireAsync(
-            Guid bookingId,
-            CancellationToken cancellationToken = default)
+        public Task<bool> TryAcquireAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(true);
         }
     }
 
-    private sealed class StubTransactionManager
-        : ITransactionManager
+    private sealed class StubTransactionManager : ITransactionManager
     {
-        public Task<ITransaction> BeginAsync(
-            CancellationToken cancellationToken = default)
+        public Task<ITransaction> BeginAsync(CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            return Task.FromResult<ITransaction>(
-                new StubTransaction());
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult<ITransaction>(new StubTransaction());
         }
     }
 
-    private sealed class StubTransaction
-        : ITransaction
+    private sealed class StubTransaction : ITransaction
     {
-        public Task CommitAsync(
-            CancellationToken cancellationToken = default)
+        public Task CommitAsync(CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             return Task.CompletedTask;
         }
 
-        public Task RollbackAsync(
-            CancellationToken cancellationToken = default)
+        public Task RollbackAsync(CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             return Task.CompletedTask;
         }
 
