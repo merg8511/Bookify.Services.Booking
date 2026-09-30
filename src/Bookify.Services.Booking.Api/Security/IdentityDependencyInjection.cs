@@ -39,6 +39,10 @@ internal static class IdentityDependencyInjection
                 "must contain a non-empty API audience.");
         }
 
+        services.AddHttpContextAccessor();
+
+        services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -57,7 +61,7 @@ internal static class IdentityDependencyInjection
                     ValidateIssuerSigningKey = true,
                     RequireSignedTokens = true,
                     RequireExpirationTime = true,
-                    NameClaimType = "sub",
+                    NameClaimType = BookifyClaimTypes.Subject,
                     RoleClaimType = BookifyRoles.ClaimType,
                     ClockSkew = TimeSpan.FromMinutes(1)
                 };
@@ -66,7 +70,7 @@ internal static class IdentityDependencyInjection
                 {
                     OnTokenValidated = context =>
                     {
-                        string? subject = context.Principal?.FindFirst("sub")?.Value;
+                        string? subject = context.Principal?.FindFirst(BookifyClaimTypes.Subject)?.Value;
 
                         if (string.IsNullOrWhiteSpace(subject))
                         {

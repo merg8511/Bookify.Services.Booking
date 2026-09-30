@@ -15,10 +15,9 @@ internal static class CreatePropertyEndpoint
             .MapPost("/", HandleAsync)
             .WithName(EndpointNames.Properties.Create)
             .WithSummary("Creates a property.")
-            .RequireAuthorization(
-                policy => policy.RequireRole(
-                    BookifyRoles.Owner,
-                    BookifyRoles.Admin))
+            .RequireAuthorization(policy => policy.RequireRole(
+                BookifyRoles.Owner,
+                BookifyRoles.Admin))
             .Accepts<CreatePropertyRequest>("application/json")
             .Produces<CreatePropertyResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -31,10 +30,11 @@ internal static class CreatePropertyEndpoint
     private static async Task<Results<CreatedAtRoute<CreatePropertyResponse>, ProblemHttpResult>> HandleAsync(
         CreatePropertyRequest request,
         ICommandExecutor<CreatePropertyCommand, Guid> executor,
+        ICurrentUser currentUser,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        string ownerSubjectId = httpContext.User.FindFirst("sub")?.Value ??
+        string ownerSubjectId = currentUser.Subject ??
             throw new InvalidOperationException("An authenticated property owner must have a subject identifier.");
 
         var command = new CreatePropertyCommand(

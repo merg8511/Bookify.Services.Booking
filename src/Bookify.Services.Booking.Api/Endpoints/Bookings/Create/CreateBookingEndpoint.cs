@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
+using Bookify.Services.Booking.Application.Abstractions.Security;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Shared;
@@ -30,12 +31,17 @@ internal static class CreateBookingEndpoint
     private static async Task<Results<Created<CreateBookingResponse>, ProblemHttpResult>> HandleAsync(
             CreateBookingRequest request,
             ICommandExecutor<CreateBookingCommand, CreateBookingResult> commandExecutor,
+            ICurrentUser currentUser,
             HttpContext httpContext,
             CancellationToken cancellationToken)
     {
-        string? customerSubjectId = httpContext.User.Identity?.IsAuthenticated == true
-            ? httpContext.User.FindFirst("sub")?.Value
-            : null;
+        string? customerSubjectId = null;
+
+        if (currentUser.IsAuthenticated)
+        {
+            customerSubjectId = currentUser.Subject ??
+                throw new InvalidOperationException("An authenticated customer must have a subject identifier.");
+        }
 
         var command =
             new CreateBookingCommand(
