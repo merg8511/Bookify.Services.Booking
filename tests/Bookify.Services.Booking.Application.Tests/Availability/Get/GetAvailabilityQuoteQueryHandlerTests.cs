@@ -1,4 +1,3 @@
-
 using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
@@ -16,9 +15,7 @@ public sealed class GetAvailabilityQuoteQueryHandlerTests
     [Fact]
     public async Task HandleAsync_ShouldCalculateInformativeQuoteUsingPricingEngine()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
-
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         Guid propertyId = Guid.NewGuid();
         Guid unitId = Guid.NewGuid();
 
@@ -56,33 +53,25 @@ public sealed class GetAvailabilityQuoteQueryHandlerTests
             Priority = 10
         };
 
-        var readService =
-            new StubAvailabilityReadService([candidate], [season]);
+        var readService = new StubAvailabilityReadService([candidate], [season]);
+        var handler = new GetAvailabilityQueryHandler(new StubPropertyReadService(property), readService);
 
-        var handler = new GetAvailabilityQueryHandler(
-            new StubPropertyReadService(property),
-            readService);
-
-        Result<AvailabilityReadModel> result =
-            await handler.HandleAsync(
-                new GetAvailabilityQuery(
-                    propertyId,
-                    new DateOnly(2026, 12, 24),
-                    new DateOnly(2026, 12, 27),
-                    GuestCount: 3),
-                cancellationToken);
+        Result<AvailabilityReadModel> result = await handler.HandleAsync(
+            new GetAvailabilityQuery(
+                propertyId,
+                new DateOnly(2026, 12, 24),
+                new DateOnly(2026, 12, 27),
+                GuestCount: 3),
+            cancellationToken);
 
         Assert.True(result.IsSuccess);
 
-        AvailableRentableUnitReadModel unit =
-            Assert.Single(result.Value.AvailableUnits);
-
+        AvailableRentableUnitReadModel unit = Assert.Single(result.Value.AvailableUnits);
         Assert.Equal(unitId, unit.Id);
         Assert.Equal(440m, unit.Quote.AccommodationPrice);
         Assert.Equal(75m, unit.Quote.ExtraGuestPrice);
         Assert.Equal(515m, unit.Quote.TotalPrice);
         Assert.Equal("USD", unit.Quote.Currency);
-
         Assert.Equal(1, readService.PricingSeasonsCallCount);
     }
 
@@ -100,33 +89,25 @@ public sealed class GetAvailabilityQuoteQueryHandlerTests
         };
 
         var readService = new StubAvailabilityReadService([], []);
+        var handler = new GetAvailabilityQueryHandler(new StubPropertyReadService(property), readService);
 
-        var handler = new GetAvailabilityQueryHandler(
-            new StubPropertyReadService(property),
-            readService);
-
-        Result<AvailabilityReadModel> result =
-            await handler.HandleAsync(
-                new GetAvailabilityQuery(
-                    propertyId,
-                    new DateOnly(2026, 12, 24),
-                    new DateOnly(2026, 12, 27),
-                    GuestCount: 2),
-                TestContext.Current.CancellationToken);
+        Result<AvailabilityReadModel> result = await handler.HandleAsync(
+            new GetAvailabilityQuery(
+                propertyId,
+                new DateOnly(2026, 12, 24),
+                new DateOnly(2026, 12, 27),
+                GuestCount: 2),
+            TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Value.AvailableUnits);
         Assert.Equal(0, readService.PricingSeasonsCallCount);
     }
 
-    private sealed class StubAvailabilityReadService :
-        IAvailabilityReadService
+    private sealed class StubAvailabilityReadService : IAvailabilityReadService
     {
-        private readonly IReadOnlyList<AvailableRentableUnitCandidateReadModel>
-            _candidates;
-
-        private readonly IReadOnlyList<AvailabilityPricingSeasonReadModel>
-            _seasons;
+        private readonly IReadOnlyList<AvailableRentableUnitCandidateReadModel> _candidates;
+        private readonly IReadOnlyList<AvailabilityPricingSeasonReadModel> _seasons;
 
         public int PricingSeasonsCallCount { get; private set; }
 
@@ -138,47 +119,40 @@ public sealed class GetAvailabilityQuoteQueryHandlerTests
             _seasons = seasons;
         }
 
-        public Task<IReadOnlyList<AvailableRentableUnitCandidateReadModel>>
-            GetAvailableUnitsAsync(
-                Guid propertyId,
-                DateOnly requestedCheckInDate,
-                DateOnly requestedCheckOutDate,
-                int guestCount,
-                CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<AvailableRentableUnitCandidateReadModel>> GetAvailableUnitsAsync(
+            Guid propertyId,
+            DateOnly requestedCheckInDate,
+            DateOnly requestedCheckOutDate,
+            int guestCount,
+            CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
             return Task.FromResult(_candidates);
         }
 
-        public Task<IReadOnlyList<AvailabilityPricingSeasonReadModel>>
-            GetPricingSeasonsAsync(
-                IReadOnlyCollection<Guid> rentableUnitIds,
-                DateOnly requestedCheckInDate,
-                DateOnly requestedCheckOutDate,
-                CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<AvailabilityPricingSeasonReadModel>> GetPricingSeasonsAsync(
+            IReadOnlyCollection<Guid> rentableUnitIds,
+            DateOnly requestedCheckInDate,
+            DateOnly requestedCheckOutDate,
+            CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
             PricingSeasonsCallCount++;
-
             return Task.FromResult(_seasons);
         }
 
-        public Task<IReadOnlyList<OverlappingBookingReadModel>>
-            GetInventoryConflictsAsync(
-                Guid propertyId,
-                Guid requestedRentableUnitId,
-                DateOnly requestedCheckInDate,
-                DateOnly requestedCheckOutDate,
-                CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<OverlappingBookingReadModel>> GetInventoryConflictsAsync(
+            Guid propertyId,
+            Guid requestedRentableUnitId,
+            DateOnly requestedCheckInDate,
+            DateOnly requestedCheckOutDate,
+            CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
     }
 
-    private sealed class StubPropertyReadService :
-        IPropertyReadService
+    private sealed class StubPropertyReadService : IPropertyReadService
     {
         private readonly PropertyDetailsReadModel? _property;
 
@@ -192,10 +166,7 @@ public sealed class GetAvailabilityQuoteQueryHandlerTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            PropertyDetailsReadModel? result =
-                _property?.Id == propertyId ? _property : null;
-
+            PropertyDetailsReadModel? result = _property?.Id == propertyId ? _property : null;
             return Task.FromResult(result);
         }
 

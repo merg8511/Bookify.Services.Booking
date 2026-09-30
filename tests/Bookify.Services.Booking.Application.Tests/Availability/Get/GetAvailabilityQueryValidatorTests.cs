@@ -26,10 +26,7 @@ public sealed class GetAvailabilityQueryValidatorTests
 
         Result result = _validator.Validate(query);
 
-        Assert.Equal(
-            GetAvailabilityErrors
-                .InvalidPropertyId,
-            result.Error);
+        Assert.Equal(GetAvailabilityErrors.InvalidPropertyId, result.Error);
     }
 
     [Fact]
@@ -39,42 +36,27 @@ public sealed class GetAvailabilityQueryValidatorTests
 
         Result result = _validator.Validate(query);
 
-        Assert.Equal(
-            GetAvailabilityErrors
-                .CheckInDateRequired,
-            result.Error);
+        Assert.Equal(GetAvailabilityErrors.CheckInDateRequired, result.Error);
     }
 
     [Fact]
     public void Validate_WithoutCheckOutDate_ReturnsFailure()
     {
-        var query = CreateValidQuery() with
-        {
-            CheckOutDate = null
-        };
+        var query = CreateValidQuery() with { CheckOutDate = null };
 
         Result result = _validator.Validate(query);
 
-        Assert.Equal(
-            GetAvailabilityErrors
-                .CheckOutDateRequired,
-            result.Error);
+        Assert.Equal(GetAvailabilityErrors.CheckOutDateRequired, result.Error);
     }
 
     [Fact]
     public void Validate_WithoutGuestCount_ReturnsFailure()
     {
-        var query = CreateValidQuery() with
-        {
-            GuestCount = null
-        };
+        var query = CreateValidQuery() with { GuestCount = null };
 
         Result result = _validator.Validate(query);
 
-        Assert.Equal(
-            GetAvailabilityErrors
-                .GuestCountRequired,
-            result.Error);
+        Assert.Equal(GetAvailabilityErrors.GuestCountRequired, result.Error);
     }
 
     [Theory]
@@ -83,27 +65,17 @@ public sealed class GetAvailabilityQueryValidatorTests
     [InlineData(-20)]
     public void Validate_WithInvalidGuestCount_ReturnsFailure(int guestCount)
     {
-        var query = CreateValidQuery() with
-        {
-            GuestCount = guestCount
-        };
+        var query = CreateValidQuery() with { GuestCount = guestCount };
 
         Result result = _validator.Validate(query);
 
-        Assert.Equal(
-            GetAvailabilityErrors
-                .InvalidGuestCount,
-            result.Error);
+        Assert.Equal(GetAvailabilityErrors.InvalidGuestCount, result.Error);
     }
 
     [Fact]
     public void Validate_WithInvalidDateRange_ReturnsFailure()
     {
-        DateOnly date = new(
-            2026,
-            8,
-            10);
-
+        DateOnly date = new(2026, 8, 10);
         var query = CreateValidQuery() with
         {
             CheckInDate = date,
@@ -112,23 +84,15 @@ public sealed class GetAvailabilityQueryValidatorTests
 
         Result result = _validator.Validate(query);
 
-        Assert.Equal(
-            StayPeriodErrors
-                .InvalidDateRange,
-            result.Error);
+        Assert.Equal(StayPeriodErrors.InvalidDateRange, result.Error);
     }
 
     private static GetAvailabilityQuery CreateValidQuery()
     {
         return new GetAvailabilityQuery(
             Guid.NewGuid(),
-            new DateOnly(
-                2026,
-                8, 10),
-            new DateOnly(
-                2026,
-                8,
-                15),
+            new DateOnly(2026, 8, 10),
+            new DateOnly(2026, 8, 15),
             GuestCount: 2);
     }
 }
