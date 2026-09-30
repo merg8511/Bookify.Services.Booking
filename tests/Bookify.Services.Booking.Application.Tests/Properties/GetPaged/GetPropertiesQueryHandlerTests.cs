@@ -14,26 +14,13 @@ public sealed class GetPropertiesQueryHandlerTests
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
         var readService = new PropertyReadServiceSpy();
-
         var handler = new GetPropertiesQueryHandler(readService);
 
-        var query =
-            new GetPropertiesQuery(
-                1,
-                20,
-                " rancho ",
-                true,
-                null,
-                null);
-
+        var query = new GetPropertiesQuery(1, 20, " rancho ", true, null, null);
         var result = await handler.HandleAsync(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
-
-        Assert.Equal(
-            "rancho",
-            readService.ReceivedName);
-
+        Assert.Equal("rancho", readService.ReceivedName);
         Assert.True(readService.ReceivedIsActive);
     }
 
@@ -45,14 +32,7 @@ public sealed class GetPropertiesQueryHandlerTests
         var readService = new PropertyReadServiceSpy();
         var handler = new GetPropertiesQueryHandler(readService);
 
-        var query = new GetPropertiesQuery(
-            1,
-            20,
-            "  ",
-            null,
-            null,
-            null);
-
+        var query = new GetPropertiesQuery(1, 20, "  ", null, null, null);
         var result = await handler.HandleAsync(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
@@ -65,37 +45,15 @@ public sealed class GetPropertiesQueryHandlerTests
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        var readService =
-            new PropertyReadServiceSpy();
+        var readService = new PropertyReadServiceSpy();
+        var handler = new GetPropertiesQueryHandler(readService);
 
-        var handler =
-            new GetPropertiesQueryHandler(
-                readService);
+        var query = new GetPropertiesQuery(1, 20, null, null, null, null);
+        var result = await handler.HandleAsync(query, cancellationToken);
 
-        var query =
-            new GetPropertiesQuery(
-                1,
-                20,
-                null,
-                null,
-                null,
-                null);
-
-        var result =
-            await handler.HandleAsync(
-                query,
-                cancellationToken);
-
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            PropertySortField.Name,
-            readService.ReceivedSortField);
-
-        Assert.Equal(
-            SortDirection.Ascending,
-            readService.ReceivedSortDirection);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(PropertySortField.Name, readService.ReceivedSortField);
+        Assert.Equal(SortDirection.Ascending, readService.ReceivedSortDirection);
     }
 
     [Fact]
@@ -103,37 +61,15 @@ public sealed class GetPropertiesQueryHandlerTests
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        var readService =
-            new PropertyReadServiceSpy();
+        var readService = new PropertyReadServiceSpy();
+        var handler = new GetPropertiesQueryHandler(readService);
 
-        var handler =
-            new GetPropertiesQueryHandler(
-                readService);
+        var query = new GetPropertiesQuery(1, 20, null, null, "  ISACTIVE  ", "  DESC  ");
+        var result = await handler.HandleAsync(query, cancellationToken);
 
-        var query =
-            new GetPropertiesQuery(
-                1,
-                20,
-                null,
-                null,
-                "  ISACTIVE  ",
-                "  DESC  ");
-
-        var result =
-            await handler.HandleAsync(
-                query,
-                cancellationToken);
-
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            PropertySortField.IsActive,
-            readService.ReceivedSortField);
-
-        Assert.Equal(
-            SortDirection.Descending,
-            readService.ReceivedSortDirection);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(PropertySortField.IsActive, readService.ReceivedSortField);
+        Assert.Equal(SortDirection.Descending, readService.ReceivedSortDirection);
     }
 
     private sealed class PropertyReadServiceSpy : IPropertyReadService
@@ -141,7 +77,6 @@ public sealed class GetPropertiesQueryHandlerTests
         public string? ReceivedName { get; private set; }
         public bool? ReceivedIsActive { get; private set; }
         public PropertySortField ReceivedSortField { get; private set; }
-
         public SortDirection ReceivedSortDirection { get; private set; }
 
         public Task<PropertyDetailsReadModel?> GetByIdAsync(
@@ -151,10 +86,7 @@ public sealed class GetPropertiesQueryHandlerTests
             throw new NotSupportedException();
         }
 
-        public Task<
-            PagedResult<
-                PropertyListItemReadModel>>
-            GetPagedAsync(
+        public Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(
             int pageNumber,
             int pageSize,
             string? name,
@@ -168,14 +100,7 @@ public sealed class GetPropertiesQueryHandlerTests
             ReceivedSortField = sortField;
             ReceivedSortDirection = sortDirection;
 
-            var result =
-                new PagedResult<
-                    PropertyListItemReadModel>(
-                    [],
-                    pageNumber,
-                    pageSize,
-                    0);
-
+            var result = new PagedResult<PropertyListItemReadModel>([], pageNumber, pageSize, 0);
             return Task.FromResult(result);
         }
     }

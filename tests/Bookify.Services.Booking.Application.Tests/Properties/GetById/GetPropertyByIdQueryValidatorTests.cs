@@ -8,60 +8,42 @@ public sealed class GetPropertyByIdQueryValidatorTests
     [Fact]
     public void Validate_WithValidId_ShouldReturnSuccess()
     {
-        // ARRANGE
-        var validator =
-            new GetPropertyByIdQueryValidator();
+        // Arrange
+        var validator = new GetPropertyByIdQueryValidator();
+        var query = new GetPropertyByIdQuery(Guid.NewGuid());
 
-        var query =
-            new GetPropertyByIdQuery(
-                Guid.NewGuid());
+        // Act
+        Result result = validator.Validate(query);
 
-        // ACT
-        Result result =
-            validator.Validate(query);
-
-        // ASSERT
+        // Assert
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
     public void Validate_WithEmptyId_ShouldReturnFailure()
     {
-        // ARRANGE
-        var validator =
-            new GetPropertyByIdQueryValidator();
+        // Arrange
+        var validator = new GetPropertyByIdQueryValidator();
+        var query = new GetPropertyByIdQuery(Guid.Empty);
 
-        var query =
-            new GetPropertyByIdQuery(
-                Guid.Empty);
+        // Act
+        Result result = validator.Validate(query);
 
-        // ACT
-        Result result =
-            validator.Validate(query);
-
-        // ASSERT
+        // Assert
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            GetPropertyByIdErrors.InvalidPropertyId,
-            result.Error);
+        Assert.Equal(GetPropertyByIdErrors.InvalidPropertyId, result.Error);
     }
 
     [Fact]
     public void Validate_WithNullQuery_ShouldThrow()
     {
-        // ARRANGE
-        var validator =
-            new GetPropertyByIdQueryValidator();
+        // Arrange
+        var validator = new GetPropertyByIdQueryValidator();
 
-        // ACT
-        void Action()
-        {
-            validator.Validate(null!);
-        }
+        // Act
+        void Action() => validator.Validate(null!);
 
-        // ASSERT
-        Assert.Throws<
-            ArgumentNullException>(Action);
+        // Assert
+        Assert.Throws<ArgumentNullException>(Action);
     }
 }
