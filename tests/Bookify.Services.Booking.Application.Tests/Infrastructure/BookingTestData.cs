@@ -1,4 +1,3 @@
-
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Properties;
@@ -16,13 +15,43 @@ internal static class BookingTestData
         decimal extraGuestPrice = 0m,
         string currency = "USD")
     {
-        PriceBreakdown breakdown =
-            PriceBreakdown.Create(
-                Money.Create(accommodationPrice, currency).Value,
-                Money.Create(extraGuestPrice, currency).Value)
-            .Value;
+        PriceBreakdown breakdown = PriceBreakdown.Create(
+            Money.Create(accommodationPrice, currency).Value,
+            Money.Create(extraGuestPrice, currency).Value).Value;
 
         return PriceSnapshot.Create(breakdown);
+    }
+
+    public static GuestDetails CreateGuestDetails(
+        string fullName = "John Doe",
+        string email = "john@example.com",
+        string phone = "+50377778888")
+    {
+        return GuestDetails.Create(
+            fullName,
+            email,
+            phone).Value;
+    }
+
+    public static DateOnly CreateDate(int day, int month = 8, int year = 2026)
+    {
+        return new DateOnly(year, month, day);
+    }
+
+    public static StayPeriod CreateStayPeriod(
+        int checkInDay = 10,
+        int checkOutDay = 12,
+        int month = 9,
+        int year = 2026)
+    {
+        return StayPeriod.Create(
+            new DateOnly(year, month, checkInDay),
+            new DateOnly(year, month, checkOutDay)).Value;
+    }
+
+    public static GuestCount CreateGuestCount(int count = 2)
+    {
+        return GuestCount.Create(count).Value;
     }
 
     public static DomainBooking CreateBooking(
@@ -33,17 +62,13 @@ internal static class BookingTestData
         PriceSnapshot? priceSnapshot = null)
     {
         return DomainBooking.Create(
-                rentableUnit,
-                stayPeriod,
-                guestCount ?? GuestCount.Create(2).Value,
-                guestDetails ?? GuestDetails.Create(
-                    "John Doe",
-                    "john@example.com",
-                    "+50377778888").Value,
-                priceSnapshot ?? CreatePriceSnapshot(),
-                BookingTestTime.CreatedAtUtc,
-                BookingTestTime.ApprovalDueAtUtc)
-            .Value;
+            rentableUnit,
+            stayPeriod,
+            guestCount ?? CreateGuestCount(),
+            guestDetails ?? CreateGuestDetails(),
+            priceSnapshot ?? CreatePriceSnapshot(),
+            BookingTestTime.CreatedAtUtc,
+            BookingTestTime.ApprovalDueAtUtc).Value;
     }
 
     public static Result Approve(DomainBooking booking)
