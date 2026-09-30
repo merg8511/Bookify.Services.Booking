@@ -8,60 +8,42 @@ public sealed class ApproveBookingCommandValidatorTests
     [Fact]
     public void Validate_WithValidBookingId_ShouldReturnSuccess()
     {
-        // ARRANGE
-        var validator =
-            new ApproveBookingCommandValidator();
+        // Arrange
+        var validator = new ApproveBookingCommandValidator();
+        var command = new ApproveBookingCommand(Guid.NewGuid());
 
-        var command =
-            new ApproveBookingCommand(
-                Guid.NewGuid());
+        // Act
+        Result result = validator.Validate(command);
 
-        // ACT
-        Result result =
-            validator.Validate(command);
-
-        // ASSERT
+        // Assert
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
     public void Validate_WithEmptyBookingId_ShouldReturnFailure()
     {
-        // ARRANGE
-        var validator =
-            new ApproveBookingCommandValidator();
+        // Arrange
+        var validator = new ApproveBookingCommandValidator();
+        var command = new ApproveBookingCommand(Guid.Empty);
 
-        var command =
-            new ApproveBookingCommand(
-                Guid.Empty);
+        // Act
+        Result result = validator.Validate(command);
 
-        // ACT
-        Result result =
-            validator.Validate(command);
-
-        // ASSERT
+        // Assert
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            ApproveBookingErrors.InvalidBookingId,
-            result.Error);
+        Assert.Equal(ApproveBookingErrors.InvalidBookingId, result.Error);
     }
 
     [Fact]
     public void Validate_WithNullCommand_ShouldThrow()
     {
-        // ARRANGE
-        var validator =
-            new ApproveBookingCommandValidator();
+        // Arrange
+        var validator = new ApproveBookingCommandValidator();
 
-        // ACT
-        void Action()
-        {
-            validator.Validate(null!);
-        }
+        // Act
+        void Action() => validator.Validate(null!);
 
-        // ASSERT
-        Assert.Throws<
-            ArgumentNullException>(Action);
+        // Assert
+        Assert.Throws<ArgumentNullException>(Action);
     }
 }

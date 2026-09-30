@@ -8,89 +8,47 @@ public sealed class BookingDeadlinePolicyTests
     public void GetApprovalDueAtUtc_ShouldAddApprovalWindow()
     {
         // Arrange
-        DateTimeOffset createdAtUtc =
-            new(
-                2026,
-                9,
-                21,
-                18,
-                0,
-                0,
-                TimeSpan.Zero);
-
-        var policy =
-            new BookingDeadlinePolicy(
-                TimeSpan.FromHours(24),
-                TimeSpan.FromMinutes(30));
+        DateTimeOffset createdAtUtc = new(2026, 9, 21, 18, 0, 0, TimeSpan.Zero);
+        var policy = new BookingDeadlinePolicy(
+            TimeSpan.FromHours(24),
+            TimeSpan.FromMinutes(30));
 
         // Act
-        DateTimeOffset result =
-            policy.GetApprovalDueAtUtc(
-                createdAtUtc);
+        DateTimeOffset result = policy.GetApprovalDueAtUtc(createdAtUtc);
 
         // Assert
-        Assert.Equal(
-            createdAtUtc.AddHours(24),
-            result);
+        Assert.Equal(createdAtUtc.AddHours(24), result);
     }
 
     [Fact]
     public void GetPaymentDueAtUtc_ShouldAddPaymentWindow()
     {
         // Arrange
-        DateTimeOffset approvedAtUtc =
-            new(
-                2026,
-                9,
-                21,
-                18,
-                0,
-                0,
-                TimeSpan.Zero);
-
-        var policy =
-            new BookingDeadlinePolicy(
-                TimeSpan.FromHours(24),
-                TimeSpan.FromMinutes(30));
+        DateTimeOffset approvedAtUtc = new(2026, 9, 21, 18, 0, 0, TimeSpan.Zero);
+        var policy = new BookingDeadlinePolicy(
+            TimeSpan.FromHours(24),
+            TimeSpan.FromMinutes(30));
 
         // Act
-        DateTimeOffset result =
-            policy.GetPaymentDueAtUtc(
-                approvedAtUtc);
+        DateTimeOffset result = policy.GetPaymentDueAtUtc(approvedAtUtc);
 
         // Assert
-        Assert.Equal(
-            approvedAtUtc.AddMinutes(30),
-            result);
+        Assert.Equal(approvedAtUtc.AddMinutes(30), result);
     }
 
     [Fact]
     public void Constructor_WithZeroApprovalWindow_ShouldThrow()
     {
-        void Action()
-        {
-            _ = new BookingDeadlinePolicy(
-                TimeSpan.Zero,
-                TimeSpan.FromMinutes(30));
-        }
+        void Action() => _ = new BookingDeadlinePolicy(TimeSpan.Zero, TimeSpan.FromMinutes(30));
 
-        Assert.Throws<
-            ArgumentOutOfRangeException>(
-                Action);
+        Assert.Throws<ArgumentOutOfRangeException>(Action);
     }
 
     [Fact]
     public void Constructor_WithZeroPaymentWindow_ShouldThrow()
     {
-        void Action()
-        {
-            _ = new BookingDeadlinePolicy(
-                TimeSpan.FromHours(24),
-                TimeSpan.Zero);
-        }
+        void Action() => _ = new BookingDeadlinePolicy(TimeSpan.FromHours(24), TimeSpan.Zero);
 
-        Assert.Throws<
-            ArgumentOutOfRangeException>(
-                Action);
+        Assert.Throws<ArgumentOutOfRangeException>(Action);
     }
 }

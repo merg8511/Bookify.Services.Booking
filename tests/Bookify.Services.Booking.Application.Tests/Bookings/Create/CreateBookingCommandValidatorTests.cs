@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings.Errors;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Domain.Shared.Errors;
@@ -12,257 +13,141 @@ public sealed class CreateBookingCommandValidatorTests
     [Fact]
     public void Validate_WithValidCommand_ReturnsSuccess()
     {
-        // ARRANGE
-        CreateBookingCommand command = CreateValidCommand();
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand();
 
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
     public void Validate_WithEmptyPropertyId_ReturnsFailure()
     {
-        // ARRANGE
-        CreateBookingCommand command = CreateValidCommand() with
-        {
-            PropertyId = Guid.Empty
-        };
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand(propertyId: Guid.Empty);
 
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            CreateBookingErrors.InvalidPropertyId,
-            result.Error);
+        Assert.Equal(CreateBookingErrors.InvalidPropertyId, result.Error);
     }
 
     [Fact]
     public void Validate_WithEmptyRentableUnitId_ReturnsFailure()
     {
-        // ARRANGE
-        CreateBookingCommand command = CreateValidCommand() with
-        {
-            RentableUnitId = Guid.Empty
-        };
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand(rentableUnitId: Guid.Empty);
 
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            CreateBookingErrors.InvalidRentableUnitId,
-            result.Error);
+        Assert.Equal(CreateBookingErrors.InvalidRentableUnitId, result.Error);
     }
 
     [Fact]
     public void Validate_WithoutCheckInDate_ReturnsFailure()
     {
-        // ARRANGE
-        CreateBookingCommand command = CreateValidCommand() with
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand() with
         {
             CheckInDate = null
         };
 
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            CreateBookingErrors.CheckInDateRequired,
-            result.Error);
+        Assert.Equal(CreateBookingErrors.CheckInDateRequired, result.Error);
     }
 
     [Fact]
     public void Validate_WithoutCheckOutDate_ReturnsFailure()
     {
-        // ARRANGE
-        CreateBookingCommand command = CreateValidCommand() with
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand() with
         {
             CheckOutDate = null
         };
 
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            CreateBookingErrors.CheckOutDateRequired,
-            result.Error);
+        Assert.Equal(CreateBookingErrors.CheckOutDateRequired, result.Error);
     }
 
     [Fact]
     public void Validate_WithoutGuestCount_ReturnsFailure()
     {
-        // ARRANGE
-        CreateBookingCommand command = CreateValidCommand() with
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand() with
         {
             GuestCount = null
         };
 
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            CreateBookingErrors.GuestCountRequired,
-            result.Error);
+        Assert.Equal(CreateBookingErrors.GuestCountRequired, result.Error);
     }
 
     [Fact]
     public void Validate_WithSameCheckInAndCheckOut_ReturnsFailure()
     {
-        // ARRANGE
-        DateOnly date = new(
-            2026,
-            8,
-            10);
+        DateOnly date = new(2026, 8, 10);
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand(
+            checkInDate: date,
+            checkOutDate: date);
 
-        CreateBookingCommand command = CreateValidCommand() with
-        {
-            CheckInDate = date,
-            CheckOutDate = date
-        };
-
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            StayPeriodErrors.InvalidDateRange,
-            result.Error);
+        Assert.Equal(StayPeriodErrors.InvalidDateRange, result.Error);
     }
 
     [Fact]
     public void Validate_WithCheckOutBeforeCheckIn_ReturnsFailure()
     {
-        // ARRANGE
-        CreateBookingCommand command =
-            CreateValidCommand() with
-            {
-                CheckInDate =
-                    new DateOnly(
-                        2026,
-                        8,
-                        15),
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand(
+            checkInDate: new DateOnly(2026, 8, 15),
+            checkOutDate: new DateOnly(2026, 8, 10));
 
-                CheckOutDate =
-                    new DateOnly(
-                        2026,
-                        8,
-                        10)
-            };
-
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            StayPeriodErrors.InvalidDateRange,
-            result.Error);
+        Assert.Equal(StayPeriodErrors.InvalidDateRange, result.Error);
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
     [InlineData(-20)]
-    public void Validate_WithInvalidGuestCount_ReturnsFailure(
-        int guestCount)
+    public void Validate_WithInvalidGuestCount_ReturnsFailure(int guestCount)
     {
-        // ARRANGE
-        CreateBookingCommand command = CreateValidCommand() with
-        {
-            GuestCount = guestCount
-        };
+        CreateBookingCommand command = BookingCommandTestFactory.CreateBookingCommand(guestCount: guestCount);
 
-        // ACT
         Result result = _validator.Validate(command);
 
-        // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            GuestCountErrors.InvalidValue,
-            result.Error);
+        Assert.Equal(GuestCountErrors.InvalidValue, result.Error);
     }
 
     [Fact]
     public void Validate_WithMultipleErrors_ReturnsFirstError()
     {
-        // ARRANGE
-        CreateBookingCommand command =
-            new(
-                Guid.Empty,
-                Guid.Empty,
-                CheckInDate: null,
-                CheckOutDate: null,
-                GuestCount: 0,
-                null,
-                null,
-                null);
+        CreateBookingCommand command = new(
+            Guid.Empty,
+            Guid.Empty,
+            CheckInDate: null,
+            CheckOutDate: null,
+            GuestCount: 0,
+            null,
+            null,
+            null);
 
-        // ACT
-        Result result =
-            _validator.Validate(
-                command);
+        Result result = _validator.Validate(command);
 
-        // ASSERT
-        Assert.Equal(
-            CreateBookingErrors.InvalidPropertyId,
-            result.Error);
+        Assert.Equal(CreateBookingErrors.InvalidPropertyId, result.Error);
     }
 
     [Fact]
     public void Validate_WithNullCommand_ThrowsArgumentNullException()
     {
-        // ACT
-        void Action()
-        {
-            _validator.Validate(
-                null!);
-        }
+        void Action() => _validator.Validate(null!);
 
-        // ASSERT
-        Assert.Throws<
-            ArgumentNullException>(
-                Action);
+        Assert.Throws<ArgumentNullException>(Action);
     }
-
-    private static CreateBookingCommand
-        CreateValidCommand()
-    {
-        return new CreateBookingCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            new DateOnly(
-                2026,
-                8,
-                10),
-            new DateOnly(
-                2026,
-                8,
-                15),
-            GuestCount: 2,
-                        GuestFullName: "John Doe",
-GuestEmail: "john@example.com",
-GuestPhone: "+50377778888");
-    }
-
 }
