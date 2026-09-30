@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Bookings.Approve;
 using Bookify.Services.Booking.Domain.Shared;
@@ -8,14 +9,13 @@ namespace Bookify.Services.Booking.Api.Endpoints.Bookings.Approve;
 
 internal static class ApproveBookingEndpoint
 {
-    public static void Map(
-        RouteGroupBuilder bookingGroup)
+    public static void Map(RouteGroupBuilder bookingGroup)
     {
         bookingGroup
-            .MapPost("/{bookingId:guid}/approve",
-                HandleAsync)
+            .MapPost("/{bookingId:guid}/approve", HandleAsync)
             .WithName(EndpointNames.Bookings.Approve)
             .WithSummary("Approves a pending booking.")
+            .RequireOwnerOrAdminAccess()
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -23,10 +23,7 @@ internal static class ApproveBookingEndpoint
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
-    private static async Task<
-        Results<
-            NoContent,
-            ProblemHttpResult>> HandleAsync(
+    private static async Task<Results<NoContent, ProblemHttpResult>> HandleAsync(
         Guid bookingId,
         ICommandExecutor<ApproveBookingCommand> commandExecutor,
         HttpContext httpContext,
@@ -38,8 +35,7 @@ internal static class ApproveBookingEndpoint
 
         if (result.IsFailure)
         {
-            return result.Error
-                .ToProblem(httpContext);
+            return result.Error.ToProblem(httpContext);
         }
 
         return TypedResults.NoContent();

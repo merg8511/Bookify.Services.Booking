@@ -49,7 +49,8 @@ app.MapGet("/health",
         {
             Status = "Healthy",
             Service = "Bookify.Services.Booking"
-        }));
+        }))
+    .AllowPublicAccess();
 
 // ==========================================
 // API Endpoints

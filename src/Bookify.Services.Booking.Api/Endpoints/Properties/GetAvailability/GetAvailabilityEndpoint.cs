@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
@@ -15,6 +16,7 @@ internal static class GetAvailabilityEndpoint
             .MapGet("/{propertyId:guid}/availability", HandleAsync)
             .WithName(EndpointNames.Properties.GetAvailability)
             .WithSummary("Gets the rentable units available for a requested stay period and guest count.")
+            .AllowPublicAccess()
             .Produces<GetAvailabilityResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)

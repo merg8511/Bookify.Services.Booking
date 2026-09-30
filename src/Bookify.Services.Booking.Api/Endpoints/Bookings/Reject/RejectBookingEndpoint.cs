@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Domain.Shared;
@@ -13,10 +14,10 @@ internal static class RejectBookingEndpoint
         RouteGroupBuilder bookingsGroup)
     {
         bookingsGroup
-            .MapPost("/{bookingId:guid}/reject",
-                HandleAsync)
+            .MapPost("/{bookingId:guid}/reject",                HandleAsync)
             .WithName(EndpointNames.Bookings.Reject)
             .WithSummary("Rejects a pending booking.")
+            .RequireOwnerOrAdminAccess()
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)

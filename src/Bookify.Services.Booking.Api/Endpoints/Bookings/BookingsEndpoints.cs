@@ -1,8 +1,6 @@
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Approve;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Cancel;
-using Bookify.Services.Booking.Api.Endpoints.Bookings.Complete;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
-using Bookify.Services.Booking.Api.Endpoints.Bookings.ExpirePayment;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Get;
 using Bookify.Services.Booking.Api.Endpoints.Bookings.Reject;
 
@@ -14,17 +12,12 @@ internal static class BookingsEndpoints
 
     public static void Map(RouteGroupBuilder apiGroup)
     {
-        RouteGroupBuilder bookingsGroup =
-            apiGroup
-                .MapGroup(RoutePrefix)
-                .WithTags("Bookings");
+        RouteGroupBuilder bookingsGroup = apiGroup.MapGroup(RoutePrefix).WithTags("Bookings");
 
         CreateBookingEndpoint.Map(bookingsGroup);
         GetBookingEndpoint.Map(bookingsGroup);
         ApproveBookingEndpoint.Map(bookingsGroup);
         RejectBookingEndpoint.Map(bookingsGroup);
-        ExpireBookingPaymentEndpoint.Map(bookingsGroup);
-        CompleteBookingEndpoint.Map(bookingsGroup);
         CancelBookingEndpoint.Map(bookingsGroup);
     }
 

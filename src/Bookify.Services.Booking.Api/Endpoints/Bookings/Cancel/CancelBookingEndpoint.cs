@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Domain.Shared;
@@ -14,6 +15,7 @@ internal static class CancelBookingEndpoint
             .MapPost("/{bookingId:guid}/cancel", HandleAsync)
             .WithName(EndpointNames.Bookings.Cancel)
             .WithSummary("Cancels a booking before payment.")
+            .ClassifyCustomerOrGuestAccess()
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -21,10 +23,7 @@ internal static class CancelBookingEndpoint
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
-    private static async Task<
-        Results<
-            NoContent,
-            ProblemHttpResult>> HandleAsync(
+    private static async Task<Results<NoContent, ProblemHttpResult>> HandleAsync(
         Guid bookingId,
         ICommandExecutor<CancelBookingCommand> commandExecutor,
         HttpContext httpContext,
@@ -32,14 +31,11 @@ internal static class CancelBookingEndpoint
     {
         var command = new CancelBookingCommand(bookingId);
 
-        Result result =
-            await commandExecutor
-                .ExecuteAsync(command, cancellationToken);
+        Result result = await commandExecutor.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
-            return result.Error
-                .ToProblem(httpContext);
+            return result.Error.ToProblem(httpContext);
         }
 
         return TypedResults.NoContent();

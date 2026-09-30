@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Security;
 using Bookify.Services.Booking.Application.Bookings.Create;
@@ -11,13 +12,13 @@ namespace Bookify.Services.Booking.Api.Endpoints.Bookings.Create;
 
 internal static class CreateBookingEndpoint
 {
-    private const string GuestTokenHeader = "Booking-Guest-Token";
     public static void Map(RouteGroupBuilder bookingsGroup)
     {
         bookingsGroup
             .MapPost("/", HandleAsync)
             .WithName(EndpointNames.Bookings.Create)
             .WithSummary("Creates a new booking.")
+            .AllowPublicAccess()
             .WithMetadata(IdempotencyRequiredMetadata.Instance)
             .Accepts<CreateBookingRequest>("application/json")
             .Produces<CreateBookingResponse>(StatusCodes.Status201Created)
@@ -66,7 +67,7 @@ internal static class CreateBookingEndpoint
 
                 if (booking.GuestAccessToken is not null)
                 {
-                    httpContext.Response.Headers[GuestTokenHeader] = booking.GuestAccessToken;
+                    httpContext.Response.Headers[BookingGuestAccessHeader.Name] = booking.GuestAccessToken;
                 }
 
                 var price = new CreateBookingPriceResponse(

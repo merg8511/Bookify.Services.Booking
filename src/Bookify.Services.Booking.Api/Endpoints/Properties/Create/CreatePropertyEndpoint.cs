@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Security;
 using Bookify.Services.Booking.Application.Properties.Create;
@@ -15,9 +16,7 @@ internal static class CreatePropertyEndpoint
             .MapPost("/", HandleAsync)
             .WithName(EndpointNames.Properties.Create)
             .WithSummary("Creates a property.")
-            .RequireAuthorization(policy => policy.RequireRole(
-                BookifyRoles.Owner,
-                BookifyRoles.Admin))
+            .RequireOwnerOrAdminAccess()
             .Accepts<CreatePropertyRequest>("application/json")
             .Produces<CreatePropertyResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status401Unauthorized)
