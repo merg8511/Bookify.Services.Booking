@@ -17,8 +17,10 @@ internal static class GetPaymentStatusEndpoint
             .MapGet("/bookings/{bookingId:guid}/status", HandleAsync)
             .WithName(EndpointNames.Payments.GetStatus)
             .WithSummary("Gets the authoritative payment status for a booking.")
-            .ClassifyCustomerOrGuestAccess()
+            .RequireCustomerOrGuestBookingAccessFromRoute("bookingId")
             .Produces<GetPaymentStatusResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status500InternalServerError);

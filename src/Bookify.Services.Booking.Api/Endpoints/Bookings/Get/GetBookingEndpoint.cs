@@ -19,8 +19,10 @@ internal static class GetBookingEndpoint
             .MapGet("/{identifier}", HandleAsync)
             .WithName(EndpointNames.Bookings.GetByIdentifier)
             .WithSummary("Gets a booking by ID or public booking reference.")
-            .ClassifyCustomerOrGuestAccess()
+            .RequireCustomerOrGuestBookingAccessFromIdentifier("identifier")
             .Produces<GetBookingResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
