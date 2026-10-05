@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Time;
@@ -29,6 +30,11 @@ builder.Services
 // ==========================================
 builder.Services.AddIdentityAuthentication(builder.Configuration);
 
+// ==========================================
+// Rate Limiting
+// ==========================================
+builder.Services.AddBookifyRateLimiting(builder.Configuration);
+
 var app = builder.Build();
 
 // ==========================================
@@ -37,19 +43,19 @@ var app = builder.Build();
 
 app.UseRouting();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.UseMiddleware<IdempotencyMiddleware>();
 
 // ==========================================
 // Health
 // ==========================================
-app.MapGet("/health",
-    () => Results.Ok(
-        new
-        {
-            Status = "Healthy",
-            Service = "Bookify.Services.Booking"
-        }))
+app.MapGet("/health", () => Results.Ok(
+    new
+    {
+        Status = "Healthy",
+        Service = "Bookify.Services.Booking"
+    }))
     .AllowPublicAccess();
 
 // ==========================================
@@ -64,60 +70,47 @@ app.MapApiEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapGet(
-        "/diagnostics/time",
-        (IClock clock) =>
-            Results.Ok(
+    app.MapGet("/diagnostics/time", (IClock clock) =>
+    Results.Ok(
                 new
                 {
                     UtcNow = clock.UtcNow
                 }));
 
-    app.MapGet(
-        "/diagnostics/database",
-        async (
-            BookingDbContext dbContext,
-            CancellationToken cancellationToken) =>
-        {
-            bool canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
-
-            if (!canConnect)
-            {
-                return Results.Problem(
-                    title: "Database unavailable",
-                    detail: "The application could not connect to PostgreSQL",
-                    statusCode: StatusCodes.Status503ServiceUnavailable);
-            }
-
-            return Results.Ok(
-                new
-                {
-                    Status = "Connected",
-                    Provider = dbContext.Database.ProviderName
-                });
-        });
-
-    app.MapGet(
-    "/diagnostics/database/model",
-    (BookingDbContext dbContext) =>
+    app.MapGet("/diagnostics/database", async (
+        BookingDbContext dbContext,
+        CancellationToken cancellationToken) =>
     {
-        var entities =
-            dbContext.Model
-                .GetEntityTypes()
-                .Select(
-                    entityType =>
-                        new
-                        {
-                            Entity =
-                                entityType.ClrType.Name,
+        bool canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
 
-                            Table =
-                                entityType.GetTableName()
-                        })
-                .OrderBy(
-                    entity =>
-                        entity.Entity)
-                .ToArray();
+        if (!canConnect)
+        {
+            return Results.Problem(
+                title: "Database unavailable",
+                detail: "The application could not connect to PostgreSQL",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        return Results.Ok(
+            new
+            {
+                Status = "Connected",
+                Provider = dbContext.Database.ProviderName
+            });
+    });
+
+    app.MapGet("/diagnostics/database/model", (BookingDbContext dbContext) =>
+    {
+        var entities = dbContext.Model
+            .GetEntityTypes()
+            .Select(entityType =>
+            new
+            {
+                Entity = entityType.ClrType.Name,
+                Table = entityType.GetTableName()
+            })
+            .OrderBy(entity => entity.Entity)
+            .ToArray();
 
         return Results.Ok(entities);
     });
