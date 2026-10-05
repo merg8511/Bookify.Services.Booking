@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Properties.GetById;
@@ -18,6 +19,7 @@ internal static class GetPropertyByIdEndpoint
             .WithName(EndpointNames.Properties.GetById)
             .WithSummary("Gets a property by its identifier.")
             .AllowPublicAccess()
+            .RequirePublicReadRateLimit()
             .Produces<GetPropertyByIdResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)

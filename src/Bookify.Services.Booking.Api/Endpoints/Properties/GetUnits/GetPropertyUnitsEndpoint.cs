@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.RentableUnits.GetByProperty;
@@ -17,6 +18,7 @@ internal static class GetPropertyUnitsEndpoint
             .WithName(EndpointNames.Properties.GetUnits)
             .WithSummary("Gets the active rentable units publicly available for a property.")
             .AllowPublicAccess()
+            .RequirePublicReadRateLimit()
             .Produces<GetPropertyUnitsResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)

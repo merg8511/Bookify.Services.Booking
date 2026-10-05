@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Api.Contracts.Pagination;
 using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Common.Pagination;
@@ -19,6 +20,7 @@ internal static class GetPropertiesEndpoint
             .WithName(EndpointNames.Properties.List)
             .WithSummary("Gets a filtered, sorted and paged list of properties.")
             .AllowPublicAccess()
+            .RequirePublicReadRateLimit()
             .Produces<PagedResponse<PropertyListItemResponse>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status500InternalServerError);

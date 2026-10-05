@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Payments.Initiate;
@@ -21,6 +22,7 @@ internal static class InitiatePaymentEndpoint
             .WithName(EndpointNames.Payments.Initiate)
             .WithSummary("Initiates a payment for a booking.")
             .RequireCustomerOrGuestBookingAccessFromJsonBody("bookingId")
+            .RequirePaymentInitiationRateLimit()
             .WithMetadata(IdempotencyRequiredMetadata.Instance)
             .WithMetadata(IdempotencySensitiveResponseMetadata.Instance)
             .Accepts<InitiatePaymentRequest>("application/json")

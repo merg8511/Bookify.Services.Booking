@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Security;
@@ -19,6 +20,7 @@ internal static class CreateBookingEndpoint
             .WithName(EndpointNames.Bookings.Create)
             .WithSummary("Creates a new booking.")
             .AllowPublicAccess()
+            .RequireBookingCreationRateLimit()
             .WithMetadata(IdempotencyRequiredMetadata.Instance)
             .Accepts<CreateBookingRequest>("application/json")
             .Produces<CreateBookingResponse>(StatusCodes.Status201Created)
