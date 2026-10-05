@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Api.Security.Authorization;
 using Bookify.Services.Booking.Application.Abstractions.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -82,7 +83,7 @@ internal static class IdentityDependencyInjection
                 };
             });
 
-        services.AddAuthorization();
+        services.AddBookifyAuthorization();
 
         return services;
     }
