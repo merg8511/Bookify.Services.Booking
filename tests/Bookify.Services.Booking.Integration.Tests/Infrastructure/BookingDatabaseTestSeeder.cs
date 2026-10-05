@@ -17,6 +17,10 @@ internal sealed record SeedData(
     Property Property,
     RentableUnit RentableUnit);
 
+internal sealed record GuestBookingSeedData(
+    DomainBooking Booking,
+    string GuestAccessToken);
+
 internal static class BookingDatabaseTestSeeder
 {
     public static async Task<SeedData> SeedPropertyWithRoomAsync(
@@ -102,7 +106,7 @@ internal static class BookingDatabaseTestSeeder
         GuestCount? guestCount = null,
         PriceSnapshot? priceSnapshot = null,
         string ownerSubjectId = TestIdentitySubjects.Owner,
-        string? customerSubjectId = null,
+        string? customerSubjectId = TestIdentitySubjects.Customer,
         CancellationToken cancellationToken = default)
     {
         SeedData seed = await SeedPropertyWithRoomAsync(
@@ -173,7 +177,7 @@ internal static class BookingDatabaseTestSeeder
         GuestCount? guestCount = null,
         PriceSnapshot? priceSnapshot = null,
         string ownerSubjectId = TestIdentitySubjects.Owner,
-        string? customerSubjectId = null,
+        string? customerSubjectId = TestIdentitySubjects.Customer,
         CancellationToken cancellationToken = default)
     {
         return SeedBookingAsync(
@@ -187,5 +191,28 @@ internal static class BookingDatabaseTestSeeder
             ownerSubjectId,
             customerSubjectId,
             cancellationToken);
+    }
+
+    public static async Task<GuestBookingSeedData> SeedGuestBookingAsync(
+        BookingApiFactory factory,
+        BookingStatus status = BookingStatus.PendingApproval,
+        BookingCancellationReason? cancellationReason = null,
+        string? propertyName = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+
+        DomainBooking booking = await SeedBookingAsync(
+            factory.Services,
+            status,
+            cancellationReason,
+            propertyName,
+            customerSubjectId: null,
+            cancellationToken: cancellationToken);
+
+        string guestAccessToken = booking.TakeGuestAccessToken()
+            ?? throw new InvalidOperationException("The seeded guest Booking did not produce an access credential.");
+
+        return new GuestBookingSeedData(booking, guestAccessToken);
     }
 }

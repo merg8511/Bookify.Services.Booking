@@ -350,11 +350,12 @@ public sealed class InitiatePaymentEndpointTests
     }
 
     private async Task<HttpResponseMessage> PostPaymentAsync<TRequest>(
-        TRequest request,
-        string? idempotencyKey,
-        CancellationToken cancellationToken)
+    TRequest request,
+    string? idempotencyKey,
+    CancellationToken cancellationToken)
     {
-        HttpClient client = _factory.CreateClient();
+        using HttpClient client = _factory.CreateCustomerClient();
+
         using var message = new HttpRequestMessage(HttpMethod.Post, "/api/v1/payments");
 
         if (idempotencyKey is not null)

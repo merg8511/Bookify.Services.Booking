@@ -362,14 +362,16 @@ public sealed class PaymentEndToEndTests
         Guid bookingId,
         CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await _factory.Client.GetAsync(
-            $"/api/v1/payments/bookings/{bookingId:D}/status",
-            cancellationToken);
+        using HttpClient client = _factory.CreateCustomerClient();
+
+        using HttpResponseMessage response = await client.GetAsync($"/api/v1/payments/bookings/{bookingId:D}/status", cancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         GetPaymentStatusResponse? body = await response.Content.ReadFromJsonAsync<GetPaymentStatusResponse>(cancellationToken);
+
         Assert.NotNull(body);
+
         return body;
     }
 

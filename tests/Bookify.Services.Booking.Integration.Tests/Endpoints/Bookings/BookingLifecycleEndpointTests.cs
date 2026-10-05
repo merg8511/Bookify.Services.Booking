@@ -6,8 +6,7 @@ using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Integration.Tests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
-using DomainBooking =
-    Bookify.Services.Booking.Domain.Bookings.Booking;
+using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Integration.Tests.Endpoints.Bookings;
 
@@ -17,8 +16,7 @@ public sealed class BookingLifecycleEndpointTests
 {
     private readonly BookingApiFactory _factory;
 
-    public BookingLifecycleEndpointTests(
-        BookingApiFactory factory)
+    public BookingLifecycleEndpointTests(BookingApiFactory factory)
     {
         _factory = factory;
     }
@@ -26,17 +24,15 @@ public sealed class BookingLifecycleEndpointTests
     [Fact]
     public async Task ApprovalPath_ShouldTransitionFromPendingApprovalToPendingPayment()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
         DomainBooking booking =
             await BookingDatabaseTestSeeder.SeedBookingAsync(
                 _factory.Services,
-                status:
-                    BookingStatus.PendingApproval,
-                cancellationToken:
-                    cancellationToken);
+                status: BookingStatus.PendingApproval,
+                cancellationToken: cancellationToken);
 
         using HttpClient ownerClient =
             _factory.CreateOwnerClient();
@@ -48,13 +44,13 @@ public sealed class BookingLifecycleEndpointTests
             expectedBlocksInventory: true,
             cancellationToken);
 
-        // ACT
+        // Act
         await PostAndAssertNoContentAsync(
             ownerClient,
             $"/api/v1/bookings/{booking.Id}/approve",
             cancellationToken);
 
-        // ASSERT
+        // Assert
         await AssertBookingStateAsync(
             booking.Id,
             BookingStatus.PendingPayment,
@@ -66,28 +62,26 @@ public sealed class BookingLifecycleEndpointTests
     [Fact]
     public async Task RejectionPath_ShouldCancelWithRejectedByOwner()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
         DomainBooking booking =
             await BookingDatabaseTestSeeder.SeedBookingAsync(
                 _factory.Services,
-                status:
-                    BookingStatus.PendingApproval,
-                cancellationToken:
-                    cancellationToken);
+                status: BookingStatus.PendingApproval,
+                cancellationToken: cancellationToken);
 
         using HttpClient ownerClient =
             _factory.CreateOwnerClient();
 
-        // ACT
+        // Act
         await PostAndAssertNoContentAsync(
             ownerClient,
             $"/api/v1/bookings/{booking.Id}/reject",
             cancellationToken);
 
-        // ASSERT
+        // Assert
         await AssertBookingStateAsync(
             booking.Id,
             BookingStatus.Cancelled,
@@ -99,28 +93,29 @@ public sealed class BookingLifecycleEndpointTests
     [Fact]
     public async Task GuestCancellation_WhenPendingApproval_ShouldCancelWithCancelledByGuest()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            await BookingDatabaseTestSeeder.SeedBookingAsync(
-                _factory.Services,
-                status:
-                    BookingStatus.PendingApproval,
-                cancellationToken:
-                    cancellationToken);
+        GuestBookingSeedData guest =
+            await BookingDatabaseTestSeeder.SeedGuestBookingAsync(
+                _factory,
+                BookingStatus.PendingApproval,
+                cancellationToken: cancellationToken);
+
+        DomainBooking booking = guest.Booking;
 
         using HttpClient guestClient =
-            _factory.CreateClient();
+            _factory.CreateGuestClient(
+                guest.GuestAccessToken);
 
-        // ACT
+        // Act
         await PostAndAssertNoContentAsync(
             guestClient,
             $"/api/v1/bookings/{booking.Id}/cancel",
             cancellationToken);
 
-        // ASSERT
+        // Assert
         await AssertBookingStateAsync(
             booking.Id,
             BookingStatus.Cancelled,
@@ -132,28 +127,29 @@ public sealed class BookingLifecycleEndpointTests
     [Fact]
     public async Task GuestCancellation_WhenPendingPayment_ShouldCancelWithCancelledByGuest()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            await BookingDatabaseTestSeeder.SeedBookingAsync(
-                _factory.Services,
-                status:
-                    BookingStatus.PendingPayment,
-                cancellationToken:
-                    cancellationToken);
+        GuestBookingSeedData guest =
+            await BookingDatabaseTestSeeder.SeedGuestBookingAsync(
+                _factory,
+                BookingStatus.PendingPayment,
+                cancellationToken: cancellationToken);
+
+        DomainBooking booking = guest.Booking;
 
         using HttpClient guestClient =
-            _factory.CreateClient();
+            _factory.CreateGuestClient(
+                guest.GuestAccessToken);
 
-        // ACT
+        // Act
         await PostAndAssertNoContentAsync(
             guestClient,
             $"/api/v1/bookings/{booking.Id}/cancel",
             cancellationToken);
 
-        // ASSERT
+        // Assert
         await AssertBookingStateAsync(
             booking.Id,
             BookingStatus.Cancelled,
@@ -165,20 +161,21 @@ public sealed class BookingLifecycleEndpointTests
     [Fact]
     public async Task CompletedBooking_WhenCancelled_ShouldReturnConflictAndPreserveState()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            await BookingDatabaseTestSeeder.SeedBookingAsync(
-                _factory.Services,
-                status:
-                    BookingStatus.Completed,
-                cancellationToken:
-                    cancellationToken);
+        GuestBookingSeedData guest =
+            await BookingDatabaseTestSeeder.SeedGuestBookingAsync(
+                _factory,
+                BookingStatus.Completed,
+                cancellationToken: cancellationToken);
+
+        DomainBooking booking = guest.Booking;
 
         using HttpClient guestClient =
-            _factory.CreateClient();
+            _factory.CreateGuestClient(
+                guest.GuestAccessToken);
 
         await AssertBookingStateAsync(
             booking.Id,
@@ -187,14 +184,14 @@ public sealed class BookingLifecycleEndpointTests
             expectedBlocksInventory: true,
             cancellationToken);
 
-        // ACT
+        // Act
         using HttpResponseMessage response =
             await guestClient.PostAsync(
                 $"/api/v1/bookings/{booking.Id}/cancel",
                 content: null,
                 cancellationToken);
 
-        // ASSERT
+        // Assert
         Assert.Equal(
             HttpStatusCode.Conflict,
             response.StatusCode);
@@ -210,17 +207,15 @@ public sealed class BookingLifecycleEndpointTests
     [Fact]
     public async Task RejectedBooking_WhenApproved_ShouldReturnConflictAndPreserveCancellation()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
         DomainBooking booking =
             await BookingDatabaseTestSeeder.SeedBookingAsync(
                 _factory.Services,
-                status:
-                    BookingStatus.PendingApproval,
-                cancellationToken:
-                    cancellationToken);
+                status: BookingStatus.PendingApproval,
+                cancellationToken: cancellationToken);
 
         using HttpClient ownerClient =
             _factory.CreateOwnerClient();
@@ -230,14 +225,14 @@ public sealed class BookingLifecycleEndpointTests
             $"/api/v1/bookings/{booking.Id}/reject",
             cancellationToken);
 
-        // ACT
+        // Act
         using HttpResponseMessage response =
             await ownerClient.PostAsync(
                 $"/api/v1/bookings/{booking.Id}/approve",
                 content: null,
                 cancellationToken);
 
-        // ASSERT
+        // Assert
         Assert.Equal(
             HttpStatusCode.Conflict,
             response.StatusCode);
@@ -278,8 +273,7 @@ public sealed class BookingLifecycleEndpointTests
 
         DomainBooking? booking =
             await scope.ServiceProvider
-                .GetRequiredService<
-                    IBookingRepository>()
+                .GetRequiredService<IBookingRepository>()
                 .GetByIdAsync(
                     bookingId,
                     cancellationToken);
@@ -300,8 +294,7 @@ public sealed class BookingLifecycleEndpointTests
 
         BookingDetailsReadModel? readModel =
             await scope.ServiceProvider
-                .GetRequiredService<
-                    IBookingReadService>()
+                .GetRequiredService<IBookingReadService>()
                 .GetByIdAsync(
                     bookingId,
                     cancellationToken);

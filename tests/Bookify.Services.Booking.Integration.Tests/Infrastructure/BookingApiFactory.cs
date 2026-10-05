@@ -61,6 +61,29 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncLi
         return CreateAuthenticatedClient(subject, BookifyRoles.Admin);
     }
 
+    public HttpClient CreateGuestClient(string guestAccessToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(guestAccessToken);
+
+        HttpClient client = CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false,
+                BaseAddress = new Uri("http://localhost")
+            });
+
+        bool headerAdded = client.DefaultRequestHeaders.TryAddWithoutValidation("Booking-Guest-Token", guestAccessToken);
+
+        if (!headerAdded)
+        {
+            client.Dispose();
+
+            throw new InvalidOperationException("The guest booking access header could not be configured.");
+        }
+
+        return client;
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");

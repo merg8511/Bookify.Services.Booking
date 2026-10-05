@@ -15,9 +15,12 @@ namespace Bookify.Services.Booking.Integration.Tests.Bookings;
 [Trait("Category", "Integration")]
 public sealed class BookingQuoteSnapshotIntegrationTests
 {
+    private const string GuestTokenHeader = "Booking-Guest-Token";
+
     private readonly BookingApiFactory _factory;
 
-    public BookingQuoteSnapshotIntegrationTests(BookingApiFactory factory)
+    public BookingQuoteSnapshotIntegrationTests(
+        BookingApiFactory factory)
     {
         _factory = factory;
     }
@@ -25,35 +28,69 @@ public sealed class BookingQuoteSnapshotIntegrationTests
     [Fact]
     public async Task CreateBooking_WhenPricingChangesAfterQuote_ShouldRecalculateAndFreezeFinalSnapshot()
     {
-        // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        SeedData data = await BookingDatabaseTestSeeder.SeedPropertyWithRoomAsync(
-            _factory.Services,
-            cancellationToken: cancellationToken);
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
-        HttpClient client = _factory.CreateClient();
+        SeedData data =
+            await BookingDatabaseTestSeeder.SeedPropertyWithRoomAsync(
+                _factory.Services,
+                cancellationToken: cancellationToken);
 
-        string availabilityEndpoint = $"/api/v1/properties/{data.PropertyId}/availability?checkInDate=2026-11-10&checkOutDate=2026-11-12&guestCount=2";
+        using HttpClient client =
+            _factory.CreateClient();
 
-        // ACT 1: Get quote with initial pricing (2 nights x 100 USD = 200 USD).
-        using HttpResponseMessage availabilityResponse = await client.GetAsync(availabilityEndpoint, cancellationToken);
+        string availabilityEndpoint =
+            $"/api/v1/properties/{data.PropertyId}/availability" +
+            "?checkInDate=2026-11-10" +
+            "&checkOutDate=2026-11-12" +
+            "&guestCount=2";
 
-        // ASSERT 1
-        Assert.Equal(HttpStatusCode.OK, availabilityResponse.StatusCode);
+        // Act 1
+        using HttpResponseMessage availabilityResponse =
+            await client.GetAsync(
+                availabilityEndpoint,
+                cancellationToken);
 
-        GetAvailabilityResponse availability = Assert.IsType<GetAvailabilityResponse>(
-            await availabilityResponse.Content.ReadFromJsonAsync<GetAvailabilityResponse>(cancellationToken));
+        // Assert 1
+        Assert.Equal(
+            HttpStatusCode.OK,
+            availabilityResponse.StatusCode);
 
-        AvailableRentableUnitResponse quotedUnit = Assert.Single(availability.AvailableUnits);
-        Assert.Equal(data.RentableUnitId, quotedUnit.Id);
-        Assert.Equal(200m, quotedUnit.Quote.AccommodationPrice);
-        Assert.Equal(0m, quotedUnit.Quote.ExtraGuestPrice);
-        Assert.Equal(200m, quotedUnit.Quote.TotalPrice);
-        Assert.Equal("USD", quotedUnit.Quote.Currency);
+        GetAvailabilityResponse availability =
+            Assert.IsType<GetAvailabilityResponse>(
+                await availabilityResponse.Content
+                    .ReadFromJsonAsync<GetAvailabilityResponse>(
+                        cancellationToken));
 
-        decimal informativeQuoteTotal = quotedUnit.Quote.TotalPrice;
+        AvailableRentableUnitResponse quotedUnit =
+            Assert.Single(
+                availability.AvailableUnits);
 
-        // ACT 2: Pricing changes after customer received quote.
+        Assert.Equal(
+            data.RentableUnitId,
+            quotedUnit.Id);
+
+        Assert.Equal(
+            200m,
+            quotedUnit.Quote.AccommodationPrice);
+
+        Assert.Equal(
+            0m,
+            quotedUnit.Quote.ExtraGuestPrice);
+
+        Assert.Equal(
+            200m,
+            quotedUnit.Quote.TotalPrice);
+
+        Assert.Equal(
+            "USD",
+            quotedUnit.Quote.Currency);
+
+        decimal informativeQuoteTotal =
+            quotedUnit.Quote.TotalPrice;
+
+        // Act 2
         await UpdatePricingAsync(
             data.RentableUnitId,
             regularNightlyRate: 150m,
@@ -61,38 +98,76 @@ public sealed class BookingQuoteSnapshotIntegrationTests
             extraGuestNightlyRate: 25m,
             cancellationToken);
 
-        var createRequest = new CreateBookingRequest(
-            data.PropertyId,
-            data.RentableUnitId,
-            new DateOnly(2026, 11, 10),
-            new DateOnly(2026, 11, 12),
-            GuestCount: 2,
-            Guest: new CreateBookingGuestRequest(
-                "John Doe",
-                "john@example.com",
-                "+50377778888"));
+        var createRequest =
+            new CreateBookingRequest(
+                data.PropertyId,
+                data.RentableUnitId,
+                new DateOnly(2026, 11, 10),
+                new DateOnly(2026, 11, 12),
+                GuestCount: 2,
+                Guest: new CreateBookingGuestRequest(
+                    "John Doe",
+                    "john@example.com",
+                    "+50377778888"));
 
-        using var createMessage = new HttpRequestMessage(HttpMethod.Post, "/api/v1/bookings");
-        createMessage.Headers.Add("Idempotency-Key", $"quote-snapshot-{Guid.NewGuid():N}");
-        createMessage.Content = JsonContent.Create(createRequest);
+        using var createMessage =
+            new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/v1/bookings");
 
-        using HttpResponseMessage createResponse = await client.SendAsync(createMessage, cancellationToken);
+        createMessage.Headers.Add(
+            "Idempotency-Key",
+            $"quote-snapshot-{Guid.NewGuid():N}");
 
-        // ASSERT 2
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        createMessage.Content =
+            JsonContent.Create(createRequest);
 
-        CreateBookingResponse createdBooking = Assert.IsType<CreateBookingResponse>(
-            await createResponse.Content.ReadFromJsonAsync<CreateBookingResponse>(cancellationToken));
+        using HttpResponseMessage createResponse =
+            await client.SendAsync(
+                createMessage,
+                cancellationToken);
 
-        Assert.Equal(300m, createdBooking.Price.AccommodationPrice);
-        Assert.Equal(0m, createdBooking.Price.ExtraGuestPrice);
-        Assert.Equal(300m, createdBooking.Price.TotalPrice);
-        Assert.Equal("USD", createdBooking.Price.Currency);
-        Assert.NotEqual(informativeQuoteTotal, createdBooking.Price.TotalPrice);
+        // Assert 2
+        Assert.Equal(
+            HttpStatusCode.Created,
+            createResponse.StatusCode);
 
-        Uri bookingLocation = Assert.IsType<Uri>(createResponse.Headers.Location);
+        string guestAccessToken =
+            Assert.Single(
+                createResponse.Headers.GetValues(
+                    GuestTokenHeader));
 
-        // ACT 3: Change pricing again after booking exists.
+        CreateBookingResponse createdBooking =
+            Assert.IsType<CreateBookingResponse>(
+                await createResponse.Content
+                    .ReadFromJsonAsync<CreateBookingResponse>(
+                        cancellationToken));
+
+        Assert.Equal(
+            300m,
+            createdBooking.Price.AccommodationPrice);
+
+        Assert.Equal(
+            0m,
+            createdBooking.Price.ExtraGuestPrice);
+
+        Assert.Equal(
+            300m,
+            createdBooking.Price.TotalPrice);
+
+        Assert.Equal(
+            "USD",
+            createdBooking.Price.Currency);
+
+        Assert.NotEqual(
+            informativeQuoteTotal,
+            createdBooking.Price.TotalPrice);
+
+        Uri bookingLocation =
+            Assert.IsType<Uri>(
+                createResponse.Headers.Location);
+
+        // Act 3
         await UpdatePricingAsync(
             data.RentableUnitId,
             regularNightlyRate: 250m,
@@ -100,23 +175,60 @@ public sealed class BookingQuoteSnapshotIntegrationTests
             extraGuestNightlyRate: 25m,
             cancellationToken);
 
-        using HttpResponseMessage bookingResponse = await client.GetAsync(bookingLocation, cancellationToken);
+        using HttpClient guestClient =
+            _factory.CreateGuestClient(
+                guestAccessToken);
 
-        // ASSERT 3
-        Assert.Equal(HttpStatusCode.OK, bookingResponse.StatusCode);
+        using HttpResponseMessage bookingResponse =
+            await guestClient.GetAsync(
+                bookingLocation,
+                cancellationToken);
 
-        GetBookingResponse persistedBooking = Assert.IsType<GetBookingResponse>(
-            await bookingResponse.Content.ReadFromJsonAsync<GetBookingResponse>(cancellationToken));
+        // Assert 3
+        Assert.Equal(
+            HttpStatusCode.OK,
+            bookingResponse.StatusCode);
 
-        Assert.Equal(createdBooking.Id, persistedBooking.Id);
-        Assert.Equal(createdBooking.BookingReference, persistedBooking.BookingReference);
-        Assert.NotNull(persistedBooking.Price);
-        Assert.Equal(300m, persistedBooking.Price.AccommodationPrice);
-        Assert.Equal(0m, persistedBooking.Price.ExtraGuestPrice);
-        Assert.Equal(300m, persistedBooking.Price.TotalPrice);
-        Assert.Equal("USD", persistedBooking.Price.Currency);
-        Assert.Equal(createdBooking.Price.TotalPrice, persistedBooking.Price.TotalPrice);
-        Assert.NotEqual(500m, persistedBooking.Price.TotalPrice);
+        GetBookingResponse persistedBooking =
+            Assert.IsType<GetBookingResponse>(
+                await bookingResponse.Content
+                    .ReadFromJsonAsync<GetBookingResponse>(
+                        cancellationToken));
+
+        Assert.Equal(
+            createdBooking.Id,
+            persistedBooking.Id);
+
+        Assert.Equal(
+            createdBooking.BookingReference,
+            persistedBooking.BookingReference);
+
+        Assert.NotNull(
+            persistedBooking.Price);
+
+        Assert.Equal(
+            300m,
+            persistedBooking.Price.AccommodationPrice);
+
+        Assert.Equal(
+            0m,
+            persistedBooking.Price.ExtraGuestPrice);
+
+        Assert.Equal(
+            300m,
+            persistedBooking.Price.TotalPrice);
+
+        Assert.Equal(
+            "USD",
+            persistedBooking.Price.Currency);
+
+        Assert.Equal(
+            createdBooking.Price.TotalPrice,
+            persistedBooking.Price.TotalPrice);
+
+        Assert.NotEqual(
+            500m,
+            persistedBooking.Price.TotalPrice);
     }
 
     private async Task UpdatePricingAsync(
@@ -126,28 +238,41 @@ public sealed class BookingQuoteSnapshotIntegrationTests
         decimal extraGuestNightlyRate,
         CancellationToken cancellationToken)
     {
-        IDbConnectionFactory connectionFactory = _factory.Services.GetRequiredService<IDbConnectionFactory>();
-        await using DbConnection connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
+        IDbConnectionFactory connectionFactory =
+            _factory.Services
+                .GetRequiredService<IDbConnectionFactory>();
 
-        var command = new CommandDefinition(
-            """
-            UPDATE rentable_unit_pricing
-            SET
-                regular_nightly_rate_amount = @RegularNightlyRate,
-                weekend_nightly_rate_amount = @WeekendNightlyRate,
-                extra_guest_nightly_rate_amount = @ExtraGuestNightlyRate
-            WHERE rentable_unit_id = @RentableUnitId;
-            """,
-            new
-            {
-                RentableUnitId = rentableUnitId,
-                RegularNightlyRate = regularNightlyRate,
-                WeekendNightlyRate = weekendNightlyRate,
-                ExtraGuestNightlyRate = extraGuestNightlyRate
-            },
-            cancellationToken: cancellationToken);
+        await using DbConnection connection =
+            await connectionFactory.OpenConnectionAsync(
+                cancellationToken);
 
-        int affectedRows = await connection.ExecuteAsync(command);
-        Assert.Equal(1, affectedRows);
+        var command =
+            new CommandDefinition(
+                """
+                UPDATE rentable_unit_pricing
+                SET
+                    regular_nightly_rate_amount = @RegularNightlyRate,
+                    weekend_nightly_rate_amount = @WeekendNightlyRate,
+                    extra_guest_nightly_rate_amount = @ExtraGuestNightlyRate
+                WHERE rentable_unit_id = @RentableUnitId;
+                """,
+                new
+                {
+                    RentableUnitId = rentableUnitId,
+                    RegularNightlyRate = regularNightlyRate,
+                    WeekendNightlyRate = weekendNightlyRate,
+                    ExtraGuestNightlyRate =
+                        extraGuestNightlyRate
+                },
+                cancellationToken:
+                    cancellationToken);
+
+        int affectedRows =
+            await connection.ExecuteAsync(
+                command);
+
+        Assert.Equal(
+            1,
+            affectedRows);
     }
 }
