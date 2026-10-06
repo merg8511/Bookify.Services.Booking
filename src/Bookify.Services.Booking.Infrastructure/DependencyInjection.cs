@@ -60,6 +60,7 @@ public static class DependencyInjection
                     .GetRequiredService<NpgsqlDataSource>();
 
                 options.UseNpgsql(dataSource);
+                options.EnableSensitiveDataLogging(false);
             });
 
         services.AddSingleton<

@@ -1,23 +1,21 @@
-using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Security;
+using System.Runtime.Intrinsics.Arm;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Bookify.Services.Booking.Api.RateLimiting;
+namespace Bookify.Services.Booking.Api.Security;
 
-internal static class RateLimitPartitionKeyResolver
+internal static class RequestActorKeyResolver
 {
-    private const string UnknownAddress = "unknow";
+    private const string UnknownAddress = "unknown";
 
-    public static string ResolveIdendityOrIp(HttpContext httpContext)
+    public static string ResolveIdentityOrIp(HttpContext httpContext)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
         string? subject = GetAuthenticatedSubject(httpContext);
 
-        return subject is not null
-            ? $"sub:{subject}"
-            : ResolveIp(httpContext);
+        return subject is not null ? $"sub:{subject}" : ResolveIp(httpContext);
     }
 
     public static string ResolveBookingActorOrIp(HttpContext httpContext)
@@ -35,7 +33,7 @@ internal static class RateLimitPartitionKeyResolver
 
         if (guestAccessToken is not null)
         {
-            return $"guest:{CreateFingerprint(guestAccessToken)}";
+            return $"guest:{CreateFingerPrint(guestAccessToken)}";
         }
 
         return ResolveIp(httpContext);
@@ -45,30 +43,15 @@ internal static class RateLimitPartitionKeyResolver
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
-        string address = httpContext.Connection.RemoteIpAddress?.ToString()
-            ?? UnknownAddress;
+        string address = httpContext.Connection.RemoteIpAddress?.ToString() ?? UnknownAddress;
 
         return $"ip:{address}";
     }
 
-    private static string? GetAuthenticatedSubject(HttpContext httpContext)
+    public static string CreateFingerPrint(string value)
     {
-        if (httpContext.User.Identity?.IsAuthenticated != true)
-        {
-            return null;
-        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
-        string? subject = httpContext.User
-            .FindFirst(BookifyClaimTypes.Subject)?
-            .Value;
-
-        return string.IsNullOrWhiteSpace(subject)
-            ? null
-            : subject;
-    }
-
-    private static string CreateFingerprint(string value)
-    {
         byte[] input = Encoding.UTF8.GetBytes(value);
 
         try
@@ -83,4 +66,17 @@ internal static class RateLimitPartitionKeyResolver
         }
     }
 
+    private static string? GetAuthenticatedSubject(HttpContext httpContext)
+    {
+        if (httpContext.User.Identity?.IsAuthenticated != true)
+        {
+            return null;
+        }
+
+        string? subject = httpContext.User.FindFirst(BookifyClaimTypes.Subject)?.Value;
+
+        return string.IsNullOrWhiteSpace(subject)
+            ? null
+            : subject;
+    }
 }

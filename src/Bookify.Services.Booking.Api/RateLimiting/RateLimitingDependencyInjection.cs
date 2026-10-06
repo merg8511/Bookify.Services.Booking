@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Api.Security;
 using System.Threading.RateLimiting;
 
 namespace Bookify.Services.Booking.Api.RateLimiting;
@@ -11,11 +12,16 @@ internal static class RateLimitingDependencyInjection
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var rateLimitOptions = new BookifyRateLimitingOptions();
+        IConfigurationSection section = configuration.GetSection(BookifyRateLimitingOptions.SectionName);
 
-        configuration
-            .GetSection(BookifyRateLimitingOptions.SectionName)
-            .Bind(rateLimitOptions);
+        services
+            .AddOptions<BookifyRateLimitingOptions>()
+            .Bind(section)
+            .Validate(AreRulesValid, "Every rate limiting rule must ha a positive permit limit and window.")
+            .ValidateOnStart();
+
+        var rateLimitOptions = new BookifyRateLimitingOptions();
+        section.Bind(rateLimitOptions);
 
         services.AddRateLimiter(
             options =>
@@ -25,27 +31,27 @@ internal static class RateLimitingDependencyInjection
 
                 options.AddPolicy<string>(BookifyRateLimitPolicies.PublicReads, httpContext =>
                     CreateFixedWindowPartition(
-                        RateLimitPartitionKeyResolver.ResolveIdendityOrIp(httpContext),
+                        RequestActorKeyResolver.ResolveIdentityOrIp(httpContext),
                         rateLimitOptions.PublicReads));
 
                 options.AddPolicy<string>(BookifyRateLimitPolicies.BookingCreation, httpContext =>
                     CreateFixedWindowPartition(
-                        RateLimitPartitionKeyResolver.ResolveIdendityOrIp(httpContext),
+                        RequestActorKeyResolver.ResolveIdentityOrIp(httpContext),
                         rateLimitOptions.BookingCreation));
 
                 options.AddPolicy<string>(BookifyRateLimitPolicies.PaymentInitiation, httpContext =>
                     CreateFixedWindowPartition(
-                        RateLimitPartitionKeyResolver.ResolveBookingActorOrIp(httpContext),
+                        RequestActorKeyResolver.ResolveBookingActorOrIp(httpContext),
                         rateLimitOptions.PaymentInitiation));
 
                 options.AddPolicy<string>(BookifyRateLimitPolicies.LoginFacing, httpContext =>
                     CreateFixedWindowPartition(
-                        RateLimitPartitionKeyResolver.ResolveIp(httpContext),
+                        RequestActorKeyResolver.ResolveIp(httpContext),
                         rateLimitOptions.LoginFacing));
 
                 options.AddPolicy<string>(BookifyRateLimitPolicies.Webhook, httpContext =>
                     CreateFixedWindowPartition(
-                        RateLimitPartitionKeyResolver.ResolveIp(httpContext),
+                        RequestActorKeyResolver.ResolveIp(httpContext),
                         rateLimitOptions.Webhook));
             });
 
@@ -66,5 +72,24 @@ internal static class RateLimitingDependencyInjection
                 QueueLimit = 0,
                 AutoReplenishment = false
             });
+    }
+
+    private static bool AreRulesValid(BookifyRateLimitingOptions options)
+    {
+        return
+            IsRuleValid(options.PublicReads) &&
+            IsRuleValid(options.BookingCreation) &&
+            IsRuleValid(options.PaymentInitiation) &&
+            IsRuleValid(options.LoginFacing) &&
+            IsRuleValid(options.Webhook);
+
+    }
+
+    private static bool IsRuleValid(RateLimitRuleOptions? rule)
+    {
+        return
+            rule is not null &&
+            rule.PermitLimit > 0 &&
+            rule.Window > TimeSpan.Zero;
     }
 }

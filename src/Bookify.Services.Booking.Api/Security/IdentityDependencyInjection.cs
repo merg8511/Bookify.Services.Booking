@@ -14,34 +14,25 @@ internal static class IdentityDependencyInjection
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        IdentityOptions identityOptions = configuration
-            .GetSection(IdentityOptions.SectionName)
-            .Get<IdentityOptions>() ??
-            throw new InvalidOperationException("Identity configuration is missing. " +
-                "Configure 'Identity:Authority' and 'Identity:Audience'.");
+        IConfigurationSection identitySection = configuration.GetSection(IdentityOptions.SectionName);
+
+        services
+            .AddOptions<IdentityOptions>()
+            .Bind(identitySection)
+            .Validate(options =>
+                IsValidAuthority(options.Authority),
+                "Identity:Authority must contain a valid HTTPS authority URI without" +
+                " credentials, query or fragment.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Audience),
+                "Identity:Audience must contain a non-empty API audience.")
+            .ValidateOnStart();
+
+        IdentityOptions identityOptions = identitySection.Get<IdentityOptions>() ?? new IdentityOptions();
 
         string authority = identityOptions.Authority.Trim();
         string audience = identityOptions.Audience.Trim();
 
-        if (!Uri.TryCreate(authority, UriKind.Absolute, out Uri? authorityUri) ||
-            authorityUri.Scheme != Uri.UriSchemeHttps ||
-            string.IsNullOrWhiteSpace(authorityUri.Host) ||
-            !string.IsNullOrEmpty(authorityUri.UserInfo) ||
-            !string.IsNullOrEmpty(authorityUri.Query) ||
-            !string.IsNullOrEmpty(authorityUri.Fragment))
-        {
-            throw new InvalidOperationException("Configuration 'Identity:Authority' " +
-                "must contain a valid HTTPS authority URI without credentials, query or fragment.");
-        }
-
-        if (string.IsNullOrWhiteSpace(audience))
-        {
-            throw new InvalidOperationException("Configuration 'Identity:Audience' " +
-                "must contain a non-empty API audience.");
-        }
-
         services.AddHttpContextAccessor();
-
         services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 
         services
@@ -86,5 +77,17 @@ internal static class IdentityDependencyInjection
         services.AddBookifyAuthorization();
 
         return services;
+    }
+
+    private static bool IsValidAuthority(string? authority)
+    {
+        string value = authority?.Trim() ?? string.Empty;
+
+        return Uri.TryCreate(value, UriKind.Absolute, out Uri? authorityUri) &&
+            authorityUri.Scheme == Uri.UriSchemeHttps &&
+            !string.IsNullOrWhiteSpace(authorityUri.Host) &&
+            string.IsNullOrEmpty(authorityUri.UserInfo) &&
+            string.IsNullOrEmpty(authorityUri.Query) &&
+            string.IsNullOrEmpty(authorityUri.Fragment);
     }
 }
