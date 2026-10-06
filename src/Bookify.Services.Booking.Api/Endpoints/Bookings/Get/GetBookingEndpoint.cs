@@ -1,5 +1,6 @@
 
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Bookings.Get;
 using Bookify.Services.Booking.Domain.Shared;
@@ -18,7 +19,10 @@ internal static class GetBookingEndpoint
             .MapGet("/{identifier}", HandleAsync)
             .WithName(EndpointNames.Bookings.GetByIdentifier)
             .WithSummary("Gets a booking by ID or public booking reference.")
+            .RequireCustomerOrGuestBookingAccessFromIdentifier("identifier")
             .Produces<GetBookingResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status500InternalServerError);

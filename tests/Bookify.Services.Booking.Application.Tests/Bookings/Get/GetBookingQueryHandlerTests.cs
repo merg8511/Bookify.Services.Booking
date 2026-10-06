@@ -11,250 +11,124 @@ public sealed class GetBookingQueryHandlerTests
     [Fact]
     public async Task HandleAsync_WithBookingId_ShouldReturnBooking()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid bookingId = Guid.NewGuid();
 
-        Guid bookingId =
-            Guid.NewGuid();
+        BookingDetailsReadModel booking = CreateReadModel(bookingId);
+        var readService = new StubBookingReadService(booking);
+        var handler = new GetBookingQueryHandler(readService);
 
-        BookingDetailsReadModel booking =
-            CreateReadModel(
-                bookingId);
+        Result<BookingDetailsReadModel> result = await handler.HandleAsync(
+            new GetBookingQuery(bookingId.ToString()),
+            cancellationToken);
 
-        var readService =
-            new StubBookingReadService(
-                booking);
-
-        var handler =
-            new GetBookingQueryHandler(
-                readService);
-
-        Result<BookingDetailsReadModel> result =
-            await handler.HandleAsync(
-                new GetBookingQuery(
-                    bookingId.ToString()),
-                cancellationToken);
-
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Same(
-            booking,
-            result.Value);
-
-        Assert.Equal(
-            bookingId,
-            readService.LastBookingId);
+        Assert.True(result.IsSuccess);
+        Assert.Same(booking, result.Value);
+        Assert.Equal(bookingId, readService.LastBookingId);
     }
 
     [Fact]
     public async Task HandleAsync_WithReference_ShouldNormalizeAndReturnBooking()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        BookingReference reference = BookingReference.New();
 
-        BookingReference reference =
-            BookingReference.New();
+        BookingDetailsReadModel booking = CreateReadModel(Guid.NewGuid(), reference.Value);
+        var readService = new StubBookingReadService(booking);
+        var handler = new GetBookingQueryHandler(readService);
 
-        BookingDetailsReadModel booking =
-            CreateReadModel(
-                Guid.NewGuid(),
-                reference.Value);
+        Result<BookingDetailsReadModel> result = await handler.HandleAsync(
+            new GetBookingQuery(reference.Value.ToLowerInvariant()),
+            cancellationToken);
 
-        var readService =
-            new StubBookingReadService(
-                booking);
-
-        var handler =
-            new GetBookingQueryHandler(
-                readService);
-
-        Result<BookingDetailsReadModel> result =
-            await handler.HandleAsync(
-                new GetBookingQuery(
-                    reference.Value
-                        .ToLowerInvariant()),
-                cancellationToken);
-
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Same(
-            booking,
-            result.Value);
-
-        Assert.Equal(
-            reference.Value,
-            readService.LastBookingReference);
+        Assert.True(result.IsSuccess);
+        Assert.Same(booking, result.Value);
+        Assert.Equal(reference.Value, readService.LastBookingReference);
     }
 
     [Fact]
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFound()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid bookingId = Guid.NewGuid();
 
-        Guid bookingId =
-            Guid.NewGuid();
+        var handler = new GetBookingQueryHandler(new StubBookingReadService(null));
 
-        var handler =
-            new GetBookingQueryHandler(
-                new StubBookingReadService(
-                    null));
+        Result<BookingDetailsReadModel> result = await handler.HandleAsync(
+            new GetBookingQuery(bookingId.ToString()),
+            cancellationToken);
 
-        Result<BookingDetailsReadModel> result =
-            await handler.HandleAsync(
-                new GetBookingQuery(
-                    bookingId.ToString()),
-                cancellationToken);
-
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            "Booking.NotFound",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.NotFound,
-            result.Error.Type);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Booking.NotFound", result.Error.Code);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
     }
 
     [Fact]
     public async Task HandleAsync_WithInvalidIdentifier_ShouldReturnValidationError()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var handler = new GetBookingQueryHandler(new StubBookingReadService(null));
 
-        var handler =
-            new GetBookingQueryHandler(
-                new StubBookingReadService(
-                    null));
+        Result<BookingDetailsReadModel> result = await handler.HandleAsync(
+            new GetBookingQuery("not-a-booking"),
+            cancellationToken);
 
-        Result<BookingDetailsReadModel> result =
-            await handler.HandleAsync(
-                new GetBookingQuery(
-                    "not-a-booking"),
-                cancellationToken);
-
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            GetBookingErrors.InvalidIdentifier,
-            result.Error);
+        Assert.True(result.IsFailure);
+        Assert.Equal(GetBookingErrors.InvalidIdentifier, result.Error);
     }
 
-    private static BookingDetailsReadModel
-        CreateReadModel(
-            Guid bookingId,
-            string? bookingReference = null)
+    private static BookingDetailsReadModel CreateReadModel(Guid bookingId, string? bookingReference = null)
     {
         return new BookingDetailsReadModel
         {
-            Id =
-                bookingId,
-
-            BookingReference =
-                bookingReference ??
-                BookingReference.New().Value
+            Id = bookingId,
+            BookingReference = bookingReference ?? BookingReference.New().Value
         };
     }
 
-    private sealed class
-        StubBookingReadService :
-            IBookingReadService
+    private sealed class StubBookingReadService : IBookingReadService
     {
-        private readonly
-            BookingDetailsReadModel? _booking;
+        private readonly BookingDetailsReadModel? _booking;
 
-        public StubBookingReadService(
-            BookingDetailsReadModel? booking)
+        public StubBookingReadService(BookingDetailsReadModel? booking)
         {
-            _booking =
-                booking;
+            _booking = booking;
         }
 
-        public Guid? LastBookingId
+        public Guid? LastBookingId { get; private set; }
+        public string? LastBookingReference { get; private set; }
+
+        public Task<BookingDetailsReadModel?> GetByIdAsync(
+            Guid bookingId,
+            CancellationToken cancellationToken = default)
         {
-            get;
-            private set;
+            cancellationToken.ThrowIfCancellationRequested();
+            LastBookingId = bookingId;
+            BookingDetailsReadModel? result = _booking?.Id == bookingId ? _booking : null;
+            return Task.FromResult(result);
         }
 
-        public string? LastBookingReference
+        public Task<BookingDetailsReadModel?> GetByReferenceAsync(
+            string bookingReference,
+            CancellationToken cancellationToken = default)
         {
-            get;
-            private set;
+            cancellationToken.ThrowIfCancellationRequested();
+            LastBookingReference = bookingReference;
+            BookingDetailsReadModel? result = string.Equals(_booking?.BookingReference, bookingReference, StringComparison.Ordinal)
+                ? _booking
+                : null;
+            return Task.FromResult(result);
         }
 
-        public Task<
-            BookingDetailsReadModel?>
-            GetByIdAsync(
-                Guid bookingId,
-                CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<BookingCalendarItemReadModel>> GetCalendarAsync(
+            Guid propertyId,
+            DateOnly rangeStart,
+            DateOnly rangeEnd,
+            CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            LastBookingId =
-                bookingId;
-
-            BookingDetailsReadModel? result =
-                _booking?.Id == bookingId
-                    ? _booking
-                    : null;
-
-            return Task.FromResult(
-                result);
-        }
-
-        public Task<
-            BookingDetailsReadModel?>
-            GetByReferenceAsync(
-                string bookingReference,
-                CancellationToken cancellationToken = default)
-        {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            LastBookingReference =
-                bookingReference;
-
-            BookingDetailsReadModel? result =
-                string.Equals(
-                    _booking?.BookingReference,
-                    bookingReference,
-                    StringComparison.Ordinal)
-                    ? _booking
-                    : null;
-
-            return Task.FromResult(
-                result);
-        }
-
-        public Task<
-            IReadOnlyList<
-                BookingCalendarItemReadModel>>
-            GetCalendarAsync(
-                Guid propertyId,
-                DateOnly rangeStart,
-                DateOnly rangeEnd,
-                CancellationToken cancellationToken = default)
-        {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            IReadOnlyList<
-                BookingCalendarItemReadModel> result =
-                    Array.Empty<
-                        BookingCalendarItemReadModel>();
-
-            return Task.FromResult(
-                result);
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<BookingCalendarItemReadModel> result = Array.Empty<BookingCalendarItemReadModel>();
+            return Task.FromResult(result);
         }
     }
 }

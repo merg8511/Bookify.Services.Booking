@@ -20,19 +20,18 @@ internal sealed class EfCoreIdempotencyStore : IIdempotencyStore
         return _dbContext
             .IdempotencyRequests
             .AsNoTracking()
-            .Where(
-                request =>
-                    request.Key == context.Key &&
-                    request.HttpMethod == context.HttpMethod &&
-                    request.Endpoint == context.Endpoint)
-            .Select(
-                request =>
-                    new StoredIdempotencyRequest(
-                        request.RequestHash,
-                        request.Status,
-                        request.StatusCode,
-                        request.ResponseBody,
-                        request.ExpiresAt
+            .Where(request =>
+                request.CallerScope == context.CallerScope &&
+                request.Key == context.Key &&
+                request.HttpMethod == context.HttpMethod &&
+                request.Endpoint == context.Endpoint)
+            .Select(request =>
+                new StoredIdempotencyRequest(
+                    request.RequestHash,
+                    request.Status,
+                    request.StatusCode,
+                    request.ResponseBody,
+                    request.ExpiresAt
                     ))
             .SingleOrDefaultAsync(cancellationToken);
     }
@@ -52,53 +51,55 @@ internal sealed class EfCoreIdempotencyStore : IIdempotencyStore
             Guid id = Guid.NewGuid();
 
             int affectedRows =
-                await _dbContext.Database
-                    .ExecuteSqlInterpolatedAsync(
-                        $"""
-                        INSERT INTO idempotency_requests
-                        AS current_request
-                        (
-                            id,
-                            key,
-                            http_method,
-                            endpoint,
-                            request_hash,
-                            status,
-                            status_code,
-                            response_body,
-                            created_at,
-                            expires_at
-                        )
-                        VALUES
-                        (
-                            {id},
-                            {context.Key},
-                            {context.HttpMethod},
-                            {context.Endpoint},
-                            {context.RequestHash},
-                            'InProgress',
-                            NULL,
-                            NULL,
-                            {createdAt},
-                            {expiresAt}
-                        )
-                        ON CONFLICT
-                        (
-                            http_method,
-                            endpoint,
-                            key
-                        )
-                        DO UPDATE SET
-                            request_hash = EXCLUDED.request_hash,
-                            status = 'InProgress',
-                            status_code = NULL,
-                            response_body = NULL,
-                            created_at = EXCLUDED.created_at,
-                            expires_at = EXCLUDED.expires_at
-                        WHERE
-                            current_request.expires_at <= EXCLUDED.created_at;
-                        """,
-                        cancellationToken);
+                await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                    $"""
+                    INSERT INTO idempotency_requests
+                    AS current_request
+                    (
+                        id,
+                        caller_scope,
+                        key,
+                        http_method,
+                        endpoint,
+                        request_hash,
+                        status,
+                        status_code,
+                        response_body,
+                        created_at,
+                        expires_at
+                    )
+                    VALUES
+                    (
+                        {id},
+                        {context.CallerScope},
+                        {context.Key},
+                        {context.HttpMethod},
+                        {context.Endpoint},
+                        {context.RequestHash},
+                        'InProgress',
+                        NULL,
+                        NULL,
+                        {createdAt},
+                        {expiresAt}
+                    )
+                    ON CONFLICT
+                    (
+                        caller_scope,
+                        http_method,
+                        endpoint,
+                        key
+                    )
+                    DO UPDATE SET
+                        request_hash = EXCLUDED.request_hash,
+                        status = 'InProgress',
+                        status_code = NULL,
+                        response_body = NULL,
+                        created_at = EXCLUDED.created_at,
+                        expires_at = EXCLUDED.expires_at
+                    WHERE
+                        current_request.expires_at <= EXCLUDED.created_at;
+                    """,
+                    cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
 
@@ -117,16 +118,11 @@ internal sealed class EfCoreIdempotencyStore : IIdempotencyStore
         string? responseBoby,
         CancellationToken cancellationToken = default)
     {
-        IdempotencyRequest request =
-            await GetRequiredTrackedAsync(context, cancellationToken);
+        IdempotencyRequest request = await GetRequiredTrackedAsync(context, cancellationToken);
 
-        if (!string.Equals(
-            request.RequestHash,
-            context.RequestHash,
-            StringComparison.Ordinal))
+        if (!string.Equals(request.RequestHash, context.RequestHash, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException(
-                "The idempotency request hash change " +
+            throw new InvalidOperationException("The idempotency request hash change " +
                 "before the operation was completed.");
         }
 
@@ -139,15 +135,14 @@ internal sealed class EfCoreIdempotencyStore : IIdempotencyStore
         IdempotencyRequestContext context,
         CancellationToken cancellationToken)
     {
-        IdempotencyRequest? request =
-            await _dbContext
-                .IdempotencyRequests
-                .SingleOrDefaultAsync(
-                    request =>
-                        request.Key == context.Key &&
-                        request.HttpMethod == context.HttpMethod &&
-                        request.Endpoint == context.Endpoint,
-                        cancellationToken);
+        IdempotencyRequest? request = await _dbContext
+            .IdempotencyRequests
+            .SingleOrDefaultAsync(request =>
+                request.CallerScope == context.CallerScope &&
+                request.Key == context.Key &&
+                request.HttpMethod == context.HttpMethod &&
+                request.Endpoint == context.Endpoint,
+                cancellationToken);
 
         return request ??
             throw new InvalidOperationException("The idempotency request was not found.");

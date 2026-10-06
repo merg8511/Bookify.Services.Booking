@@ -13,290 +13,145 @@ namespace Bookify.Services.Booking.Application.Tests.RentableUnits.GetByProperty
 public sealed class GetPropertyUnitsQueryHandlerTests
 {
     [Fact]
-    public async Task
-        HandleAsync_WhenPropertyIsActive_ShouldReturnActiveUnits()
+    public async Task HandleAsync_WhenPropertyIsActive_ShouldReturnActiveUnits()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current
-                .CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid propertyId = Guid.NewGuid();
 
-        Guid propertyId =
-            Guid.NewGuid();
-
-        var property =
-            new PropertyDetailsReadModel
-            {
-                Id =
-                    propertyId,
-
-                Name =
-                    "Rancho Costa Azul",
-
-                TimeZoneId =
-                    "America/El_Salvador",
-
-                CheckInTime =
-                    new TimeOnly(
-                        15,
-                        0),
-
-                CheckOutTime =
-                    new TimeOnly(
-                        11,
-                        0),
-
-                IsActive =
-                    true
-            };
+        var property = new PropertyDetailsReadModel
+        {
+            Id = propertyId,
+            Name = "Rancho Costa Azul",
+            TimeZoneId = "America/El_Salvador",
+            CheckInTime = new TimeOnly(15, 0),
+            CheckOutTime = new TimeOnly(11, 0),
+            IsActive = true
+        };
 
         RentableUnitListItemReadModel[] expectedUnits =
-            [
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Room A",
-                    Type = "Room",
-                    MaximumCapacity = 4,
-                    MaxBaseGuests = 2,
-                    IsEntireProperty = false
-                }
-            ];
-
-        var unitReadService =
-            new StubRentableUnitReadService(
-                expectedUnits);
-
-        var handler =
-            new GetPropertyUnitsQueryHandler(
-                new StubPropertyReadService(
-                    property),
-                unitReadService);
-
-        Result<
-            IReadOnlyList<
-                RentableUnitListItemReadModel>>
-            result =
-                await handler.HandleAsync(
-                    new GetPropertyUnitsQuery(
-                        propertyId),
-                    cancellationToken);
-
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            expectedUnits,
-            result.Value);
-
-        Assert.True(
-            unitReadService
-                .ActiveUnitsRequested);
-
-        Assert.Equal(
-            propertyId,
-            unitReadService
-                .RequestedPropertyId);
-    }
-
-    [Fact]
-    public async Task
-        HandleAsync_WhenPropertyDoesNotExist_ShouldReturnNotFound()
-    {
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-
-        Guid propertyId =
-            Guid.NewGuid();
-
-        var handler =
-            new GetPropertyUnitsQueryHandler(
-                new StubPropertyReadService(
-                    null),
-                new StubRentableUnitReadService(
-                    []));
-
-        Result<
-            IReadOnlyList<
-                RentableUnitListItemReadModel>>
-            result =
-                await handler.HandleAsync(
-                    new GetPropertyUnitsQuery(
-                        propertyId), cancellationToken);
-
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            "Property.NotFound",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.NotFound,
-            result.Error.Type);
-    }
-
-    [Fact]
-    public async Task
-        HandleAsync_WhenPropertyIsInactive_ShouldReturnConflict()
-    {
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        Guid propertyId =
-            Guid.NewGuid();
-
-        var property =
-            new PropertyDetailsReadModel
+        [
+            new()
             {
-                Id =
-                    propertyId,
+                Id = Guid.NewGuid(),
+                Name = "Room A",
+                Type = "Room",
+                MaximumCapacity = 4,
+                MaxBaseGuests = 2,
+                IsEntireProperty = false
+            }
+        ];
 
-                Name =
-                    "Inactive Property",
+        var unitReadService = new StubRentableUnitReadService(expectedUnits);
+        var handler = new GetPropertyUnitsQueryHandler(
+            new StubPropertyReadService(property),
+            unitReadService);
 
-                TimeZoneId =
-                    "America/El_Salvador",
+        Result<IReadOnlyList<RentableUnitListItemReadModel>> result =
+            await handler.HandleAsync(new GetPropertyUnitsQuery(propertyId), cancellationToken);
 
-                CheckInTime =
-                    new TimeOnly(
-                        15,
-                        0),
-
-                CheckOutTime =
-                    new TimeOnly(
-                        11,
-                        0),
-
-                IsActive =
-                    false
-            };
-
-        var unitReadService =
-            new StubRentableUnitReadService(
-                []);
-
-        var handler =
-            new GetPropertyUnitsQueryHandler(
-                new StubPropertyReadService(
-                    property),
-                unitReadService);
-
-        Result<
-            IReadOnlyList<
-                RentableUnitListItemReadModel>>
-            result =
-                await handler.HandleAsync(new GetPropertyUnitsQuery(propertyId), cancellationToken);
-
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            "Property.Inactive",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.Conflict,
-            result.Error.Type);
-
-        Assert.False(
-            unitReadService
-                .ActiveUnitsRequested);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expectedUnits, result.Value);
+        Assert.True(unitReadService.ActiveUnitsRequested);
+        Assert.Equal(propertyId, unitReadService.RequestedPropertyId);
     }
 
-    private sealed class
-        StubRentableUnitReadService :
-            IRentableUnitReadService
+    [Fact]
+    public async Task HandleAsync_WhenPropertyDoesNotExist_ShouldReturnNotFound()
     {
-        private readonly
-            IReadOnlyList<
-                RentableUnitListItemReadModel>
-                _units;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid propertyId = Guid.NewGuid();
 
-        public StubRentableUnitReadService(
-            IReadOnlyList<
-                RentableUnitListItemReadModel>
-                units)
+        var handler = new GetPropertyUnitsQueryHandler(
+            new StubPropertyReadService(null),
+            new StubRentableUnitReadService([]));
+
+        Result<IReadOnlyList<RentableUnitListItemReadModel>> result =
+            await handler.HandleAsync(new GetPropertyUnitsQuery(propertyId), cancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Property.NotFound", result.Error.Code);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPropertyIsInactive_ShouldReturnConflict()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid propertyId = Guid.NewGuid();
+
+        var property = new PropertyDetailsReadModel
         {
-            _units =
-                units;
+            Id = propertyId,
+            Name = "Inactive Property",
+            TimeZoneId = "America/El_Salvador",
+            CheckInTime = new TimeOnly(15, 0),
+            CheckOutTime = new TimeOnly(11, 0),
+            IsActive = false
+        };
+
+        var unitReadService = new StubRentableUnitReadService([]);
+        var handler = new GetPropertyUnitsQueryHandler(
+            new StubPropertyReadService(property),
+            unitReadService);
+
+        Result<IReadOnlyList<RentableUnitListItemReadModel>> result =
+            await handler.HandleAsync(new GetPropertyUnitsQuery(propertyId), cancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Property.Inactive", result.Error.Code);
+        Assert.Equal(ErrorType.Conflict, result.Error.Type);
+        Assert.False(unitReadService.ActiveUnitsRequested);
+    }
+
+    private sealed class StubRentableUnitReadService : IRentableUnitReadService
+    {
+        private readonly IReadOnlyList<RentableUnitListItemReadModel> _units;
+
+        public StubRentableUnitReadService(IReadOnlyList<RentableUnitListItemReadModel> units)
+        {
+            _units = units;
         }
 
-        public bool ActiveUnitsRequested
+        public bool ActiveUnitsRequested { get; private set; }
+        public Guid? RequestedPropertyId { get; private set; }
+
+        public Task<IReadOnlyList<RentableUnitListItemReadModel>> GetActiveByPropertyIdAsync(
+            Guid propertyId,
+            CancellationToken cancellationToken = default)
         {
-            get;
-            private set;
-        }
-
-        public Guid? RequestedPropertyId
-        {
-            get;
-            private set;
-        }
-
-        public Task<
-            IReadOnlyList<
-                RentableUnitListItemReadModel>>
-            GetActiveByPropertyIdAsync(
-                Guid propertyId,
-                CancellationToken cancellationToken = default)
-        {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            ActiveUnitsRequested =
-                true;
-
-            RequestedPropertyId =
-                propertyId;
-
-            return Task.FromResult(
-                _units);
+            cancellationToken.ThrowIfCancellationRequested();
+            ActiveUnitsRequested = true;
+            RequestedPropertyId = propertyId;
+            return Task.FromResult(_units);
         }
     }
 
-    private sealed class
-        StubPropertyReadService :
-            IPropertyReadService
+    private sealed class StubPropertyReadService : IPropertyReadService
     {
-        private readonly
-            PropertyDetailsReadModel?
-                _property;
+        private readonly PropertyDetailsReadModel? _property;
 
-        public StubPropertyReadService(
-            PropertyDetailsReadModel?
-                property)
+        public StubPropertyReadService(PropertyDetailsReadModel? property)
         {
-            _property =
-                property;
+            _property = property;
         }
 
-        public Task<
-            PropertyDetailsReadModel?>
-            GetByIdAsync(
-                Guid propertyId,
-                CancellationToken cancellationToken = default)
+        public Task<PropertyDetailsReadModel?> GetByIdAsync(
+            Guid propertyId,
+            CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            PropertyDetailsReadModel? result =
-                _property?.Id ==
-                    propertyId
-                    ? _property
-                    : null;
-
-            return Task.FromResult(
-                result);
+            cancellationToken.ThrowIfCancellationRequested();
+            PropertyDetailsReadModel? result = _property?.Id == propertyId ? _property : null;
+            return Task.FromResult(result);
         }
 
-        public Task<
-            PagedResult<
-                PropertyListItemReadModel>>
-            GetPagedAsync(
-                int pageNumber,
-                int pageSize,
-                string? name,
-                bool? isActive,
-                PropertySortField sortField,
-                SortDirection sortDirection,
-                CancellationToken cancellationToken = default)
+        public Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(
+            int pageNumber,
+            int pageSize,
+            string? name,
+            bool? isActive,
+            PropertySortField sortField,
+            SortDirection sortDirection,
+            CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }

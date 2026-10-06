@@ -10,5 +10,6 @@ public sealed record CreateBookingCommand(
     int? GuestCount,
     string? GuestFullName,
     string? GuestEmail,
-    string? GuestPhone)
+    string? GuestPhone,
+    string? CustomerSubjectId = null)
     : ICommand<CreateBookingResult>;

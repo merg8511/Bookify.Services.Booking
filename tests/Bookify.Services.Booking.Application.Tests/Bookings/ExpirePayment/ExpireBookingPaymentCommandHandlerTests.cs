@@ -7,481 +7,228 @@ using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
-using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
 using Bookify.Services.Booking.Domain.Payments;
-using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
-using Bookify.Services.Booking.Domain.Shared.ValueObjects;
-
-using DomainBooking =
-    Bookify.Services.Booking.Domain.Bookings.Booking;
+using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Application.Tests.Bookings.ExpirePayment;
 
 public sealed class ExpireBookingPaymentCommandHandlerTests
 {
-    private static readonly DateTimeOffset UtcNow =
-        new(
-            2026,
-            9,
-            9,
-            18,
-            0,
-            0,
-            TimeSpan.Zero);
+    private static readonly DateTimeOffset UtcNow = new(2026, 9, 9, 18, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task HandleAsync_WhenPendingPaymentHasNoPayment_ShouldExpireBooking()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreatePendingPaymentBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        var gateway = new SpyPaymentGateway();
+        var unitOfWork = new SpyUnitOfWork();
+        var transactionManager = new SpyTransactionManager();
 
-        var gateway =
-            new SpyPaymentGateway();
+        ExpireBookingPaymentCommandHandler handler = CreateHandler(
+            new StubBookingRepository(booking),
+            new StubPaymentRepository(),
+            gateway,
+            unitOfWork,
+            transactionManager);
 
-        var unitOfWork =
-            new SpyUnitOfWork();
+        Result result = await handler.HandleAsync(new ExpireBookingPaymentCommand(booking.Id), cancellationToken);
 
-        var transactionManager =
-            new SpyTransactionManager();
-
-        ExpireBookingPaymentCommandHandler handler =
-            CreateHandler(
-                new StubBookingRepository(
-                    booking),
-                new StubPaymentRepository(),
-                gateway,
-                unitOfWork,
-                transactionManager);
-
-        Result result =
-            await handler.HandleAsync(
-                new ExpireBookingPaymentCommand(
-                    booking.Id),
-                cancellationToken);
-
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            BookingStatus.Cancelled,
-            booking.Status);
-
-        Assert.Equal(
-            BookingCancellationReason.PaymentExpired,
-            booking.CancellationReason);
-
-        Assert.False(
-            booking.BlocksInventory);
-
-        Assert.Equal(
-            0,
-            gateway.GetCallCount);
-
-        Assert.Equal(
-            0,
-            gateway.CancelCallCount);
-
-        Assert.Equal(
-            1,
-            unitOfWork.SaveChangesCallCount);
-
-        Assert.Equal(
-            1,
-            transactionManager.Transaction.CommitCallCount);
-
-        Assert.Equal(
-            0,
-            transactionManager.Transaction.RollbackCallCount);
-
-        Assert.Equal(
-    UtcNow,
-    booking.CancelledAtUtc);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(BookingStatus.Cancelled, booking.Status);
+        Assert.Equal(BookingCancellationReason.PaymentExpired, booking.CancellationReason);
+        Assert.False(booking.BlocksInventory);
+        Assert.Equal(0, gateway.GetCallCount);
+        Assert.Equal(0, gateway.CancelCallCount);
+        Assert.Equal(1, unitOfWork.SaveChangesCallCount);
+        Assert.Equal(1, transactionManager.Transaction.CommitCallCount);
+        Assert.Equal(0, transactionManager.Transaction.RollbackCallCount);
+        Assert.Equal(UtcNow, booking.CancelledAtUtc);
     }
 
     [Fact]
     public async Task HandleAsync_WhenPendingProviderPaymentExists_ShouldCancelPaymentBeforeExpiringBooking()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreatePendingPaymentBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        (Payment payment, PaymentAttempt attempt) = BookingTestFactory.CreatePendingPayment(
+            booking,
+            "expire-pending-payment",
+            createdAtUtc: UtcNow.AddMinutes(-2));
 
-        (
-            Payment payment,
-            PaymentAttempt attempt) =
-                CreatePendingPayment(
-                    booking,
-                    "expire-pending-payment");
+        var gateway = new SpyPaymentGateway();
+        var unitOfWork = new SpyUnitOfWork();
+        var transactionManager = new SpyTransactionManager();
 
-        var gateway =
-            new SpyPaymentGateway();
+        ExpireBookingPaymentCommandHandler handler = CreateHandler(
+            new StubBookingRepository(booking),
+            new StubPaymentRepository(payment),
+            gateway,
+            unitOfWork,
+            transactionManager);
 
-        var unitOfWork =
-            new SpyUnitOfWork();
+        Result result = await handler.HandleAsync(new ExpireBookingPaymentCommand(booking.Id), cancellationToken);
 
-        var transactionManager =
-            new SpyTransactionManager();
-
-        ExpireBookingPaymentCommandHandler handler =
-            CreateHandler(
-                new StubBookingRepository(
-                    booking),
-                new StubPaymentRepository(
-                    payment),
-                gateway,
-                unitOfWork,
-                transactionManager);
-
-        Result result =
-            await handler.HandleAsync(
-                new ExpireBookingPaymentCommand(
-                    booking.Id),
-                cancellationToken);
-
-        Assert.True(
-            result.IsSuccess);
-
-        Assert.Equal(
-            BookingStatus.Cancelled,
-            booking.Status);
-
-        Assert.Equal(
-            BookingCancellationReason.PaymentExpired,
-            booking.CancellationReason);
-
-        Assert.Equal(
-            PaymentStatus.Cancelled,
-            payment.Status);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Cancelled,
-            attempt.Status);
-
-        Assert.Equal(
-            1,
-            gateway.GetCallCount);
-
-        Assert.Equal(
-            1,
-            gateway.CancelCallCount);
-
-        Assert.Equal(
-            1,
-            unitOfWork.SaveChangesCallCount);
-
-        Assert.Equal(
-            1,
-            transactionManager.Transaction.CommitCallCount);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(BookingStatus.Cancelled, booking.Status);
+        Assert.Equal(BookingCancellationReason.PaymentExpired, booking.CancellationReason);
+        Assert.Equal(PaymentStatus.Cancelled, payment.Status);
+        Assert.Equal(PaymentAttemptStatus.Cancelled, attempt.Status);
+        Assert.Equal(1, gateway.GetCallCount);
+        Assert.Equal(1, gateway.CancelCallCount);
+        Assert.Equal(1, unitOfWork.SaveChangesCallCount);
+        Assert.Equal(1, transactionManager.Transaction.CommitCallCount);
     }
 
     [Fact]
     public async Task HandleAsync_WhenProviderAlreadySucceeded_ShouldPersistPaidStateAndRejectExpiration()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreatePendingPaymentBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        (Payment payment, PaymentAttempt attempt) = BookingTestFactory.CreatePendingPayment(
+            booking,
+            "expire-provider-succeeded",
+            createdAtUtc: UtcNow.AddMinutes(-2));
 
-        (
-            Payment payment,
-            PaymentAttempt attempt) =
-                CreatePendingPayment(
-                    booking,
-                    "expire-provider-succeeded");
+        var gateway = new SpyPaymentGateway(
+            getResultFactory: externalReference => Result<PaymentGatewayResponse>.Success(
+                new PaymentGatewayResponse(externalReference, PaymentGatewayStatus.Succeeded)));
 
-        var gateway =
-            new SpyPaymentGateway(
-                getResultFactory:
-                    externalReference =>
-                        Result<PaymentGatewayResponse>
-                            .Success(
-                                new PaymentGatewayResponse(
-                                    externalReference,
-                                    PaymentGatewayStatus.Succeeded)));
+        var unitOfWork = new SpyUnitOfWork();
+        var transactionManager = new SpyTransactionManager();
 
-        var unitOfWork =
-            new SpyUnitOfWork();
+        ExpireBookingPaymentCommandHandler handler = CreateHandler(
+            new StubBookingRepository(booking),
+            new StubPaymentRepository(payment),
+            gateway,
+            unitOfWork,
+            transactionManager);
 
-        var transactionManager =
-            new SpyTransactionManager();
+        Result result = await handler.HandleAsync(new ExpireBookingPaymentCommand(booking.Id), cancellationToken);
 
-        ExpireBookingPaymentCommandHandler handler =
-            CreateHandler(
-                new StubBookingRepository(
-                    booking),
-                new StubPaymentRepository(
-                    payment),
-                gateway,
-                unitOfWork,
-                transactionManager);
-
-        Result result =
-            await handler.HandleAsync(
-                new ExpireBookingPaymentCommand(
-                    booking.Id),
-                cancellationToken);
-
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            ExpireBookingPaymentErrors
-                .PaymentAlreadySucceeded(
-                    booking.Id),
-            result.Error);
-
-        Assert.Equal(
-            BookingStatus.Paid,
-            booking.Status);
-
-        Assert.Null(
-            booking.CancellationReason);
-
-        Assert.Equal(
-            PaymentStatus.Succeeded,
-            payment.Status);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Succeeded,
-            attempt.Status);
-
-        Assert.Equal(
-            1,
-            gateway.GetCallCount);
-
-        Assert.Equal(
-            0,
-            gateway.CancelCallCount);
-
-        Assert.Equal(
-            1,
-            unitOfWork.SaveChangesCallCount);
-
-        Assert.Equal(
-            1,
-            transactionManager.Transaction.CommitCallCount);
-
-        Assert.Equal(
-            0,
-            transactionManager.Transaction.RollbackCallCount);
+        Assert.True(result.IsFailure);
+        Assert.Equal(ExpireBookingPaymentErrors.PaymentAlreadySucceeded(booking.Id), result.Error);
+        Assert.Equal(BookingStatus.Paid, booking.Status);
+        Assert.Null(booking.CancellationReason);
+        Assert.Equal(PaymentStatus.Succeeded, payment.Status);
+        Assert.Equal(PaymentAttemptStatus.Succeeded, attempt.Status);
+        Assert.Equal(1, gateway.GetCallCount);
+        Assert.Equal(0, gateway.CancelCallCount);
+        Assert.Equal(1, unitOfWork.SaveChangesCallCount);
+        Assert.Equal(1, transactionManager.Transaction.CommitCallCount);
+        Assert.Equal(0, transactionManager.Transaction.RollbackCallCount);
     }
 
     [Fact]
     public async Task HandleAsync_WhenProviderStatusCannotBeRead_ShouldNotExpireBooking()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreatePendingPaymentBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        (Payment payment, PaymentAttempt attempt) = BookingTestFactory.CreatePendingPayment(
+            booking,
+            "expire-provider-error",
+            createdAtUtc: UtcNow.AddMinutes(-2));
 
-        (
-            Payment payment,
-            PaymentAttempt attempt) =
-                CreatePendingPayment(
-                    booking,
-                    "expire-provider-error");
+        var gateway = new SpyPaymentGateway(
+            getResultFactory: _ => Result<PaymentGatewayResponse>.Failure(PaymentGatewayErrors.ProviderTimeout));
 
-        var gateway =
-            new SpyPaymentGateway(
-                getResultFactory:
-                    _ =>
-                        Result<PaymentGatewayResponse>
-                            .Failure(
-                                PaymentGatewayErrors.ProviderTimeout));
+        var unitOfWork = new SpyUnitOfWork();
+        var transactionManager = new SpyTransactionManager();
 
-        var unitOfWork =
-            new SpyUnitOfWork();
+        ExpireBookingPaymentCommandHandler handler = CreateHandler(
+            new StubBookingRepository(booking),
+            new StubPaymentRepository(payment),
+            gateway,
+            unitOfWork,
+            transactionManager);
 
-        var transactionManager =
-            new SpyTransactionManager();
+        Result result = await handler.HandleAsync(new ExpireBookingPaymentCommand(booking.Id), cancellationToken);
 
-        ExpireBookingPaymentCommandHandler handler =
-            CreateHandler(
-                new StubBookingRepository(
-                    booking),
-                new StubPaymentRepository(
-                    payment),
-                gateway,
-                unitOfWork,
-                transactionManager);
-
-        Result result =
-            await handler.HandleAsync(
-                new ExpireBookingPaymentCommand(
-                    booking.Id),
-                cancellationToken);
-
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            PaymentGatewayErrors.ProviderTimeout,
-            result.Error);
-
-        Assert.Equal(
-            BookingStatus.PendingPayment,
-            booking.Status);
-
-        Assert.Null(
-            booking.CancellationReason);
-
-        Assert.Equal(
-            PaymentStatus.Pending,
-            payment.Status);
-
-        Assert.Equal(
-            PaymentAttemptStatus.Pending,
-            attempt.Status);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
-
-        Assert.Equal(
-            1,
-            transactionManager.Transaction.RollbackCallCount);
+        Assert.True(result.IsFailure);
+        Assert.Equal(PaymentGatewayErrors.ProviderTimeout, result.Error);
+        Assert.Equal(BookingStatus.PendingPayment, booking.Status);
+        Assert.Null(booking.CancellationReason);
+        Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.Equal(PaymentAttemptStatus.Pending, attempt.Status);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
+        Assert.Equal(1, transactionManager.Transaction.RollbackCallCount);
     }
 
     [Fact]
     public async Task HandleAsync_WhenBookingDoesNotExist_ShouldReturnNotFound()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid bookingId = Guid.NewGuid();
 
-        Guid bookingId =
-            Guid.NewGuid();
+        var unitOfWork = new SpyUnitOfWork();
+        var transactionManager = new SpyTransactionManager();
 
-        var unitOfWork =
-            new SpyUnitOfWork();
+        ExpireBookingPaymentCommandHandler handler = CreateHandler(
+            new StubBookingRepository(),
+            new StubPaymentRepository(),
+            new SpyPaymentGateway(),
+            unitOfWork,
+            transactionManager,
+            new StubPaymentInitiationLock(acquired: false));
 
-        var transactionManager =
-            new SpyTransactionManager();
+        Result result = await handler.HandleAsync(new ExpireBookingPaymentCommand(bookingId), cancellationToken);
 
-        ExpireBookingPaymentCommandHandler handler =
-    CreateHandler(
-        new StubBookingRepository(),
-        new StubPaymentRepository(),
-        new SpyPaymentGateway(),
-        unitOfWork,
-        transactionManager,
-        new StubPaymentInitiationLock(
-            acquired: false));
-
-        Result result =
-            await handler.HandleAsync(
-                new ExpireBookingPaymentCommand(
-                    bookingId),
-                cancellationToken);
-
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            ExpireBookingPaymentErrors
-                .NotFound(
-                    bookingId),
-            result.Error);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
-
-        Assert.Equal(
-            1,
-            transactionManager.Transaction.RollbackCallCount);
+        Assert.True(result.IsFailure);
+        Assert.Equal(ExpireBookingPaymentErrors.NotFound(bookingId), result.Error);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
+        Assert.Equal(1, transactionManager.Transaction.RollbackCallCount);
     }
 
     [Fact]
     public async Task HandleAsync_WhenBookingIsPaid_ShouldReturnConflictWithoutExpiring()
     {
-        CancellationToken cancellationToken =
-            TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking =
-            CreatePendingPaymentBooking();
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        Assert.True(booking.MarkAsPaid(BookingTestTime.PaidAtUtc).IsSuccess);
 
-        Assert.True(
-            booking.MarkAsPaid(BookingTestTime.PaidAtUtc).IsSuccess);
+        var unitOfWork = new SpyUnitOfWork();
+        var transactionManager = new SpyTransactionManager();
 
-        var unitOfWork =
-            new SpyUnitOfWork();
+        ExpireBookingPaymentCommandHandler handler = CreateHandler(
+            new StubBookingRepository(booking),
+            new StubPaymentRepository(),
+            new SpyPaymentGateway(),
+            unitOfWork,
+            transactionManager);
 
-        var transactionManager =
-            new SpyTransactionManager();
+        Result result = await handler.HandleAsync(new ExpireBookingPaymentCommand(booking.Id), cancellationToken);
 
-        ExpireBookingPaymentCommandHandler handler =
-            CreateHandler(
-                new StubBookingRepository(
-                    booking),
-                new StubPaymentRepository(),
-                new SpyPaymentGateway(),
-                unitOfWork,
-                transactionManager);
-
-        Result result =
-            await handler.HandleAsync(
-                new ExpireBookingPaymentCommand(
-                    booking.Id),
-                cancellationToken);
-
-        Assert.True(
-            result.IsFailure);
-
-        Assert.Equal(
-            "Booking.InvalidStatusTransition",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.Conflict,
-            result.Error.Type);
-
-        Assert.Equal(
-            BookingStatus.Paid,
-            booking.Status);
-
-        Assert.Null(
-            booking.CancellationReason);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
-
-        Assert.Equal(
-            1,
-            transactionManager.Transaction.RollbackCallCount);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Booking.InvalidStatusTransition", result.Error.Code);
+        Assert.Equal(ErrorType.Conflict, result.Error.Type);
+        Assert.Equal(BookingStatus.Paid, booking.Status);
+        Assert.Null(booking.CancellationReason);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
+        Assert.Equal(1, transactionManager.Transaction.RollbackCallCount);
     }
 
     [Fact]
     public async Task HandleAsync_WithNullCommand_ShouldThrow()
     {
-        ExpireBookingPaymentCommandHandler handler =
-            CreateHandler(
-                new StubBookingRepository(),
-                new StubPaymentRepository(),
-                new SpyPaymentGateway(),
-                new SpyUnitOfWork(),
-                new SpyTransactionManager());
+        ExpireBookingPaymentCommandHandler handler = CreateHandler(
+            new StubBookingRepository(),
+            new StubPaymentRepository(),
+            new SpyPaymentGateway(),
+            new SpyUnitOfWork(),
+            new SpyTransactionManager());
 
-        Task Action()
-        {
-            return handler.HandleAsync(
-                null!);
-        }
+        Task Action() => handler.HandleAsync(null!);
 
-        await Assert.ThrowsAsync<
-            ArgumentNullException>(
-                Action);
+        await Assert.ThrowsAsync<ArgumentNullException>(Action);
     }
 
-    private static ExpireBookingPaymentCommandHandler
-    CreateHandler(
+    private static ExpireBookingPaymentCommandHandler CreateHandler(
         IBookingRepository bookingRepository,
         IPaymentRepository paymentRepository,
         IPaymentGateway paymentGateway,
@@ -489,11 +236,7 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
         ITransactionManager transactionManager,
         IPaymentInitiationLock? paymentInitiationLock = null)
     {
-        var coordinator =
-            new PaymentCancellationCoordinator(
-                paymentGateway,
-                new StubClock(
-                    UtcNow));
+        var coordinator = new PaymentCancellationCoordinator(paymentGateway, new StubClock(UtcNow));
 
         return new ExpireBookingPaymentCommandHandler(
             bookingRepository,
@@ -505,366 +248,160 @@ public sealed class ExpireBookingPaymentCommandHandlerTests
             new StubClock(UtcNow));
     }
 
-    private static DomainBooking
-        CreatePendingPaymentBooking()
-    {
-        DomainBooking booking =
-            CreateBooking();
-
-        Result approvalResult =
-            booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
-
-        Assert.True(
-            approvalResult.IsSuccess);
-
-        return booking;
-    }
-
-    private static DomainBooking
-        CreateBooking()
-    {
-        RentableUnit rentableUnit =
-            RentableUnit.Create(
-                Guid.NewGuid(),
-                "Room A",
-                RentableUnitType.Room,
-                maximumCapacity: 4,
-                maxBaseGuests: 2)
-            .Value;
-
-        StayPeriod stayPeriod =
-            StayPeriod.Create(
-                new DateOnly(
-                    2026,
-                    9,
-                    10),
-                new DateOnly(
-                    2026,
-                    9,
-                    12))
-            .Value;
-
-        return BookingTestData.CreateBooking(
-    rentableUnit,
-    stayPeriod);
-    }
-
-    private static Payment CreatePayment(
-        DomainBooking booking)
-    {
-        Result<Payment> result =
-            Payment.Create(
-                booking.Id,
-                Money.Create(
-                    200m,
-                    "USD")
-                .Value,
-                UtcNow.AddMinutes(-2));
-
-        Assert.True(
-            result.IsSuccess);
-
-        return result.Value;
-    }
-
-    private static (
-        Payment Payment,
-        PaymentAttempt Attempt)
-        CreatePendingPayment(
-            DomainBooking booking,
-            string externalReference)
-    {
-        Payment payment =
-            CreatePayment(
-                booking);
-
-        Result<PaymentAttempt> attemptResult =
-            payment.AddAttempt(
-                $"expire-operation-{Guid.NewGuid():N}",
-                externalReference,
-                UtcNow.AddMinutes(-1));
-
-        Assert.True(
-            attemptResult.IsSuccess);
-
-        return (
-            payment,
-            attemptResult.Value);
-    }
-
-    private sealed class StubBookingRepository
-        : IBookingRepository
+    private sealed class StubBookingRepository : IBookingRepository
     {
         private readonly DomainBooking? _booking;
 
-        public StubBookingRepository(
-            DomainBooking? booking = null)
+        public StubBookingRepository(DomainBooking? booking = null)
         {
-            _booking =
-                booking;
+            _booking = booking;
         }
 
-        public Task<DomainBooking?> GetByIdAsync(
-            Guid bookingId,
-            CancellationToken cancellationToken = default)
+        public Task<DomainBooking?> GetByIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            return Task.FromResult(
-                _booking?.Id == bookingId
-                    ? _booking
-                    : null);
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_booking?.Id == bookingId ? _booking : null);
         }
 
-        public void Add(
-            DomainBooking booking)
+        public void Add(DomainBooking booking)
         {
             throw new NotSupportedException();
         }
     }
 
-    private sealed class StubPaymentRepository
-        : IPaymentRepository
+    private sealed class StubPaymentRepository : IPaymentRepository
     {
         private readonly Payment? _payment;
 
-        public StubPaymentRepository(
-            Payment? payment = null)
+        public StubPaymentRepository(Payment? payment = null)
         {
-            _payment =
-                payment;
+            _payment = payment;
         }
 
-        public Task<Payment?> GetByBookingIdAsync(
-            Guid bookingId,
-            CancellationToken cancellationToken = default)
+        public Task<Payment?> GetByBookingIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            return Task.FromResult(
-                _payment?.BookingId == bookingId
-                    ? _payment
-                    : null);
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_payment?.BookingId == bookingId ? _payment : null);
         }
 
-        public void Add(
-            Payment payment)
+        public void Add(Payment payment)
         {
             throw new NotSupportedException();
         }
     }
 
-    private sealed class SpyPaymentGateway
-        : IPaymentGateway
+    private sealed class SpyPaymentGateway : IPaymentGateway
     {
-        private readonly Func<
-            string,
-            Result<PaymentGatewayResponse>>
-            _getResultFactory;
-
-        private readonly Func<
-            string,
-            Result<PaymentGatewayResponse>>
-            _cancelResultFactory;
+        private readonly Func<string, Result<PaymentGatewayResponse>> _getResultFactory;
+        private readonly Func<string, Result<PaymentGatewayResponse>> _cancelResultFactory;
 
         public SpyPaymentGateway(
-            Func<
-                string,
-                Result<PaymentGatewayResponse>>?
-                getResultFactory = null,
-            Func<
-                string,
-                Result<PaymentGatewayResponse>>?
-                cancelResultFactory = null)
+            Func<string, Result<PaymentGatewayResponse>>? getResultFactory = null,
+            Func<string, Result<PaymentGatewayResponse>>? cancelResultFactory = null)
         {
-            _getResultFactory =
-                getResultFactory ??
-                (
-                    externalReference =>
-                        Result<PaymentGatewayResponse>
-                            .Success(
-                                new PaymentGatewayResponse(
-                                    externalReference,
-                                    PaymentGatewayStatus.Pending)));
+            _getResultFactory = getResultFactory ?? (externalReference =>
+                Result<PaymentGatewayResponse>.Success(
+                    new PaymentGatewayResponse(externalReference, PaymentGatewayStatus.Pending)));
 
-            _cancelResultFactory =
-                cancelResultFactory ??
-                (
-                    externalReference =>
-                        Result<PaymentGatewayResponse>
-                            .Success(
-                                new PaymentGatewayResponse(
-                                    externalReference,
-                                    PaymentGatewayStatus.Cancelled)));
+            _cancelResultFactory = cancelResultFactory ?? (externalReference =>
+                Result<PaymentGatewayResponse>.Success(
+                    new PaymentGatewayResponse(externalReference, PaymentGatewayStatus.Cancelled)));
         }
 
-        public int GetCallCount
-        {
-            get;
-            private set;
-        }
+        public int GetCallCount { get; private set; }
+        public int CancelCallCount { get; private set; }
 
-        public int CancelCallCount
-        {
-            get;
-            private set;
-        }
-
-        public Task<Result<CreatePaymentAttemptResponse>>
-            CreatePaymentAttemptAsync(
-                CreatePaymentAttemptRequest request,
-                CancellationToken cancellationToken = default)
+        public Task<Result<CreatePaymentAttemptResponse>> CreatePaymentAttemptAsync(
+            CreatePaymentAttemptRequest request,
+            CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
-        public Task<Result<PaymentGatewayResponse>>
-            GetPaymentStatusAsync(
-                string externalReference,
-                CancellationToken cancellationToken = default)
+        public Task<Result<PaymentGatewayResponse>> GetPaymentStatusAsync(
+            string externalReference,
+            CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             GetCallCount++;
-
-            return Task.FromResult(
-                _getResultFactory(
-                    externalReference));
+            return Task.FromResult(_getResultFactory(externalReference));
         }
 
-        public Task<Result<PaymentGatewayResponse>>
-            CancelPaymentAsync(
-                string externalReference,
-                CancellationToken cancellationToken = default)
+        public Task<Result<PaymentGatewayResponse>> CancelPaymentAsync(
+            string externalReference,
+            CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             CancelCallCount++;
-
-            return Task.FromResult(
-                _cancelResultFactory(
-                    externalReference));
+            return Task.FromResult(_cancelResultFactory(externalReference));
         }
     }
 
-    private sealed class SpyUnitOfWork
-        : IUnitOfWork
+    private sealed class SpyUnitOfWork : IUnitOfWork
     {
-        public int SaveChangesCallCount
-        {
-            get;
-            private set;
-        }
+        public int SaveChangesCallCount { get; private set; }
 
-        public Task SaveChangesAsync(
-            CancellationToken cancellationToken = default)
+        public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             SaveChangesCallCount++;
-
             return Task.CompletedTask;
         }
     }
 
-    private sealed class StubClock
-        : IClock
+    private sealed class StubClock : IClock
     {
-        public StubClock(
-            DateTimeOffset utcNow)
+        public StubClock(DateTimeOffset utcNow)
         {
-            UtcNow =
-                utcNow;
+            UtcNow = utcNow;
         }
 
-        public DateTimeOffset UtcNow
-        {
-            get;
-        }
+        public DateTimeOffset UtcNow { get; }
     }
 
-    private sealed class StubPaymentInitiationLock
-    : IPaymentInitiationLock
+    private sealed class StubPaymentInitiationLock : IPaymentInitiationLock
     {
         private readonly bool _acquired;
 
-        public StubPaymentInitiationLock(
-            bool acquired = true)
+        public StubPaymentInitiationLock(bool acquired = true)
         {
-            _acquired =
-                acquired;
+            _acquired = acquired;
         }
 
-        public Task<bool> TryAcquireAsync(
-            Guid bookingId,
-            CancellationToken cancellationToken = default)
+        public Task<bool> TryAcquireAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            return Task.FromResult(
-                _acquired);
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_acquired);
         }
     }
 
-    private sealed class SpyTransactionManager
-        : ITransactionManager
+    private sealed class SpyTransactionManager : ITransactionManager
     {
-        public SpyTransaction Transaction
-        {
-            get;
-        } = new();
+        public SpyTransaction Transaction { get; } = new();
 
-        public Task<ITransaction> BeginAsync(
-            CancellationToken cancellationToken = default)
+        public Task<ITransaction> BeginAsync(CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            return Task.FromResult<ITransaction>(
-                Transaction);
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult<ITransaction>(Transaction);
         }
     }
 
-    private sealed class SpyTransaction
-        : ITransaction
+    private sealed class SpyTransaction : ITransaction
     {
-        public int CommitCallCount
-        {
-            get;
-            private set;
-        }
+        public int CommitCallCount { get; private set; }
+        public int RollbackCallCount { get; private set; }
 
-        public int RollbackCallCount
+        public Task CommitAsync(CancellationToken cancellationToken = default)
         {
-            get;
-            private set;
-        }
-
-        public Task CommitAsync(
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             CommitCallCount++;
-
             return Task.CompletedTask;
         }
 
-        public Task RollbackAsync(
-            CancellationToken cancellationToken = default)
+        public Task RollbackAsync(CancellationToken cancellationToken = default)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
+            cancellationToken.ThrowIfCancellationRequested();
             RollbackCallCount++;
-
             return Task.CompletedTask;
         }
 

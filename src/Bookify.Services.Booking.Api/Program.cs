@@ -1,5 +1,8 @@
 using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.RateLimiting;
+using Bookify.Services.Booking.Api.Security;
+using Bookify.Services.Booking.Api.Security.Http;
 using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Infrastructure;
@@ -12,88 +15,127 @@ string? configuredConnectionString = builder.Configuration.GetConnectionString("
 
 if (string.IsNullOrWhiteSpace(configuredConnectionString))
 {
-    throw new InvalidOperationException(
-        "The database connection string " +
+    throw new InvalidOperationException("The database connection string " +
         "'ConnectionStrings:Database' is missing");
 }
 
 string connectionString = configuredConnectionString;
 
+builder.WebHost.ConfigureKestrel(
+    options =>
+    {
+        options.AddServerHeader = false;
+    });
+
 builder.Services
     .AddApplication()
     .AddInfrastructure(connectionString, builder.Configuration);
 
+// ==========================================
+// Identity & Authentication
+// ==========================================
+builder.Services.AddIdentityAuthentication(builder.Configuration);
+
+// ==========================================
+// HTTP Security
+// ==========================================
+builder.Services.AddBookifyHttpSecurity(builder.Configuration);
+
+// ==========================================
+// Rate Limiting
+// ==========================================
+builder.Services.AddBookifyRateLimiting(builder.Configuration);
+
 var app = builder.Build();
 
-app.UseRouting();
+// ==========================================
+// HTTP Pipeline
+// ==========================================
 
+app.UseForwardedHeaders();
+
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHsts();
+}
+
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseRouting();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseCors(BookifyCorsPolicies.TrustedFrontends);
+app.UseAuthentication();
+app.UseRateLimiter();
+app.UseAuthorization();
 app.UseMiddleware<IdempotencyMiddleware>();
-app.MapGet("/health",
-    () => Results.Ok(
-        new
-        {
-            Status = "Healthy",
-            Service = "Bookify.Services.Booking"
-        }));
+
+// ==========================================
+// Health
+// ==========================================
+app.MapGet("/health", () => Results.Ok(
+    new
+    {
+        Status = "Healthy",
+        Service = "Bookify.Services.Booking"
+    }))
+    .AllowPublicAccess();
+
+// ==========================================
+// API Endpoints
+// ==========================================
 
 app.MapApiEndpoints();
 
+// ==========================================
+// Development Diagnostics
+// ==========================================
+
 if (app.Environment.IsDevelopment())
 {
-    app.MapGet(
-        "/diagnostics/time",
-        (IClock clock) =>
-            Results.Ok(
-                new
-                {
-                    UtcNow = clock.UtcNow
-                }));
-
-    app.MapGet(
-        "/diagnostics/database",
-        async (
-            BookingDbContext dbContext,
-            CancellationToken cancellationToken) =>
-        {
-            bool canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
-
-            if (!canConnect)
+    app.MapGet("/diagnostics/time", (IClock clock) =>
+        Results.Ok(
+            new
             {
-                return Results.Problem(
-                    title: "Database unavailable",
-                    detail: "The application could not connect to PostgreSQL",
-                    statusCode: StatusCodes.Status503ServiceUnavailable);
-            }
+                UtcNow = clock.UtcNow
+            }));
 
-            return Results.Ok(
-                new
-                {
-                    Status = "Connected",
-                    Provider = dbContext.Database.ProviderName
-                });
-        });
-
-    app.MapGet(
-    "/diagnostics/database/model",
-    (BookingDbContext dbContext) =>
+    app.MapGet("/diagnostics/database", async (
+        BookingDbContext dbContext,
+        CancellationToken cancellationToken) =>
     {
-        var entities =
-            dbContext.Model
-                .GetEntityTypes()
-                .Select(
-                    entityType =>
-                        new
-                        {
-                            Entity =
-                                entityType.ClrType.Name,
+        bool canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
 
-                            Table =
-                                entityType.GetTableName()
-                        })
-                .OrderBy(
-                    entity =>
-                        entity.Entity)
-                .ToArray();
+        if (!canConnect)
+        {
+            return Results.Problem(
+                title: "Database unavailable",
+                detail: "The application could not connect to PostgreSQL",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        return Results.Ok(
+            new
+            {
+                Status = "Connected",
+                Provider = dbContext.Database.ProviderName
+            });
+    });
+
+    app.MapGet("/diagnostics/database/model", (BookingDbContext dbContext) =>
+    {
+        var entities = dbContext.Model
+            .GetEntityTypes()
+            .Select(entityType =>
+            new
+            {
+                Entity = entityType.ClrType.Name,
+                Table = entityType.GetTableName()
+            })
+            .OrderBy(entity => entity.Entity)
+            .ToArray();
 
         return Results.Ok(entities);
     });

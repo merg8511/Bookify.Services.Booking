@@ -15,7 +15,6 @@ public sealed class GetPropertyByIdQueryHandlerTests
     {
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-
         Guid propertyId = Guid.NewGuid();
 
         var expectedResponse = new PropertyDetailsReadModel
@@ -30,7 +29,6 @@ public sealed class GetPropertyByIdQueryHandlerTests
 
         var propertyReadService = new StubPropertyReadService(expectedResponse);
         var handler = new GetPropertyByIdQueryHandler(propertyReadService);
-
         var query = new GetPropertyByIdQuery(propertyId);
 
         // ACT
@@ -38,17 +36,9 @@ public sealed class GetPropertyByIdQueryHandlerTests
 
         // ASSERT
         Assert.True(result.IsSuccess);
-
-        Assert.Equal(
-            expectedResponse,
-            result.Value);
-
-        Assert.True(
-            propertyReadService.WasCalled);
-
-        Assert.Equal(
-            propertyId,
-            propertyReadService.RequestedPropertyId);
+        Assert.Equal(expectedResponse, result.Value);
+        Assert.True(propertyReadService.WasCalled);
+        Assert.Equal(propertyId, propertyReadService.RequestedPropertyId);
     }
 
     [Fact]
@@ -56,7 +46,6 @@ public sealed class GetPropertyByIdQueryHandlerTests
     {
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-
         Guid propertyId = Guid.NewGuid();
 
         var propertyReadService = new StubPropertyReadService(response: null);
@@ -68,15 +57,8 @@ public sealed class GetPropertyByIdQueryHandlerTests
 
         // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            "Property.NotFound",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.NotFound,
-            result.Error.Type);
-
+        Assert.Equal("Property.NotFound", result.Error.Code);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
         Assert.True(propertyReadService.WasCalled);
     }
 
@@ -84,54 +66,31 @@ public sealed class GetPropertyByIdQueryHandlerTests
     public async Task HandleAsync_WithNullQuery_ShouldThrow()
     {
         // ARRANGE
-        var handler =
-            new GetPropertyByIdQueryHandler(
-                new StubPropertyReadService(
-                    response: null));
+        var handler = new GetPropertyByIdQueryHandler(new StubPropertyReadService(response: null));
 
         // ACT
-        Task Action()
-        {
-            return handler.HandleAsync(null!);
-        }
+        Task Action() => handler.HandleAsync(null!);
 
         // ASSERT
-        await Assert.ThrowsAsync<
-            ArgumentNullException>(Action);
+        await Assert.ThrowsAsync<ArgumentNullException>(Action);
     }
 
     [Fact]
     public async Task HandleAsync_ShouldPropagateCancellationToken()
     {
         // ARRANGE
-        var propertyReadService =
-            new StubPropertyReadService(
-                response: null);
+        var propertyReadService = new StubPropertyReadService(response: null);
+        var handler = new GetPropertyByIdQueryHandler(propertyReadService);
+        var query = new GetPropertyByIdQuery(Guid.NewGuid());
 
-        var handler =
-            new GetPropertyByIdQueryHandler(
-                propertyReadService);
-
-        var query =
-            new GetPropertyByIdQuery(
-                Guid.NewGuid());
-
-        using var cancellationTokenSource =
-            new CancellationTokenSource();
-
+        using var cancellationTokenSource = new CancellationTokenSource();
         await cancellationTokenSource.CancelAsync();
 
         // ACT
-        Task Action()
-        {
-            return handler.HandleAsync(
-                query,
-                cancellationTokenSource.Token);
-        }
+        Task Action() => handler.HandleAsync(query, cancellationTokenSource.Token);
 
         // ASSERT
-        await Assert.ThrowsAsync<
-            OperationCanceledException>(Action);
+        await Assert.ThrowsAsync<OperationCanceledException>(Action);
     }
 
     private sealed class StubPropertyReadService : IPropertyReadService
@@ -151,15 +110,12 @@ public sealed class GetPropertyByIdQueryHandlerTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
             WasCalled = true;
             RequestedPropertyId = propertyId;
-
             return Task.FromResult(_response);
         }
 
-        public Task<PagedResult<PropertyListItemReadModel>>
-            GetPagedAsync(
+        public Task<PagedResult<PropertyListItemReadModel>> GetPagedAsync(
             int pageNumber,
             int pageSize,
             string? name,

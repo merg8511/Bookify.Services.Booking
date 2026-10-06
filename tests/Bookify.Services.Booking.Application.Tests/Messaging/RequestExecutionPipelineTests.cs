@@ -7,41 +7,28 @@ namespace Bookify.Services.Booking.Application.Tests.Messaging;
 
 public sealed class RequestExecutionPipelineTests
 {
-    private static readonly Error InvalidRequestError =
-        Error.Validation(
-            "Test.InvalidRequest",
-            "The test request is invalid");
+    private static readonly Error InvalidRequestError = Error.Validation(
+        "Test.InvalidRequest",
+        "The test request is invalid");
 
     [Fact]
     public async Task ExecuteCommandAsync_WhenValidationSucceds_ShouldExecureHandler()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-
         var handler = new TestCommandHandler();
-
-        IRequestValidator<TestCommand>[] validators =
-            [
-                new TestCommandValidator()
-            ];
-
-        var executor =
-            new CommandExecutor<
-                TestCommand,
-                Guid>(
-                handler,
-                validators,
-                NullLogger<
-                    CommandExecutor<
-                        TestCommand,
-                        Guid>>.Instance);
+        IRequestValidator<TestCommand>[] validators = [new TestCommandValidator()];
+        var executor = new CommandExecutor<TestCommand, Guid>(
+            handler,
+            validators,
+            NullLogger<CommandExecutor<TestCommand, Guid>>.Instance);
 
         var command = new TestCommand(IsValid: true);
 
-        // ACT
+        // Act
         Result<Guid> result = await executor.ExecuteAsync(command, cancellationToken);
 
-        // ASSERT
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.True(handler.WasCalled);
         Assert.Equal(handler.ReturnedId, result.Value);
@@ -50,85 +37,44 @@ public sealed class RequestExecutionPipelineTests
     [Fact]
     public async Task ExecuteCommandAsync_WhenValidationFails_ShouldNotExecuteHandler()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var handler = new TestCommandHandler();
+        IRequestValidator<TestCommand>[] validators = [new TestCommandValidator()];
+        var executor = new CommandExecutor<TestCommand, Guid>(
+            handler,
+            validators,
+            NullLogger<CommandExecutor<TestCommand, Guid>>.Instance);
 
-        var handler =
-            new TestCommandHandler();
+        var command = new TestCommand(IsValid: false);
 
-        IRequestValidator<TestCommand>[] validators =
-        [
-            new TestCommandValidator()
-        ];
+        // Act
+        Result<Guid> result = await executor.ExecuteAsync(command, cancellationToken);
 
-        var executor =
-            new CommandExecutor<
-                TestCommand,
-                Guid>(
-                handler,
-                validators,
-                NullLogger<
-                    CommandExecutor<
-                        TestCommand,
-                        Guid>>.Instance);
-
-        var command =
-            new TestCommand(
-                IsValid: false);
-
-        // ACT
-        Result<Guid> result =
-            await executor.ExecuteAsync(
-                command,
-                cancellationToken);
-
-        // ASSERT
+        // Assert
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            InvalidRequestError,
-            result.Error);
-
-        Assert.False(
-            handler.WasCalled);
+        Assert.Equal(InvalidRequestError, result.Error);
+        Assert.False(handler.WasCalled);
     }
 
     [Fact]
     public async Task ExecuteQueryAsync_WhenValidationSucceeds_ShouldExecuteHandler()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var handler = new TestQueryHandler();
+        IRequestValidator<TestQuery>[] validators = [new TestQueryValidator()];
+        var executor = new QueryExecutor<TestQuery, string>(
+            handler,
+            validators,
+            NullLogger<QueryExecutor<TestQuery, string>>.Instance);
 
-        var handler =
-            new TestQueryHandler();
+        var query = new TestQuery(IsValid: true);
 
-        IRequestValidator<TestQuery>[] validators =
-        [
-            new TestQueryValidator()
-        ];
+        // Act
+        Result<string> result = await executor.ExecuteAsync(query, cancellationToken);
 
-        var executor =
-            new QueryExecutor<
-                TestQuery,
-                string>(
-                handler,
-                validators,
-                NullLogger<
-                    QueryExecutor<
-                        TestQuery,
-                        string>>.Instance);
-
-        var query =
-            new TestQuery(
-                IsValid: true);
-
-        // ACT
-        Result<string> result =
-            await executor.ExecuteAsync(
-                query,
-                cancellationToken);
-
-        // ASSERT
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal("Response", result.Value);
         Assert.True(handler.WasCalled);
@@ -137,55 +83,29 @@ public sealed class RequestExecutionPipelineTests
     [Fact]
     public async Task ExecuteQueryAsync_WhenValidationFails_ShouldNotExecuteHandler()
     {
-        // ARRANGE
+        // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var handler = new TestQueryHandler();
+        IRequestValidator<TestQuery>[] validators = [new TestQueryValidator()];
+        var executor = new QueryExecutor<TestQuery, string>(
+            handler,
+            validators,
+            NullLogger<QueryExecutor<TestQuery, string>>.Instance);
 
-        var handler =
-            new TestQueryHandler();
+        var query = new TestQuery(IsValid: false);
 
-        IRequestValidator<TestQuery>[] validators =
-        [
-            new TestQueryValidator()
-        ];
+        // Act
+        Result<string> result = await executor.ExecuteAsync(query, cancellationToken);
 
-        var executor =
-            new QueryExecutor<
-                TestQuery,
-                string>(
-                handler,
-                validators,
-                NullLogger<
-                    QueryExecutor<
-                        TestQuery,
-                        string>>.Instance);
-
-        var query =
-            new TestQuery(
-                IsValid: false);
-
-        // ACT
-        Result<string> result =
-            await executor.ExecuteAsync(
-                query,
-                cancellationToken);
-
-        // ASSERT
+        // Assert
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            InvalidRequestError,
-            result.Error);
-
-        Assert.False(
-            handler.WasCalled);
+        Assert.Equal(InvalidRequestError, result.Error);
+        Assert.False(handler.WasCalled);
     }
 
-    private sealed record TestCommand(
-        bool IsValid)
-        : ICommand<Guid>;
+    private sealed record TestCommand(bool IsValid) : ICommand<Guid>;
 
-    private sealed class TestCommandHandler
-        : ICommandHandler<TestCommand, Guid>
+    private sealed class TestCommandHandler : ICommandHandler<TestCommand, Guid>
     {
         public Guid ReturnedId { get; } = Guid.NewGuid();
 
@@ -198,29 +118,23 @@ public sealed class RequestExecutionPipelineTests
             cancellationToken.ThrowIfCancellationRequested();
             WasCalled = true;
 
-            return Task.FromResult(
-                Result<Guid>.Success(ReturnedId));
+            return Task.FromResult(Result<Guid>.Success(ReturnedId));
         }
     }
 
-    private sealed class TestCommandValidator
-        : IRequestValidator<TestCommand>
+    private sealed class TestCommandValidator : IRequestValidator<TestCommand>
     {
         public Result Validate(TestCommand request)
         {
             return request.IsValid
                 ? Result.Success()
-                : Result.Failure(
-                    InvalidRequestError);
+                : Result.Failure(InvalidRequestError);
         }
     }
 
-    private sealed record TestQuery(
-        bool IsValid)
-        : IQuery<string>;
+    private sealed record TestQuery(bool IsValid) : IQuery<string>;
 
-    private sealed class TestQueryHandler
-        : IQueryHandler<TestQuery, string>
+    private sealed class TestQueryHandler : IQueryHandler<TestQuery, string>
     {
         public bool WasCalled { get; private set; }
 
@@ -231,13 +145,11 @@ public sealed class RequestExecutionPipelineTests
             cancellationToken.ThrowIfCancellationRequested();
             WasCalled = true;
 
-            return Task.FromResult(
-                Result<string>.Success("Response"));
+            return Task.FromResult(Result<string>.Success("Response"));
         }
     }
 
-    private sealed class TestQueryValidator
-        : IRequestValidator<TestQuery>
+    private sealed class TestQueryValidator : IRequestValidator<TestQuery>
     {
         public Result Validate(TestQuery request)
         {

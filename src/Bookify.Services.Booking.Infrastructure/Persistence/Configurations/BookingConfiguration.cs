@@ -14,8 +14,7 @@ internal sealed class BookingConfiguration
         ArgumentNullException.ThrowIfNull(builder);
 
         builder
-            .ToTable("bookings",
-                tableBuilder =>
+            .ToTable("bookings", tableBuilder =>
                 {
                     tableBuilder
                         .HasCheckConstraint("ck_bookings_guest_count", "guest_count > 0");
@@ -34,6 +33,29 @@ internal sealed class BookingConfiguration
                             "ck_bookings_cancellation_consistency",
                             "(status = 'Cancelled' AND cancellation_reason IS NOT NULL)" +
                             " OR (status <> 'Cancelled' AND cancellation_reason IS NULL)");
+
+                    tableBuilder
+                        .HasCheckConstraint(
+                            "ck_bookings_access_consistency",
+                            """
+                            (
+                                customer_subject_id IS NOT NULL
+                                AND guest_access_token_hash IS NULL
+                            )
+                            OR
+                            (
+                                customer_subject_id IS NULL
+                                AND guest_access_token_hash IS NOT NULL
+                            )
+                            """);
+
+                    tableBuilder
+                        .HasCheckConstraint(
+                            "ck_bookings_guest_access_token_hash",
+                            """
+                            guest_access_token_hash IS NULL
+                            OR guest_access_token_hash ~ '^[0-9A-F]{64}$'
+                            """);
                 });
 
         builder
@@ -57,6 +79,16 @@ internal sealed class BookingConfiguration
             .HasColumnName("rentable_unit_id")
             .HasColumnType("uuid")
             .IsRequired();
+
+        builder
+            .Property(booking => booking.CustomerSubjectId)
+            .HasColumnName("customer_subject_id")
+            .HasMaxLength(255);
+
+        builder
+            .Property(booking => booking.GuestAccessTokenHash)
+            .HasColumnName("guest_access_token_hash")
+            .HasMaxLength(64);
 
         builder
             .Property(booking => booking.Status)
@@ -355,5 +387,9 @@ internal sealed class BookingConfiguration
         builder
             .HasIndex(booking => new { booking.RentableUnitId, booking.Status })
             .HasDatabaseName("ix_bookings_rentable_unit_id_status");
+
+        builder
+            .HasIndex(booking => booking.CustomerSubjectId)
+            .HasDatabaseName("ix_bookings_customer_subject_id");
     }
 }

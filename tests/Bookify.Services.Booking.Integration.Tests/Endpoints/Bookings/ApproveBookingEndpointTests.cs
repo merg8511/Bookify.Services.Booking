@@ -1,0 +1,143 @@
+using System.Net;
+using System.Net.Http.Json;
+using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
+using Bookify.Services.Booking.Application.Bookings;
+using Bookify.Services.Booking.Application.Bookings.ReadModels;
+using Bookify.Services.Booking.Domain.Bookings;
+using Bookify.Services.Booking.Integration.Tests.Contracts;
+using Bookify.Services.Booking.Integration.Tests.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
+
+namespace Bookify.Services.Booking.Integration.Tests.Endpoints.Bookings;
+
+[Collection(BookingApiTestFixture.Name)]
+[Trait("Category", "Integration")]
+public sealed class ApproveBookingEndpointTests
+{
+    private readonly BookingApiFactory _factory;
+
+    public ApproveBookingEndpointTests(BookingApiFactory factory)
+    {
+        _factory = factory;
+    }
+
+    [Fact]
+    public async Task Post_WhenBookingIsPendingApproval_ReturnsNoContentAndPersistsPendingPayment()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        DomainBooking seededBooking = await BookingDatabaseTestSeeder.SeedBookingAsync(
+            _factory,
+            BookingStatus.PendingApproval,
+            cancellationToken: cancellationToken);
+
+        HttpClient client = _factory.CreateOwnerClient();
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"/api/v1/bookings/{seededBooking.Id}/approve",
+            content: null,
+            cancellationToken);
+
+        // Assert - HTTP
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        // Assert - EF / PostgreSQL
+        using IServiceScope scope = _factory.Services.CreateScope();
+        IBookingRepository bookingRepository = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
+
+        DomainBooking? persistedBooking = await bookingRepository.GetByIdAsync(seededBooking.Id, cancellationToken);
+        Assert.NotNull(persistedBooking);
+        Assert.Equal(BookingStatus.PendingPayment, persistedBooking.Status);
+        Assert.Null(persistedBooking.CancellationReason);
+
+        // Assert - Dapper read side
+        IBookingReadService bookingReadService = scope.ServiceProvider.GetRequiredService<IBookingReadService>();
+        BookingDetailsReadModel? readModel = await bookingReadService.GetByIdAsync(seededBooking.Id, cancellationToken);
+        Assert.NotNull(readModel);
+        Assert.Equal(BookingStatus.PendingPayment.ToString(), readModel.Status);
+    }
+
+    [Fact]
+    public async Task Post_WhenBookingDoesNotExist_ReturnsNotFound()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Guid bookingId = Guid.NewGuid();
+        HttpClient client = _factory.CreateOwnerClient();
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"/api/v1/bookings/{bookingId}/approve",
+            content: null,
+            cancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        ProblemDetailsResponse? problem = await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(cancellationToken);
+        Assert.NotNull(problem);
+        Assert.Equal("Booking.NotFound", problem.Code);
+    }
+
+    [Fact]
+    public async Task Post_WhenBookingIsAlreadyPendingPayment_ReturnsConflict()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        DomainBooking seededBooking = await BookingDatabaseTestSeeder.SeedBookingAsync(
+            _factory,
+            BookingStatus.PendingPayment,
+            cancellationToken: cancellationToken);
+
+        HttpClient client = _factory.CreateOwnerClient();
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"/api/v1/bookings/{seededBooking.Id}/approve",
+            content: null,
+            cancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        ProblemDetailsResponse? problem = await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(cancellationToken);
+        Assert.NotNull(problem);
+        Assert.Equal("Booking.InvalidStatusTransition", problem.Code);
+
+        using IServiceScope scope = _factory.Services.CreateScope();
+        IBookingRepository bookingRepository = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
+
+        DomainBooking? persistedBooking = await bookingRepository.GetByIdAsync(seededBooking.Id, cancellationToken);
+        Assert.NotNull(persistedBooking);
+        Assert.Equal(BookingStatus.PendingPayment, persistedBooking.Status);
+        Assert.Null(persistedBooking.CancellationReason);
+    }
+
+    [Fact]
+    public async Task Post_WithEmptyBookingId_ReturnsBadRequest()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        HttpClient client = _factory.CreateOwnerClient();
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"/api/v1/bookings/{Guid.Empty}/approve",
+            content: null,
+            cancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        ProblemDetailsResponse? problem = await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(cancellationToken);
+        Assert.NotNull(problem);
+        Assert.Equal("Booking.InvalidId", problem.Code);
+    }
+}

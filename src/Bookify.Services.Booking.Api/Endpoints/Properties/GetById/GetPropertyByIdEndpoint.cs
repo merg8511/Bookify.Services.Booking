@@ -1,4 +1,6 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.RateLimiting;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Domain.Shared;
@@ -13,47 +15,33 @@ internal static class GetPropertyByIdEndpoint
     public static void Map(RouteGroupBuilder propertiesGroup)
     {
         propertiesGroup
-            .MapGet(
-                "/{propertyId:guid}",
-                HandleAsync)
-            .WithName(
-                EndpointNames.Properties.GetById)
-            .WithSummary(
-                "Gets a property by its identifier.")
-            .Produces<GetPropertyByIdResponse>(
-                StatusCodes.Status200OK)
-            .ProducesProblem(
-                StatusCodes.Status400BadRequest)
-            .ProducesProblem(
-                StatusCodes.Status404NotFound)
-            .ProducesProblem(
-                StatusCodes.Status500InternalServerError);
+            .MapGet("/{propertyId:guid}", HandleAsync)
+            .WithName(EndpointNames.Properties.GetById)
+            .WithSummary("Gets a property by its identifier.")
+            .AllowPublicAccess()
+            .RequirePublicReadRateLimit()
+            .Produces<GetPropertyByIdResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
-    private static async Task<
-        Results<
-            Ok<GetPropertyByIdResponse>,
-            ProblemHttpResult>> HandleAsync(
+    private static async Task<Results<Ok<GetPropertyByIdResponse>, ProblemHttpResult>> HandleAsync(
         Guid propertyId,
-        IQueryExecutor<
-            GetPropertyByIdQuery,
-            ApplicationPropertyDetails> executor,
+        IQueryExecutor<GetPropertyByIdQuery, ApplicationPropertyDetails> executor,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
         var query = new GetPropertyByIdQuery(propertyId);
 
-        Result<ApplicationPropertyDetails> result =
-            await executor.ExecuteAsync(query, cancellationToken);
+        Result<ApplicationPropertyDetails> result = await executor.ExecuteAsync(query, cancellationToken);
 
         return result.ToHttpResult(
             httpContext,
-            property =>
-                TypedResults.Ok(MapToResponse(property)));
+            property => TypedResults.Ok(MapToResponse(property)));
     }
 
-    private static GetPropertyByIdResponse MapToResponse(
-        ApplicationPropertyDetails property)
+    private static GetPropertyByIdResponse MapToResponse(ApplicationPropertyDetails property)
     {
         return new GetPropertyByIdResponse(
             property.Id,

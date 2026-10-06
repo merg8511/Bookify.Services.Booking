@@ -3,15 +3,13 @@ using Bookify.Services.Booking.Infrastructure.Payments.Fake;
 using Bookify.Services.Booking.Infrastructure.Payments.Stripe;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Stripe;
 
 namespace Bookify.Services.Booking.Infrastructure.Payments;
 
 public static class PaymentsDependencyInjection
 {
-    private const string StripeWebhookSecretConfigurationKey = "Payments:Stripe:WebhookSecret";
-    private const string StripeWebhookToleranceConfigurationKey = "Payments:Stripe:WebhookToleranceSeconds";
-
     public static IServiceCollection AddPayments(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -30,83 +28,81 @@ public static class PaymentsDependencyInjection
                 $"{PaymentProvider.Stripe}.");
         }
 
-        AddStripeWebhookSignatureVerification(services, configuration);
+        services
+            .AddOptions<PaymentOptions>()
+            .Bind(configuration.GetSection(PaymentOptions.SectionName))
+            .Validate(options =>
+                Enum.TryParse<PaymentProvider>(options.Provider.Trim(), ignoreCase: true, out _),
+                "Payments:Provider must contain a supported payment provider.")
+            .ValidateOnStart();
+
+        services
+            .AddOptions<StripePaymentOptions>()
+            .Bind(configuration.GetSection(StripePaymentOptions.SectionName))
+            .Validate(options =>
+                options.WebhookToleranceSeconds > 0,
+                "Payments:Stripe:WebhookToleranceSeconds must be greater than zero.")
+            .Validate(options =>
+                provider != PaymentProvider.Stripe || !string.IsNullOrWhiteSpace(options.SecretKey),
+                "Payments:Stripe:SecretKey is required when Stripe is the configured provider.")
+            .Validate(options =>
+                provider != PaymentProvider.Stripe || !string.IsNullOrWhiteSpace(options.WebhookSecret),
+                "Payments:Stripe:WebhookSecret is required when Stripe is the configured provider.")
+            .ValidateOnStart();
+
+        AddStripeWebhookSignatureVerification(services);
 
         return provider switch
         {
-            PaymentProvider.Fake =>
-                AddFakePaymentGateway(services),
-
-            PaymentProvider.Stripe =>
-                AddStripePaymentGateway(services, configuration),
-
-            _ =>
-                throw new InvalidOperationException($"Payment provider '{provider}' is not supported.")
+            PaymentProvider.Fake => AddFakePaymentGateway(services),
+            PaymentProvider.Stripe => AddStripePaymentGateway(services),
+            _ => throw new InvalidOperationException($"Payment provider '{provider}' is not supported.")
         };
     }
 
-    private static void AddStripeWebhookSignatureVerification(IServiceCollection services, IConfiguration configuration)
+    private static void AddStripeWebhookSignatureVerification(IServiceCollection services)
     {
-        string webhookSecret = configuration[StripeWebhookSecretConfigurationKey]?.Trim() ?? string.Empty;
-        long toleranceSeconds = GetStripeWebhookToleranceSeconds(configuration);
-
         services.AddSingleton<IStripeWebhookSignatureVerifier>(
-            new StripeWebhookSignatureVerifier(webhookSecret, toleranceSeconds));
-    }
+            serviceProvider =>
+            {
+                StripePaymentOptions options = serviceProvider
+                    .GetRequiredService<IOptions<StripePaymentOptions>>()
+                    .Value;
 
-    private static long GetStripeWebhookToleranceSeconds(IConfiguration configuration)
-    {
-        string configuredTolerance = configuration[StripeWebhookToleranceConfigurationKey]?.Trim() ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(configuredTolerance))
-        {
-            return StripeWebhookSignatureVerifier.DefaultToleranceSeconds;
-        }
-
-        if (!long.TryParse(configuredTolerance, out long toleranceSeconds) ||
-            toleranceSeconds <= 0)
-        {
-            throw new InvalidOperationException(
-                $"Configuration '{StripeWebhookToleranceConfigurationKey}' " +
-                $"must contain a positive integer number of seconds.");
-        }
-
-        return toleranceSeconds;
+                return new StripeWebhookSignatureVerifier(
+                    options.WebhookSecret.Trim(),
+                    options.WebhookToleranceSeconds);
+            });
     }
 
     private static IServiceCollection AddFakePaymentGateway(IServiceCollection services)
     {
         services.AddSingleton<FakePaymentGateway>();
 
-        services.AddSingleton<
-            IPaymentGateway>(
-                serviceProvider =>
-                    serviceProvider.GetRequiredService<FakePaymentGateway>());
+        services.AddSingleton<IPaymentGateway>(
+                serviceProvider => serviceProvider.GetRequiredService<FakePaymentGateway>());
 
         return services;
     }
 
-    private static IServiceCollection AddStripePaymentGateway(IServiceCollection services, IConfiguration configuration)
+    private static IServiceCollection AddStripePaymentGateway(IServiceCollection services)
     {
-        string secretKey = configuration["Payments:Stripe:SecretKey"]?
-            .Trim() ?? string.Empty;
+        services.AddSingleton<IStripeClient>(
+            serviceProvider =>
+            {
+                StripePaymentOptions options = serviceProvider
+                    .GetRequiredService<IOptions<StripePaymentOptions>>()
+                    .Value;
 
-        if (string.IsNullOrWhiteSpace(secretKey))
-        {
-            throw new InvalidOperationException(
-                "Stripe secret key is not configured. " +
-                "Configure 'Payments:Stripe:SecretKey'.");
-        }
-
-        services.AddSingleton<IStripeClient>(new StripeClient(secretKey));
+                return new StripeClient(options.SecretKey.Trim());
+            });
 
         services.AddSingleton<PaymentIntentService>();
 
         services.AddSingleton<StripePaymentGateway>();
 
         services.AddSingleton<IPaymentGateway>(
-            serviceProvider =>
-                serviceProvider.GetRequiredService<StripePaymentGateway>());
+            serviceProvider => serviceProvider.GetRequiredService<StripePaymentGateway>());
 
         return services;
     }

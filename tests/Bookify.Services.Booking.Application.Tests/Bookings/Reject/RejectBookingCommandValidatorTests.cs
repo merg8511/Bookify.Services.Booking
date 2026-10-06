@@ -8,50 +8,42 @@ public sealed class RejectBookingCommandValidatorTests
     [Fact]
     public void Validate_WithValidBookingId_ShouldReturnSuccess()
     {
-        // ARRANGE
+        // Arrange
         var validator = new RejectBookingCommandValidator();
-
         var command = new RejectBookingCommand(Guid.NewGuid());
 
-        // ACT
+        // Act
         Result result = validator.Validate(command);
 
-        // ASSERT
+        // Assert
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
     public void Validate_WithEmptyBookingId_ShouldReturnFailure()
     {
-        // ARRANGE
+        // Arrange
         var validator = new RejectBookingCommandValidator();
-
         var command = new RejectBookingCommand(Guid.Empty);
 
-        // ACT
+        // Act
         Result result = validator.Validate(command);
 
-        // ASSERT
+        // Assert
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            RejectBookingErrors.InvalidBookingId,
-            result.Error);
+        Assert.Equal(RejectBookingErrors.InvalidBookingId, result.Error);
     }
 
     [Fact]
     public void Validate_WithNullCommand_ShouldThrow()
     {
-        // ARRANGE
+        // Arrange
         var validator = new RejectBookingCommandValidator();
 
-        // ACT
-        void Action()
-        {
-            validator.Validate(null!);
-        }
+        // Act
+        void Action() => validator.Validate(null!);
 
-        // ASSERT
+        // Assert
         Assert.Throws<ArgumentNullException>(Action);
     }
 }

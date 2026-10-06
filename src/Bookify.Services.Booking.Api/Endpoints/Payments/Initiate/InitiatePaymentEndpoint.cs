@@ -1,5 +1,7 @@
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.RateLimiting;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Domain.Shared;
@@ -16,15 +18,17 @@ internal static class InitiatePaymentEndpoint
     public static void Map(RouteGroupBuilder paymentsGroup)
     {
         paymentsGroup
-            .MapPost(
-                "/",
-                HandleAsync)
+            .MapPost("/", HandleAsync)
             .WithName(EndpointNames.Payments.Initiate)
             .WithSummary("Initiates a payment for a booking.")
+            .RequireCustomerOrGuestBookingAccessFromJsonBody("bookingId")
+            .RequirePaymentInitiationRateLimit()
             .WithMetadata(IdempotencyRequiredMetadata.Instance)
             .WithMetadata(IdempotencySensitiveResponseMetadata.Instance)
             .Accepts<InitiatePaymentRequest>("application/json")
             .Produces<InitiatePaymentResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -32,29 +36,16 @@ internal static class InitiatePaymentEndpoint
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
-    private static async Task<Results<
-        Ok<InitiatePaymentResponse>,
-        ProblemHttpResult>> HandleAsync(
-            InitiatePaymentRequest request,
-            ICommandExecutor<
-                InitiatePaymentCommand,
-                ApplicationInitiatePaymentResponse> commandExecutor,
-            HttpContext httpContext,
-            CancellationToken cancellationToken)
+    private static async Task<Results<Ok<InitiatePaymentResponse>, ProblemHttpResult>> HandleAsync(
+        InitiatePaymentRequest request,
+        ICommandExecutor<InitiatePaymentCommand, ApplicationInitiatePaymentResponse> commandExecutor,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
     {
-        string idempotencyKey = httpContext.Request
-            .Headers[IdempotencyHeaderName]
-            .ToString();
+        string idempotencyKey = httpContext.Request.Headers[IdempotencyHeaderName].ToString();
+        var command = new InitiatePaymentCommand(request.BookingId, idempotencyKey);
 
-        var command =
-            new InitiatePaymentCommand(
-                request.BookingId,
-                idempotencyKey);
-
-        Result<ApplicationInitiatePaymentResponse> result =
-            await commandExecutor.ExecuteAsync(
-                command,
-                cancellationToken);
+        Result<ApplicationInitiatePaymentResponse> result = await commandExecutor.ExecuteAsync(command, cancellationToken);
 
         return result.ToHttpResult(
             httpContext,

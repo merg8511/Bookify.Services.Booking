@@ -53,6 +53,16 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
 
+                    b.Property<string>("CustomerSubjectId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("customer_subject_id");
+
+                    b.Property<string>("GuestAccessTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("guest_access_token_hash");
+
                     b.Property<DateTimeOffset?>("PaidAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_at_utc");
@@ -78,6 +88,9 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_bookings");
 
+                    b.HasIndex("CustomerSubjectId")
+                        .HasDatabaseName("ix_bookings_customer_subject_id");
+
                     b.HasIndex("PropertyId", "Status")
                         .HasDatabaseName("ix_bookings_property_id_status");
 
@@ -86,7 +99,11 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
 
                     b.ToTable("bookings", null, t =>
                         {
+                            t.HasCheckConstraint("ck_bookings_access_consistency", "(\n    customer_subject_id IS NOT NULL\n    AND guest_access_token_hash IS NULL\n)\nOR\n(\n    customer_subject_id IS NULL\n    AND guest_access_token_hash IS NOT NULL\n)");
+
                             t.HasCheckConstraint("ck_bookings_cancellation_consistency", "(status = 'Cancelled' AND cancellation_reason IS NOT NULL) OR (status <> 'Cancelled' AND cancellation_reason IS NULL)");
+
+                            t.HasCheckConstraint("ck_bookings_guest_access_token_hash", "guest_access_token_hash IS NULL\nOR guest_access_token_hash ~ '^[0-9A-F]{64}$'");
 
                             t.HasCheckConstraint("ck_bookings_guest_count", "guest_count > 0");
 
@@ -224,6 +241,12 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
+                    b.Property<string>("OwnerSubjectId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("owner_subject_id");
+
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -232,6 +255,9 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_properties");
+
+                    b.HasIndex("OwnerSubjectId")
+                        .HasDatabaseName("ix_properties_owner_subject_id");
 
                     b.ToTable("properties", (string)null);
                 });
@@ -292,6 +318,12 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("CallerScope")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("caller_scope");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -343,7 +375,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                     b.HasIndex("ExpiresAt")
                         .HasDatabaseName("ix_idempotency_requests_expires_at");
 
-                    b.HasIndex("HttpMethod", "Endpoint", "Key")
+                    b.HasIndex("CallerScope", "HttpMethod", "Endpoint", "Key")
                         .IsUnique()
                         .HasDatabaseName("ux_idempotency_requests_scope_key");
 

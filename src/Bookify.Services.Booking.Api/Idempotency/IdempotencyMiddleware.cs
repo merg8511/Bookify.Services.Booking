@@ -57,9 +57,11 @@ internal sealed class IdempotencyMiddleware
             httpContext.RequestAborted);
 
         string endpoint = GetEndpointScope(httpContext);
+        string callerScope = IdempotencyCallerScopeResolver.Resolve(httpContext);
 
         var context =
             new IdempotencyRequestContext(
+                callerScope,
                 key,
                 httpContext.Request.Method.ToUpperInvariant(),
                 endpoint,

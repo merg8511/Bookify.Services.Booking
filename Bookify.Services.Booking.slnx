@@ -3,6 +3,13 @@
   <Folder Name="/docs/api/">
     <File Path="docs/api/rest-conventions.md" />
   </Folder>
+  <Folder Name="/docs/security/">
+    <File Path="docs/security/endpoint-access-matrix.md" />
+    <File Path="docs/security/guest-access.md" />
+    <File Path="docs/security/http-security.md" />
+    <File Path="docs/security/rate-limiting.md" />
+    <File Path="docs/security/role-claims.md" />
+  </Folder>
   <Folder Name="/Elementos de la solución/">
     <File Path=".github/workflows/pr-summary.yml" />
     <File Path=".github/workflows/release-please.yml" />
@@ -21,6 +28,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Bookify.Services.Booking.Application.Tests/Bookify.Services.Booking.Application.Tests.csproj" />
     <Project Path="tests/Bookify.Services.Booking.Domain.Tests/Bookify.Services.Booking.Domain.Tests.csproj" />
-    <Project Path="tests/Bookify.Services.Booking.IntegrationTests/Bookify.Services.Booking.IntegrationTests.csproj" />
+    <Project Path="tests/Bookify.Services.Booking.Integration.Tests/Bookify.Services.Booking.Integration.Tests.csproj" />
   </Folder>
 </Solution>

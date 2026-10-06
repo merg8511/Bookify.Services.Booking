@@ -1,4 +1,6 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.RateLimiting;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Payments.Webhooks.Stripe;
 using Bookify.Services.Booking.Domain.Shared;
@@ -16,6 +18,8 @@ internal static class StripePaymentWebhookEndpoint
             .MapPost("webhooks/stripe", HandleAsync)
             .WithName(EndpointNames.Payments.StripeWebhook)
             .WithSummary("Receives Stripe payment webhook events.")
+            .AllowProviderWebHookAccess()
+            .RequireWebhookRateLimit()
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status500InternalServerError);

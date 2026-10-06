@@ -12,6 +12,10 @@ public static class BookingErrors
         "Booking.RentableUnitInactive",
         "The selected rentable unit is not active and cannot be booked.");
 
+    public static readonly Error InvalidCustomerSubjectId = Error.Validation(
+        "Booking.InvalidCustomerSubjectId",
+        "The customer subject identifier is invalid.");
+
     public static Error InvalidStatusTransition(
         BookingStatus currentStatus,
         BookingStatus targetStatus) =>

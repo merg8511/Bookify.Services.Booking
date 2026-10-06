@@ -1,6 +1,9 @@
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.RateLimiting;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
+using Bookify.Services.Booking.Application.Abstractions.Security;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Shared;
@@ -16,26 +19,33 @@ internal static class CreateBookingEndpoint
             .MapPost("/", HandleAsync)
             .WithName(EndpointNames.Bookings.Create)
             .WithSummary("Creates a new booking.")
+            .AllowPublicAccess()
+            .RequireBookingCreationRateLimit()
             .WithMetadata(IdempotencyRequiredMetadata.Instance)
             .Accepts<CreateBookingRequest>("application/json")
             .Produces<CreateBookingResponse>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status415UnsupportedMediaType)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
-            .Produces(StatusCodes.Status415UnsupportedMediaType)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
-    private static async Task<Results<Created<
-        CreateBookingResponse>,
-        ProblemHttpResult>> HandleAsync(
+    private static async Task<Results<Created<CreateBookingResponse>, ProblemHttpResult>> HandleAsync(
             CreateBookingRequest request,
-            ICommandExecutor<
-                CreateBookingCommand,
-                CreateBookingResult> commandExecutor,
+            ICommandExecutor<CreateBookingCommand, CreateBookingResult> commandExecutor,
+            ICurrentUser currentUser,
             HttpContext httpContext,
             CancellationToken cancellationToken)
     {
+        string? customerSubjectId = null;
+
+        if (currentUser.IsAuthenticated)
+        {
+            customerSubjectId = currentUser.Subject ??
+                throw new InvalidOperationException("An authenticated customer must have a subject identifier.");
+        }
+
         var command =
             new CreateBookingCommand(
                 request.PropertyId,
@@ -45,7 +55,8 @@ internal static class CreateBookingEndpoint
                 request.GuestCount,
                 request.Guest?.FullName,
                 request.Guest?.Email,
-                request.Guest?.Phone);
+                request.Guest?.Phone,
+                customerSubjectId);
 
         Result<CreateBookingResult> result = await commandExecutor.ExecuteAsync(command, cancellationToken);
 
@@ -53,6 +64,14 @@ internal static class CreateBookingEndpoint
             httpContext,
             booking =>
             {
+                httpContext.Response.Headers.CacheControl = "no-store";
+                httpContext.Response.Headers.Pragma = "no-cache";
+
+                if (booking.GuestAccessToken is not null)
+                {
+                    httpContext.Response.Headers[BookingGuestAccessHeader.Name] = booking.GuestAccessToken;
+                }
+
                 var price = new CreateBookingPriceResponse(
                     booking.AccommodationPrice,
                     booking.ExtraGuestPrice,

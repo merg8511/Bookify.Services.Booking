@@ -10,4 +10,11 @@ public sealed record CreateBookingResult(
     decimal AccommodationPrice,
     decimal ExtraGuestPrice,
     decimal TotalPrice,
-    string Currency);
+    string Currency,
+    string? GuestAccessToken = null)
+{
+    public override string ToString()
+    {
+        return $"CreateBookingResult {{ Id = {Id}, GuestAccessToken = [REDACTED] }}";
+    }
+}

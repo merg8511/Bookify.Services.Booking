@@ -3,10 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories
 using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Bookings;
-using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
-using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared;
-using Bookify.Services.Booking.Domain.Shared.ValueObjects;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Application.Tests.Bookings.Reject;
@@ -19,17 +16,14 @@ public sealed class RejectBookingCommandHandlerTests
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking = CreateBooking();
-
+        DomainBooking booking = BookingTestFactory.CreateValidBooking();
         var bookingRepository = new StubBookingRepository(booking);
-
         var unitOfWork = new SpyUnitOfWork();
 
-        var handler =
-            new RejectBookingCommandHandler(
-                bookingRepository,
-                unitOfWork,
-                new FixedClock(BookingTestTime.CancelledAtUtc));
+        var handler = new RejectBookingCommandHandler(
+            bookingRepository,
+            unitOfWork,
+            new FixedClock(BookingTestTime.CancelledAtUtc));
 
         var command = new RejectBookingCommand(booking.Id);
 
@@ -38,24 +32,11 @@ public sealed class RejectBookingCommandHandlerTests
 
         // ASSERT
         Assert.True(result.IsSuccess);
-
-        Assert.Equal(
-            BookingStatus.Cancelled,
-            booking.Status);
-
-        Assert.Equal(
-            BookingCancellationReason.RejectedByOwner,
-            booking.CancellationReason);
-
+        Assert.Equal(BookingStatus.Cancelled, booking.Status);
+        Assert.Equal(BookingCancellationReason.RejectedByOwner, booking.CancellationReason);
         Assert.False(booking.BlocksInventory);
-
-        Assert.Equal(
-            1,
-            unitOfWork.SaveChangesCallCount);
-
-        Assert.Equal(
-    BookingTestTime.CancelledAtUtc,
-    booking.CancelledAtUtc);
+        Assert.Equal(1, unitOfWork.SaveChangesCallCount);
+        Assert.Equal(BookingTestTime.CancelledAtUtc, booking.CancelledAtUtc);
     }
 
     [Fact]
@@ -63,17 +44,13 @@ public sealed class RejectBookingCommandHandlerTests
     {
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-
         Guid bookingId = Guid.NewGuid();
 
         var unitOfWork = new SpyUnitOfWork();
-
-        var handler =
-            new RejectBookingCommandHandler(
-                new StubBookingRepository(
-                    null),
-                unitOfWork,
-                new FixedClock(BookingTestTime.CancelledAtUtc));
+        var handler = new RejectBookingCommandHandler(
+            new StubBookingRepository(null),
+            unitOfWork,
+            new FixedClock(BookingTestTime.CancelledAtUtc));
 
         var command = new RejectBookingCommand(bookingId);
 
@@ -82,15 +59,8 @@ public sealed class RejectBookingCommandHandlerTests
 
         // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            RejectBookingErrors.NotFound(
-                bookingId),
-            result.Error);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
+        Assert.Equal(RejectBookingErrors.NotFound(bookingId), result.Error);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
@@ -99,18 +69,13 @@ public sealed class RejectBookingCommandHandlerTests
         // ARRANGE
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        DomainBooking booking = CreateBooking();
-
-        booking.Approve(BookingTestTime.ApprovedAtUtc, BookingTestTime.PaymentDueAtUtc);
-
+        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
         var unitOfWork = new SpyUnitOfWork();
 
-        var handler =
-            new RejectBookingCommandHandler(
-                new StubBookingRepository(
-                    booking),
-                unitOfWork,
-                new FixedClock(BookingTestTime.CancelledAtUtc));
+        var handler = new RejectBookingCommandHandler(
+            new StubBookingRepository(booking),
+            unitOfWork,
+            new FixedClock(BookingTestTime.CancelledAtUtc));
 
         var command = new RejectBookingCommand(booking.Id);
 
@@ -119,74 +84,27 @@ public sealed class RejectBookingCommandHandlerTests
 
         // ASSERT
         Assert.True(result.IsFailure);
-
-        Assert.Equal(
-            "Booking.InvalidStatusTransition",
-            result.Error.Code);
-
-        Assert.Equal(
-            ErrorType.Conflict,
-            result.Error.Type);
-
-        Assert.Equal(
-            BookingStatus.PendingPayment,
-            booking.Status);
-
+        Assert.Equal("Booking.InvalidStatusTransition", result.Error.Code);
+        Assert.Equal(ErrorType.Conflict, result.Error.Type);
+        Assert.Equal(BookingStatus.PendingPayment, booking.Status);
         Assert.Null(booking.CancellationReason);
-
-        Assert.Equal(
-            0,
-            unitOfWork.SaveChangesCallCount);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
     public async Task HandleAsync_WithNullCommand_ShouldThrow()
     {
         // ARRANGE
-        var handler =
-            new RejectBookingCommandHandler(
-                new StubBookingRepository(
-                    null),
-                new SpyUnitOfWork(),
-                new FixedClock(BookingTestTime.CancelledAtUtc));
+        var handler = new RejectBookingCommandHandler(
+            new StubBookingRepository(null),
+            new SpyUnitOfWork(),
+            new FixedClock(BookingTestTime.CancelledAtUtc));
 
         // ACT
-        Task Action()
-        {
-            return handler.HandleAsync(
-                null!);
-        }
+        Task Action() => handler.HandleAsync(null!);
 
         // ASSERT
         await Assert.ThrowsAsync<ArgumentNullException>(Action);
-    }
-
-    private static DomainBooking CreateBooking()
-    {
-        RentableUnit rentableUnit =
-            RentableUnit.Create(
-                    Guid.NewGuid(),
-                    "Room A",
-                    RentableUnitType.Room,
-                    maximumCapacity: 4,
-                    maxBaseGuests: 2)
-                .Value;
-
-        StayPeriod stayPeriod =
-            StayPeriod.Create(
-                    new DateOnly(
-                        2026,
-                        9,
-                        10),
-                    new DateOnly(
-                        2026,
-                        9,
-                        12))
-                .Value;
-
-        return BookingTestData.CreateBooking(
-     rentableUnit,
-     stayPeriod);
     }
 
     private sealed class StubBookingRepository : IBookingRepository
@@ -198,17 +116,10 @@ public sealed class RejectBookingCommandHandlerTests
             _booking = booking;
         }
 
-        public Task<DomainBooking?> GetByIdAsync(
-            Guid bookingId,
-            CancellationToken cancellationToken = default)
+        public Task<DomainBooking?> GetByIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            DomainBooking? booking =
-                _booking?.Id == bookingId
-                    ? _booking
-                    : null;
-
+            DomainBooking? booking = _booking?.Id == bookingId ? _booking : null;
             return Task.FromResult(booking);
         }
 
@@ -220,19 +131,12 @@ public sealed class RejectBookingCommandHandlerTests
 
     private sealed class SpyUnitOfWork : IUnitOfWork
     {
-        public int SaveChangesCallCount
-        {
-            get;
-            private set;
-        }
+        public int SaveChangesCallCount { get; private set; }
 
-        public Task SaveChangesAsync(
-            CancellationToken cancellationToken = default)
+        public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
             SaveChangesCallCount++;
-
             return Task.CompletedTask;
         }
     }

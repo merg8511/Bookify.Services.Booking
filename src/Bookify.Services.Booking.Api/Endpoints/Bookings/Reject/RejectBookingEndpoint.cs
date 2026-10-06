@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Extensions;
+using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Bookings.Reject;
 using Bookify.Services.Booking.Domain.Shared;
@@ -9,25 +10,23 @@ namespace Bookify.Services.Booking.Api.Endpoints.Bookings.Reject;
 internal static class RejectBookingEndpoint
 {
 
-    public static void Map(
-        RouteGroupBuilder bookingsGroup)
+    public static void Map(RouteGroupBuilder bookingsGroup)
     {
         bookingsGroup
-            .MapPost("/{bookingId:guid}/reject",
-                HandleAsync)
+            .MapPost("/{bookingId:guid}/reject", HandleAsync)
             .WithName(EndpointNames.Bookings.Reject)
             .WithSummary("Rejects a pending booking.")
+            .RequirePropertyOwnerOrAdminBookingAccess("bookingId")
             .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
-    private static async Task<
-        Results<
-            NoContent,
-            ProblemHttpResult>> HandleAsync(
+    private static async Task<Results<NoContent, ProblemHttpResult>> HandleAsync(
         Guid bookingId,
         ICommandExecutor<RejectBookingCommand> commandExecutor,
         HttpContext httpContext,
@@ -35,16 +34,11 @@ internal static class RejectBookingEndpoint
     {
         var command = new RejectBookingCommand(bookingId);
 
-        Result result =
-            await commandExecutor
-                .ExecuteAsync(
-                    command,
-                    cancellationToken);
+        Result result = await commandExecutor.ExecuteAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
-            return result.Error
-                .ToProblem(httpContext);
+            return result.Error.ToProblem(httpContext);
         }
 
         return TypedResults.NoContent();

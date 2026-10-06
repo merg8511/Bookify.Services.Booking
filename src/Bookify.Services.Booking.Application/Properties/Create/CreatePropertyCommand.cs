@@ -7,5 +7,6 @@ public sealed record CreatePropertyCommand(
     string Name,
     string TimeZoneId,
     TimeOnly CheckInTime,
-    TimeOnly CheckOutTime)
+    TimeOnly CheckOutTime,
+    string OwnerSubjectId)
     : ICommand<Guid>;
