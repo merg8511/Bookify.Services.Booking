@@ -10,9 +10,7 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
     private readonly IIdempotencyStore _store;
     private readonly IClock _clock;
 
-    public IdempotencyProcessor(
-        IIdempotencyStore store,
-        IClock clock)
+    public IdempotencyProcessor(IIdempotencyStore store, IClock clock)
     {
         _store = store ??
             throw new ArgumentNullException(nameof(store));
@@ -21,8 +19,7 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
             ?? throw new ArgumentNullException(nameof(clock));
     }
 
-    public async Task<Result<IdempotencyProcessingResult>>
-        BeginAsync(
+    public async Task<Result<IdempotencyProcessingResult>> BeginAsync(
         IdempotencyRequestContext context,
         CancellationToken cancellationToken = default)
     {
@@ -30,10 +27,7 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
         ValidateContext(context);
         DateTimeOffset utcNow = _clock.UtcNow;
 
-        StoredIdempotencyRequest? existingRequest =
-            await _store.GetAsync(
-                context,
-                cancellationToken);
+        StoredIdempotencyRequest? existingRequest = await _store.GetAsync(context, cancellationToken);
 
         if (existingRequest is null)
         {
@@ -78,15 +72,12 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
                 cancellationToken);
     }
 
-    private async Task<
-        Result<IdempotencyProcessingResult>>
-        TryClaimOrResolveAsync(
+    private async Task<Result<IdempotencyProcessingResult>> TryClaimOrResolveAsync(
         IdempotencyRequestContext context,
         DateTimeOffset utcNow,
         CancellationToken cancellationToken)
     {
-        bool claimed =
-            await _store.TryClaimAsync(
+        bool claimed = await _store.TryClaimAsync(
                 context,
                 utcNow,
                 utcNow.Add(RetentionPeriod),
@@ -94,22 +85,16 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
 
         if (claimed)
         {
-            return Result<
-                IdempotencyProcessingResult>
+            return Result<IdempotencyProcessingResult>
                 .Success(IdempotencyProcessingResult.Execute());
         }
 
-        StoredIdempotencyRequest? winner =
-            await _store.GetAsync(
-                context,
-                cancellationToken);
+        StoredIdempotencyRequest? winner = await _store.GetAsync(context, cancellationToken);
 
         if (winner is null)
         {
-            throw new InvalidOperationException(
-                "The idempotency key could not be " +
-                "claimed, but the winning request " +
-                "could not be found.");
+            throw new InvalidOperationException("The idempotency key could not be " +
+                "claimed, but the winning request could not be found.");
         }
 
         return ResolveExisting(
@@ -118,19 +103,15 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
             utcNow);
     }
 
-    private static Result<
-        IdempotencyProcessingResult>
-        ResolveExisting(
+    private static Result<IdempotencyProcessingResult> ResolveExisting(
             StoredIdempotencyRequest request,
             IdempotencyRequestContext context,
             DateTimeOffset utcNow)
     {
         if (IsExpired(request, utcNow))
         {
-            throw new InvalidOperationException(
-                "An expired completed idempotency " +
-                "request remained unclaimed after " +
-                "the concurrency resolution.");
+            throw new InvalidOperationException("An expired completed idempotency " +
+                "request remained unclaimed after the concurrency resolution.");
         }
 
         if (!string.Equals(
@@ -138,8 +119,7 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
             context.RequestHash,
             StringComparison.Ordinal))
         {
-            return Result<
-                IdempotencyProcessingResult>
+            return Result<IdempotencyProcessingResult>
                 .Failure(IdempotencyErrors.KeyPayloadMismatch);
         }
 
@@ -153,8 +133,7 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
         {
             int statusCode =
                 request.StatusCode ??
-                throw new InvalidOperationException(
-                    "A completed idempotency request " +
+                throw new InvalidOperationException("A completed idempotency request " +
                     "must contain an HTTP status code.");
 
             return Result<IdempotencyProcessingResult>
@@ -162,20 +141,17 @@ public sealed class IdempotencyProcessor : IIdempotencyProcessor
                 .Replay(statusCode, request.ResponseBody));
         }
 
-        throw new InvalidOperationException(
-            $"Unsopported idempotency status " +
-            $"'{request.Status}'");
+        throw new InvalidOperationException($"Unsopported idempotency status '{request.Status}'");
     }
 
-    private static bool IsExpired(
-        StoredIdempotencyRequest request,
-        DateTimeOffset utcNow)
+    private static bool IsExpired(StoredIdempotencyRequest request, DateTimeOffset utcNow)
     {
         return request.ExpiresAt <= utcNow;
     }
 
     private static void ValidateContext(IdempotencyRequestContext context)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(context.CallerScope);
         ArgumentException.ThrowIfNullOrWhiteSpace(context.Key);
         ArgumentException.ThrowIfNullOrWhiteSpace(context.HttpMethod);
         ArgumentException.ThrowIfNullOrWhiteSpace(context.Endpoint);

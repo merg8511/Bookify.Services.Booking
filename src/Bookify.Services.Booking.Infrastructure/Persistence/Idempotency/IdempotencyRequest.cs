@@ -9,6 +9,7 @@ internal sealed class IdempotencyRequest
     }
 
     public Guid Id { get; private set; }
+    public string CallerScope { get; private set; } = string.Empty;
     public string Key { get; private set; } = string.Empty;
     public string HttpMethod { get; private set; } = string.Empty;
     public string Endpoint { get; private set; } = string.Empty;
@@ -25,9 +26,7 @@ internal sealed class IdempotencyRequest
     {
         if (Status == IdempotencyRequestStatus.Completed)
         {
-            throw new InvalidOperationException(
-                "The idempotency request has already " +
-                "been completed.");
+            throw new InvalidOperationException("The idempotency request has already been completed.");
         }
 
         if (statusCode is < 100 or > 599)
