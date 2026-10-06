@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.9.0...v0.10.0) (2026-10-06)
+
+
+### Features
+
+* **security:** implement authentication authorization and ownership ([#41](https://github.com/merg8511/Bookify.Services.Booking/issues/41)) ([547c10e](https://github.com/merg8511/Bookify.Services.Booking/commit/547c10ef910e1dde0b8fbb42894440282ead9fb2))
+
 ## [0.9.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.8.0...v0.9.0) (2026-09-28)
 
 
