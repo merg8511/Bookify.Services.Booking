@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
+using Bookify.Services.Booking.Api.Security.Http;
 using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Infrastructure;
@@ -14,12 +15,17 @@ string? configuredConnectionString = builder.Configuration.GetConnectionString("
 
 if (string.IsNullOrWhiteSpace(configuredConnectionString))
 {
-    throw new InvalidOperationException(
-        "The database connection string " +
+    throw new InvalidOperationException("The database connection string " +
         "'ConnectionStrings:Database' is missing");
 }
 
 string connectionString = configuredConnectionString;
+
+builder.WebHost.ConfigureKestrel(
+    options =>
+    {
+        options.AddServerHeader = false;
+    });
 
 builder.Services
     .AddApplication()
@@ -29,6 +35,11 @@ builder.Services
 // Identity & Authentication
 // ==========================================
 builder.Services.AddIdentityAuthentication(builder.Configuration);
+
+// ==========================================
+// HTTP Security
+// ==========================================
+builder.Services.AddBookifyHttpSecurity(builder.Configuration);
 
 // ==========================================
 // Rate Limiting
@@ -41,7 +52,21 @@ var app = builder.Build();
 // HTTP Pipeline
 // ==========================================
 
+app.UseForwardedHeaders();
+
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHsts();
+}
+
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseRouting();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseCors(BookifyCorsPolicies.TrustedFrontends);
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
@@ -71,11 +96,11 @@ app.MapApiEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapGet("/diagnostics/time", (IClock clock) =>
-    Results.Ok(
-                new
-                {
-                    UtcNow = clock.UtcNow
-                }));
+        Results.Ok(
+            new
+            {
+                UtcNow = clock.UtcNow
+            }));
 
     app.MapGet("/diagnostics/database", async (
         BookingDbContext dbContext,
