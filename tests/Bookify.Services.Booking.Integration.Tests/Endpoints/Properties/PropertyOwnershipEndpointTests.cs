@@ -100,6 +100,27 @@ public sealed class PropertyOwnershipEndpointTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task CreateProperty_WithGuestCredential_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        using HttpClient client =
+            _factory.CreateGuestClient(
+                new string('x', 43));
+
+        // Act
+        using HttpResponseMessage response =
+            await client.PostAsJsonAsync(
+                "/api/v1/properties",
+                CreateRequest(),
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
+    }
+
     private static CreatePropertyRequest CreateRequest()
     {
         return BookingRequestTestFactory.CreatePropertyRequest($"Ownership Test {Guid.NewGuid():N}");
