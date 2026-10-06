@@ -16,58 +16,41 @@ public sealed class BookingApiFactory
     : WebApplicationFactory<Program>,
       IAsyncLifetime
 {
-    private const string ConnectionStringVariable =
-        "ConnectionStrings__Database";
-
-    private const string IntegrationTestPermitLimit =
-        "100000";
-
-    private const string GuestAccessHeader =
-        "Booking-Guest-Token";
-
-    internal const string StripeWebhookSecret =
-        "whsec_bookify_integration_tests";
-
-    internal const string IdentityAuthority =
-        "https://identity.bookify.test/realms/bookify";
-
-    internal const string IdentityAudience =
-        "bookify-booking-api";
+    private const string ConnectionStringVariable = "ConnectionStrings__Database";
+    private const string IntegrationTestPermitLimit = "100000";
+    private const string GuestAccessHeader = "Booking-Guest-Token";
+    internal const string StripeWebhookSecret = "whsec_bookify_integration_tests";
+    internal const string IdentityAuthority = "https://identity.bookify.test/realms/bookify";
+    internal const string IdentityAudience = "bookify-booking-api";
+    internal const string TrustedFrontendOrigin = "https://frontend.bookify.test";
+    private const string TrustedProxyAddress = "127.0.0.1";
 
     private readonly PostgreSqlTestDatabase _database =
         new();
 
     private HttpClient? _client;
 
-    public HttpClient Client =>
-        _client ??
-        throw new InvalidOperationException(
-            "The API factory has not been initialized");
+    public HttpClient Client => _client ??
+        throw new InvalidOperationException("The API factory has not been initialized");
 
-    internal string DatabaseConnectionString =>
-        _database.ConnectionString;
+    internal string DatabaseConnectionString => _database.ConnectionString;
 
     public async ValueTask InitializeAsync()
     {
         await _database.StartAsync();
 
-        _client =
-            CreateApiClient();
+        _client = CreateApiClient();
 
         await ApplyMigrationsAsync();
     }
 
-    public HttpClient CreateAuthenticatedClient(
-        string subject,
-        params string[] roles)
+    public HttpClient CreateAuthenticatedClient(string subject, params string[] roles)
     {
-        HttpClient client =
-            CreateClient(
+        HttpClient client = CreateClient(
                 new WebApplicationFactoryClientOptions
                 {
                     AllowAutoRedirect = false,
-                    BaseAddress =
-                        new Uri("http://localhost")
+                    BaseAddress = new Uri("http://localhost")
                 });
 
         client.DefaultRequestHeaders.Authorization =
@@ -80,53 +63,34 @@ public sealed class BookingApiFactory
         return client;
     }
 
-    public HttpClient CreateOwnerClient(
-        string subject =
-            TestIdentitySubjects.Owner)
+    public HttpClient CreateOwnerClient(string subject = TestIdentitySubjects.Owner)
     {
-        return CreateAuthenticatedClient(
-            subject,
-            BookifyRoles.Owner);
+        return CreateAuthenticatedClient(subject, BookifyRoles.Owner);
     }
 
-    public HttpClient CreateCustomerClient(
-        string subject =
-            TestIdentitySubjects.Customer)
+    public HttpClient CreateCustomerClient(string subject = TestIdentitySubjects.Customer)
     {
-        return CreateAuthenticatedClient(
-            subject,
-            BookifyRoles.Customer);
+        return CreateAuthenticatedClient(subject, BookifyRoles.Customer);
     }
 
-    public HttpClient CreateAdminClient(
-        string subject =
-            TestIdentitySubjects.Admin)
+    public HttpClient CreateAdminClient(string subject = TestIdentitySubjects.Admin)
     {
-        return CreateAuthenticatedClient(
-            subject,
-            BookifyRoles.Admin);
+        return CreateAuthenticatedClient(subject, BookifyRoles.Admin);
     }
 
-    public HttpClient CreateGuestClient(
-        string guestAccessToken)
+    public HttpClient CreateGuestClient(string guestAccessToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(
-            guestAccessToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(guestAccessToken);
 
-        HttpClient client =
-            CreateClient(
+        HttpClient client = CreateClient(
                 new WebApplicationFactoryClientOptions
                 {
                     AllowAutoRedirect = false,
-                    BaseAddress =
-                        new Uri("http://localhost")
+                    BaseAddress = new Uri("http://localhost")
                 });
 
-        bool added =
-            client.DefaultRequestHeaders
-                .TryAddWithoutValidation(
-                    GuestAccessHeader,
-                    guestAccessToken);
+        bool added = client.DefaultRequestHeaders
+            .TryAddWithoutValidation(GuestAccessHeader, guestAccessToken);
 
         if (!added)
         {
@@ -140,57 +104,27 @@ public sealed class BookingApiFactory
         return client;
     }
 
-    protected override void ConfigureWebHost(
-        IWebHostBuilder builder)
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment(
-            "Testing");
-
-        builder.UseContentRoot(
-            GetApiContentRoot());
-
-        builder.UseSetting(
-            "Payments:Provider",
-            "Fake");
-
-        builder.UseSetting(
-            "Payments:Stripe:WebhookSecret",
-            StripeWebhookSecret);
-
-        builder.UseSetting(
-            "Payments:Stripe:WebhookToleranceSeconds",
-            "300");
-
-        builder.UseSetting(
-            "Identity:Authority",
-            IdentityAuthority);
-
-        builder.UseSetting(
-            "Identity:Audience",
-            IdentityAudience);
+        builder.UseEnvironment("Testing");
+        builder.UseContentRoot(GetApiContentRoot());
+        builder.UseSetting("Payments:Provider", "Fake");
+        builder.UseSetting("Payments:Stripe:WebhookSecret", StripeWebhookSecret);
+        builder.UseSetting("Payments:Stripe:WebhookToleranceSeconds", "300");
+        builder.UseSetting("Identity:Authority", IdentityAuthority);
+        builder.UseSetting("Identity:Audience", IdentityAudience);
+        builder.UseSetting("HttpSecurity:TrustedFrontendOrigins:0", TrustedFrontendOrigin);
+        builder.UseSetting("HttpSecurity:ForwardedHeaders:KnownProxies:0", TrustedProxyAddress);
+        builder.UseSetting("HttpSecurity:ForwardedHeaders:ForwardLimit", "1");
 
         // Normal integration tests should not accidentally exhaust
         // production-oriented rate limits. Rate limiting behavior
         // is tested with an isolated factory configuration.
-        builder.UseSetting(
-            "RateLimiting:PublicReads:PermitLimit",
-            IntegrationTestPermitLimit);
-
-        builder.UseSetting(
-            "RateLimiting:BookingCreation:PermitLimit",
-            IntegrationTestPermitLimit);
-
-        builder.UseSetting(
-            "RateLimiting:PaymentInitiation:PermitLimit",
-            IntegrationTestPermitLimit);
-
-        builder.UseSetting(
-            "RateLimiting:LoginFacing:PermitLimit",
-            IntegrationTestPermitLimit);
-
-        builder.UseSetting(
-            "RateLimiting:Webhook:PermitLimit",
-            IntegrationTestPermitLimit);
+        builder.UseSetting("RateLimiting:PublicReads:PermitLimit", IntegrationTestPermitLimit);
+        builder.UseSetting("RateLimiting:BookingCreation:PermitLimit", IntegrationTestPermitLimit);
+        builder.UseSetting("RateLimiting:PaymentInitiation:PermitLimit", IntegrationTestPermitLimit);
+        builder.UseSetting("RateLimiting:LoginFacing:PermitLimit", IntegrationTestPermitLimit);
+        builder.UseSetting("RateLimiting:Webhook:PermitLimit", IntegrationTestPermitLimit);
 
         builder.ConfigureTestServices(
             services =>

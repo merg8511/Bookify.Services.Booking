@@ -4,10 +4,11 @@
     <File Path="docs/api/rest-conventions.md" />
   </Folder>
   <Folder Name="/docs/security/">
+    <File Path="docs/security/endpoint-access-matrix.md" />
     <File Path="docs/security/guest-access.md" />
+    <File Path="docs/security/http-security.md" />
+    <File Path="docs/security/rate-limiting.md" />
     <File Path="docs/security/role-claims.md" />
-    <File Path="endpoint-access-matrix.md" />
-    <File Path="rate-limiting.md" />
   </Folder>
   <Folder Name="/Elementos de la solución/">
     <File Path=".github/workflows/pr-summary.yml" />

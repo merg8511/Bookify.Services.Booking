@@ -211,6 +211,32 @@ public sealed class IdempotencyProcessorTests
         Assert.Equal(1, store.ClaimCallCount);
     }
 
+    [Fact]
+    public async Task BeginAsync_WithMissingCallerScope_ShouldThrow()
+    {
+        // Arrange
+        var store =
+            new FakeIdempotencyStore();
+
+        var processor =
+            CreateProcessor(store);
+
+        IdempotencyRequestContext context =
+            CreateContext() with
+            {
+                CallerScope = "   "
+            };
+
+        // Act
+        Task Action() =>
+            processor.BeginAsync(context);
+
+        // Assert
+        await Assert.ThrowsAsync<
+            ArgumentException>(
+                Action);
+    }
+
     private sealed class ConcurrentWinnerStore : IIdempotencyStore
     {
         private int _getCallCount;
@@ -264,10 +290,11 @@ public sealed class IdempotencyProcessorTests
     private static IdempotencyRequestContext CreateContext()
     {
         return new IdempotencyRequestContext(
-            "KEY-A",
-            "POST",
-            "/api/v1/bookings",
-            "HASH-A");
+            CallerScope: new string('A', 64),
+            Key: "KEY-A",
+            HttpMethod: "POST",
+            Endpoint: "/api/v1/bookings",
+            RequestHash: "HASH-A");
     }
 
     private sealed class FakeIdempotencyStore : IIdempotencyStore

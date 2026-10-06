@@ -11,9 +11,16 @@ namespace Bookify.Services.Booking.Integration.Tests.Idempotency;
 [Trait("Category", "Integration")]
 public sealed class IdempotencyStorageTests
 {
+    private static readonly string DefaultCallerScope =
+        new('A', 64);
+
+    private static readonly string AlternateCallerScope =
+        new('B', 64);
+
     private readonly BookingApiFactory _factory;
 
-    public IdempotencyStorageTests(BookingApiFactory factory)
+    public IdempotencyStorageTests(
+        BookingApiFactory factory)
     {
         _factory = factory;
     }
@@ -21,119 +28,225 @@ public sealed class IdempotencyStorageTests
     [Fact]
     public async Task Database_AllowsSingleIdempotencyRequest()
     {
-        // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        string key = $"idempotency-{Guid.NewGuid():N}";
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
-        // ACT
-        await InsertAsync(key, cancellationToken);
+        string key =
+            $"idempotency-{Guid.NewGuid():N}";
 
-        // ASSERT
-        long count = await CountAsync(key, cancellationToken);
-        Assert.Equal(1, count);
+        await InsertAsync(
+            key,
+            DefaultCallerScope,
+            cancellationToken);
+
+        long count =
+            await CountAsync(
+                key,
+                cancellationToken);
+
+        Assert.Equal(
+            1,
+            count);
     }
 
     [Fact]
-    public async Task Database_RejectsDuplicateKeyWithinSameMethodAndEndpoint()
+    public async Task Database_RejectsDuplicateKeyWithinSameCallerMethodAndEndpoint()
     {
-        // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        string key = $"idempotency-{Guid.NewGuid():N}";
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
-        await InsertAsync(key, cancellationToken);
+        string key =
+            $"idempotency-{Guid.NewGuid():N}";
 
-        // ACT
-        async Task Action() => await InsertAsync(key, cancellationToken);
+        await InsertAsync(
+            key,
+            DefaultCallerScope,
+            cancellationToken);
 
-        // ASSERT
-        await Assert.ThrowsAsync<PostgresException>(Action);
+        async Task Action() =>
+            await InsertAsync(
+                key,
+                DefaultCallerScope,
+                cancellationToken);
+
+        await Assert.ThrowsAsync<
+            PostgresException>(
+                Action);
     }
 
     [Fact]
     public async Task Database_AllowsSameKeyForDifferentEndpoint()
     {
-        // ARRANGE
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-        string key = $"idempotency-{Guid.NewGuid():N}";
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
-        // ACT
-        await InsertAsync(key, cancellationToken);
-        await InsertAsync(key, cancellationToken, endpoint: "/api/v1/payments");
+        string key =
+            $"idempotency-{Guid.NewGuid():N}";
 
-        // ASSERT
-        long count = await CountAsync(key, cancellationToken);
-        Assert.Equal(2, count);
+        await InsertAsync(
+            key,
+            DefaultCallerScope,
+            cancellationToken);
+
+        await InsertAsync(
+            key,
+            DefaultCallerScope,
+            cancellationToken,
+            endpoint:
+                "/api/v1/payments");
+
+        long count =
+            await CountAsync(
+                key,
+                cancellationToken);
+
+        Assert.Equal(
+            2,
+            count);
+    }
+
+    [Fact]
+    public async Task Database_AllowsSameKeyForDifferentCallerScope()
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        string key =
+            $"idempotency-{Guid.NewGuid():N}";
+
+        await InsertAsync(
+            key,
+            DefaultCallerScope,
+            cancellationToken);
+
+        await InsertAsync(
+            key,
+            AlternateCallerScope,
+            cancellationToken);
+
+        long count =
+            await CountAsync(
+                key,
+                cancellationToken);
+
+        Assert.Equal(
+            2,
+            count);
     }
 
     private async Task InsertAsync(
         string key,
+        string callerScope,
         CancellationToken cancellationToken,
-        string endpoint = "/api/v1/bookings")
+        string endpoint =
+            "/api/v1/bookings")
     {
-        IDbConnectionFactory connectionFactory = _factory.Services.GetRequiredService<IDbConnectionFactory>();
-        await using DbConnection connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
+        IDbConnectionFactory connectionFactory =
+            _factory.Services
+                .GetRequiredService<
+                    IDbConnectionFactory>();
 
-        DateTimeOffset createdAt = DateTimeOffset.UtcNow;
+        await using DbConnection connection =
+            await connectionFactory
+                .OpenConnectionAsync(
+                    cancellationToken);
 
-        var command = new CommandDefinition(
-            """
-            INSERT INTO idempotency_requests
-            (
-                id,
-                key,
-                http_method,
-                endpoint,
-                request_hash,
-                status,
-                status_code,
-                response_body,
-                created_at,
-                expires_at
-            )
-            VALUES
-            (
-                @Id,
-                @Key,
-                'POST',
-                @Endpoint,
-                @RequestHash,
-                'InProgress',
-                NULL,
-                NULL,
-                @CreatedAt,
-                @ExpiresAt
-            );
-            """,
-            new
-            {
-                Id = Guid.NewGuid(),
-                Key = key,
-                Endpoint = endpoint,
-                RequestHash = Guid.NewGuid().ToString("N"),
-                CreatedAt = createdAt,
-                ExpiresAt = createdAt.AddHours(24)
-            },
-            cancellationToken: cancellationToken);
+        DateTimeOffset createdAt =
+            DateTimeOffset.UtcNow;
 
-        await connection.ExecuteAsync(command);
+        var command =
+            new CommandDefinition(
+                """
+                INSERT INTO idempotency_requests
+                (
+                    id,
+                    caller_scope,
+                    key,
+                    http_method,
+                    endpoint,
+                    request_hash,
+                    status,
+                    status_code,
+                    response_body,
+                    created_at,
+                    expires_at
+                )
+                VALUES
+                (
+                    @Id,
+                    @CallerScope,
+                    @Key,
+                    'POST',
+                    @Endpoint,
+                    @RequestHash,
+                    'InProgress',
+                    NULL,
+                    NULL,
+                    @CreatedAt,
+                    @ExpiresAt
+                );
+                """,
+                new
+                {
+                    Id =
+                        Guid.NewGuid(),
+
+                    CallerScope =
+                        callerScope,
+
+                    Key =
+                        key,
+
+                    Endpoint =
+                        endpoint,
+
+                    RequestHash =
+                        Guid.NewGuid()
+                            .ToString("N"),
+
+                    CreatedAt =
+                        createdAt,
+
+                    ExpiresAt =
+                        createdAt.AddHours(24)
+                },
+                cancellationToken:
+                    cancellationToken);
+
+        await connection.ExecuteAsync(
+            command);
     }
 
     private async Task<long> CountAsync(
         string key,
         CancellationToken cancellationToken)
     {
-        IDbConnectionFactory connectionFactory = _factory.Services.GetRequiredService<IDbConnectionFactory>();
-        await using DbConnection connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
+        IDbConnectionFactory connectionFactory =
+            _factory.Services
+                .GetRequiredService<
+                    IDbConnectionFactory>();
 
-        var command = new CommandDefinition(
-            """
-            SELECT COUNT(*)
-            FROM idempotency_requests
-            WHERE key = @Key;
-            """,
-            new { Key = key },
-            cancellationToken: cancellationToken);
+        await using DbConnection connection =
+            await connectionFactory
+                .OpenConnectionAsync(
+                    cancellationToken);
 
-        return await connection.ExecuteScalarAsync<long>(command);
+        var command =
+            new CommandDefinition(
+                """
+                SELECT COUNT(*)
+                FROM idempotency_requests
+                WHERE key = @Key;
+                """,
+                new
+                {
+                    Key = key
+                },
+                cancellationToken:
+                    cancellationToken);
+
+        return await connection
+            .ExecuteScalarAsync<long>(
+                command);
     }
 }
