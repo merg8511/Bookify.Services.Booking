@@ -7,6 +7,7 @@ using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.BackgroundJobs;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Outbox;
 using Bookify.Services.Booking.Application.Payments;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
@@ -164,5 +165,9 @@ public static class DependencyInjection
         services.AddScoped<
             IPendingBookingWorkSelector,
             DapperPendingBookingWorkSelector>();
+
+        services.AddScoped<
+            IOutboxMessageReader,
+            DapperOutboxMessageReader>();
     }
 }
