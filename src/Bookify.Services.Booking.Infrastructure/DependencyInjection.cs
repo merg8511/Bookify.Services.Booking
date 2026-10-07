@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Availability;
+using Bookify.Services.Booking.Application.BackgroundJobs;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Payments;
@@ -53,8 +54,7 @@ public static class DependencyInjection
         services.AddSingleton<NpgsqlDataSource>(
             _ => NpgsqlDataSource.Create(connectionString));
 
-        services.AddDbContext<BookingDbContext>(
-            (serviceProvider, options) =>
+        services.AddDbContext<BookingDbContext>((serviceProvider, options) =>
             {
                 NpgsqlDataSource dataSource = serviceProvider
                     .GetRequiredService<NpgsqlDataSource>();
@@ -81,14 +81,12 @@ public static class DependencyInjection
         return services;
     }
 
-    private static void AddPersistence(
-        IServiceCollection services)
+    private static void AddPersistence(IServiceCollection services)
     {
         // ==========================================
         // Transactions & Unit of Work
         // ==========================================
-        services.AddScoped<IUnitOfWork>(
-            serviceProvider =>
+        services.AddScoped<IUnitOfWork>(serviceProvider =>
                 serviceProvider.GetRequiredService<BookingDbContext>());
 
         services.AddScoped<
@@ -162,5 +160,9 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentReadService,
             DapperPaymentReadService>();
+
+        services.AddScoped<
+            IPendingBookingWorkSelector,
+            DapperPendingBookingWorkSelector>();
     }
 }
