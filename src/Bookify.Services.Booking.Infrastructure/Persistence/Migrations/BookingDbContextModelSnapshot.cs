@@ -91,6 +91,14 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerSubjectId")
                         .HasDatabaseName("ix_bookings_customer_subject_id");
 
+                    b.HasIndex("ApprovalDueAtUtc", "Id")
+                        .HasDatabaseName("ix_bookings_pending_approval_due_at_utc")
+                        .HasFilter("status = 'PendingApproval' AND approval_due_at_utc IS NOT NULL");
+
+                    b.HasIndex("PaymentDueAtUtc", "Id")
+                        .HasDatabaseName("ix_bookings_pending_payment_due_at_utc")
+                        .HasFilter("status = 'PendingPayment' AND payment_due_at_utc IS NOT NULL");
+
                     b.HasIndex("PropertyId", "Status")
                         .HasDatabaseName("ix_bookings_property_id_status");
 
@@ -646,6 +654,14 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                 .HasColumnName("check_out_date");
 
                             b1.HasKey("BookingId");
+
+                            b1.HasIndex("CheckInDate")
+                                .HasDatabaseName("ix_bookings_paid_check_in_date")
+                                .HasFilter("status = 'Paid'");
+
+                            b1.HasIndex("CheckOutDate")
+                                .HasDatabaseName("ix_bookings_paid_check_out_date")
+                                .HasFilter("status = 'Paid'");
 
                             b1.HasIndex("CheckInDate", "CheckOutDate")
                                 .HasDatabaseName("ix_bookings_check_in_date_check_out_date");

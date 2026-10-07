@@ -23,20 +23,17 @@ internal sealed class BookingConfiguration
                         .HasCheckConstraint("ck_bookings_stay_period", "check_out_date > check_in_date");
 
                     tableBuilder
-                        .HasCheckConstraint(
-                        "ck_bookings_status",
+                        .HasCheckConstraint("ck_bookings_status",
                         "status IN ('PendingApproval', 'PendingPayment', " +
                         "'Paid', 'Completed', 'Cancelled')");
 
                     tableBuilder
-                        .HasCheckConstraint(
-                            "ck_bookings_cancellation_consistency",
+                        .HasCheckConstraint("ck_bookings_cancellation_consistency",
                             "(status = 'Cancelled' AND cancellation_reason IS NOT NULL)" +
                             " OR (status <> 'Cancelled' AND cancellation_reason IS NULL)");
 
                     tableBuilder
-                        .HasCheckConstraint(
-                            "ck_bookings_access_consistency",
+                        .HasCheckConstraint("ck_bookings_access_consistency",
                             """
                             (
                                 customer_subject_id IS NOT NULL
@@ -50,8 +47,7 @@ internal sealed class BookingConfiguration
                             """);
 
                     tableBuilder
-                        .HasCheckConstraint(
-                            "ck_bookings_guest_access_token_hash",
+                        .HasCheckConstraint("ck_bookings_guest_access_token_hash",
                             """
                             guest_access_token_hash IS NULL
                             OR guest_access_token_hash ~ '^[0-9A-F]{64}$'
@@ -166,7 +162,18 @@ internal sealed class BookingConfiguration
                                     stayPeriod.CheckOutDate
                                 })
                         .HasDatabaseName("ix_bookings_check_in_date_check_out_date");
+
+                    stayPeriodBuilder
+                        .HasIndex(stayPeriod => stayPeriod.CheckOutDate)
+                        .HasDatabaseName("ix_bookings_paid_check_out_date")
+                        .HasFilter("status = 'Paid'");
+
+                    stayPeriodBuilder
+                        .HasIndex(stayPeriod => stayPeriod.CheckInDate)
+                        .HasDatabaseName("ix_bookings_paid_check_in_date")
+                        .HasFilter("status = 'Paid'");
                 });
+
 
         builder
             .Navigation(booking => booking.StayPeriod)
@@ -391,5 +398,23 @@ internal sealed class BookingConfiguration
         builder
             .HasIndex(booking => booking.CustomerSubjectId)
             .HasDatabaseName("ix_bookings_customer_subject_id");
+
+        builder
+            .HasIndex(booking => new
+            {
+                booking.ApprovalDueAtUtc,
+                booking.Id
+            })
+            .HasDatabaseName("ix_bookings_pending_approval_due_at_utc")
+            .HasFilter("status = 'PendingApproval' AND approval_due_at_utc IS NOT NULL");
+
+        builder
+            .HasIndex(booking => new
+            {
+                booking.PaymentDueAtUtc,
+                booking.Id
+            })
+            .HasDatabaseName("ix_bookings_pending_payment_due_at_utc")
+            .HasFilter("status = 'PendingPayment' AND payment_due_at_utc IS NOT NULL");
     }
 }
