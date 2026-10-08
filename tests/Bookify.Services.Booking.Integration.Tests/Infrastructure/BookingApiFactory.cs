@@ -108,6 +108,7 @@ public sealed class BookingApiFactory
     {
         builder.UseEnvironment("Testing");
         builder.UseContentRoot(GetApiContentRoot());
+        builder.UseSetting("BackgroundJobs:Enabled", "false");
         builder.UseSetting("Payments:Provider", "Fake");
         builder.UseSetting("Payments:Stripe:WebhookSecret", StripeWebhookSecret);
         builder.UseSetting("Payments:Stripe:WebhookToleranceSeconds", "300");
