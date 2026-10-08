@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Api.BackgroundJobs;
 using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Api.RateLimiting;
@@ -30,6 +31,11 @@ builder.WebHost.ConfigureKestrel(
 builder.Services
     .AddApplication()
     .AddInfrastructure(connectionString, builder.Configuration);
+
+// ==========================================
+// Background Jobs
+// ==========================================
+builder.Services.AddBookifyBackgroundJobs(builder.Configuration);
 
 // ==========================================
 // Identity & Authentication
