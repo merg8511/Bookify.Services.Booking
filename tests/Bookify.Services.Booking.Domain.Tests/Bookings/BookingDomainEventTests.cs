@@ -205,6 +205,28 @@ public sealed class BookingDomainEventTests
             });
     }
 
+    [Fact]
+    public void ExpireApproval_WhenSuccessful_ShouldRaiseCancelledEventWithApprovalExpiredReason()
+    {
+        DomainBooking booking =
+            BookingTestFactory.CreateValidBooking();
+
+        booking.ClearDomainEvents();
+
+        Result result =
+            booking.ExpireApproval(
+                BookingTestTime.CancelledAtUtc);
+
+        Assert.True(result.IsSuccess);
+
+        BookingCancelledDomainEvent cancelledEvent =
+            AssertCancelledEvent(booking);
+
+        Assert.Equal(
+            BookingCancellationReason.ApprovalExpired,
+            cancelledEvent.CancellationReason);
+    }
+
     private static BookingCancelledDomainEvent AssertCancelledEvent(DomainBooking booking)
     {
         IDomainEvent domainEvent = Assert.Single(booking.GetDomainEvents());
