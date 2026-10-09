@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.DomainEvents;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
+using Bookify.Services.Booking.Application.BackgroundJobs.Completion;
 using Bookify.Services.Booking.Application.BackgroundJobs.Expiration;
 using Bookify.Services.Booking.Application.Bookings.Approve;
 using Bookify.Services.Booking.Application.Bookings.Cancel;
@@ -207,9 +208,17 @@ public static class DependencyInjection
         // ==========================================
         // Module: Background Jobs
         // ==========================================
-        services.AddScoped<IBackgroundJob, ApprovalExpirationJob>();
+        services.AddScoped<
+            IBackgroundJob,
+            ApprovalExpirationJob>();
 
-        services.AddScoped<IBackgroundJob, PaymentExpirationJob>();
+        services.AddScoped<
+            IBackgroundJob,
+            PaymentExpirationJob>();
+
+        services.AddScoped<
+            IBackgroundJob,
+            BookingCompletionJob>();
 
         return services;
     }
