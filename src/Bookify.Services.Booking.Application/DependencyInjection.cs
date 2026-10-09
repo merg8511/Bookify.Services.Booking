@@ -1,11 +1,14 @@
+using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.DomainEvents;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
+using Bookify.Services.Booking.Application.BackgroundJobs.Expiration;
 using Bookify.Services.Booking.Application.Bookings.Approve;
 using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Application.Bookings.Complete;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Bookings.ExpireApproval;
 using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
 using Bookify.Services.Booking.Application.Bookings.Get;
 using Bookify.Services.Booking.Application.Bookings.ReadModels;
@@ -35,7 +38,7 @@ public static class DependencyInjection
         this IServiceCollection services)
     {
         // ==========================================
-        //  Core / CQRS Infrastructure
+        // Core / CQRS Infrastructure
         // ==========================================
         services.AddScoped(
             typeof(ICommandExecutor<>),
@@ -53,9 +56,8 @@ public static class DependencyInjection
             IDomainEventDispatcher,
             DomainEventDispatcher>();
 
-
         // ==========================================
-        //  Module: Properties
+        // Module: Properties
         // ==========================================
         services.AddScoped<
             ICommandHandler<CreatePropertyCommand, Guid>,
@@ -89,7 +91,7 @@ public static class DependencyInjection
             GetPropertyUnitsQueryHandler>();
 
         // ==========================================
-        //  Module: Bookings
+        // Module: Bookings
         // ==========================================
         services.AddScoped<
             IRequestValidator<CreateBookingCommand>,
@@ -124,6 +126,14 @@ public static class DependencyInjection
             RejectBookingCommandHandler>();
 
         services.AddScoped<
+            IRequestValidator<ExpireBookingApprovalCommand>,
+            ExpireBookingApprovalCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<ExpireBookingApprovalCommand>,
+            ExpireBookingApprovalCommandHandler>();
+
+        services.AddScoped<
             IRequestValidator<ExpireBookingPaymentCommand>,
             ExpireBookingPaymentCommandValidator>();
 
@@ -147,9 +157,8 @@ public static class DependencyInjection
             ICommandHandler<CancelBookingCommand>,
             CancelBookingCommandHandler>();
 
-
         // ==========================================
-        //  Module: Availability
+        // Module: Availability
         // ==========================================
         services.AddScoped<
             IRequestValidator<GetAvailabilityQuery>,
@@ -159,16 +168,15 @@ public static class DependencyInjection
             IQueryHandler<GetAvailabilityQuery, AvailabilityReadModel>,
             GetAvailabilityQueryHandler>();
 
-
         // ==========================================
-        //  Module: Idempotency
+        // Module: Idempotency
         // ==========================================
         services.AddScoped<
             IIdempotencyProcessor,
             IdempotencyProcessor>();
 
         // ==========================================
-        //  Module: Payments
+        // Module: Payments
         // ==========================================
         services.AddScoped<PaymentCancellationCoordinator>();
 
@@ -195,6 +203,13 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<ProcessStripeWebhookCommand>,
             ProcessStripeWebhookCommandHandler>();
+
+        // ==========================================
+        // Module: Background Jobs
+        // ==========================================
+        services.AddScoped<IBackgroundJob, ApprovalExpirationJob>();
+
+        services.AddScoped<IBackgroundJob, PaymentExpirationJob>();
 
         return services;
     }
