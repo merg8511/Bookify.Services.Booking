@@ -13,6 +13,7 @@ using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Infrastructure.Bookings;
+using Bookify.Services.Booking.Infrastructure.Notifications;
 using Bookify.Services.Booking.Infrastructure.Payments;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
@@ -78,6 +79,8 @@ public static class DependencyInjection
         // ==========================================
         services.AddBookings(configuration);
         services.AddPayments(configuration);
+
+        NotificationsDependencyInjection.AddNotifications(services, configuration);
 
         return services;
     }
