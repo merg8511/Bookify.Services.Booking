@@ -192,6 +192,14 @@ public sealed class Booking : AggregateRoot
             cancelledAtUtc);
     }
 
+    public Result ExpireApproval(DateTimeOffset cancelledAtUtc)
+    {
+        return TransitionToCancelled(
+            expectedCurrentStatus: BookingStatus.PendingApproval,
+            cancellationReason: BookingCancellationReason.ApprovalExpired,
+            cancelledAtUtc);
+    }
+
     public Result MarkAsPaid(DateTimeOffset paidAtUtc)
     {
         Result result = TransitionTo(
