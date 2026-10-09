@@ -12,8 +12,7 @@ using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 
 namespace Bookify.Services.Booking.Application.Bookings.ExpirePayment;
 
-public sealed class ExpireBookingPaymentCommandHandler
-    : ICommandHandler<ExpireBookingPaymentCommand>
+public sealed class ExpireBookingPaymentCommandHandler : ICommandHandler<ExpireBookingPaymentCommand>
 {
     private readonly IBookingRepository _bookingRepository;
     private readonly IPaymentRepository _paymentRepository;
@@ -32,13 +31,26 @@ public sealed class ExpireBookingPaymentCommandHandler
         IPaymentInitiationLock paymentInitiationLock,
         IClock clock)
     {
-        _bookingRepository = bookingRepository;
-        _paymentRepository = paymentRepository;
-        _paymentCancellationCoordinator = paymentCancellationCoordinator;
-        _unitOfWork = unitOfWork;
-        _transactionManager = transactionManager;
-        _paymentInitiationLock = paymentInitiationLock;
-        _clock = clock;
+        _bookingRepository = bookingRepository ??
+            throw new ArgumentNullException(nameof(bookingRepository));
+
+        _paymentRepository = paymentRepository ??
+            throw new ArgumentNullException(nameof(paymentRepository));
+
+        _paymentCancellationCoordinator = paymentCancellationCoordinator ??
+            throw new ArgumentNullException(nameof(paymentCancellationCoordinator));
+
+        _unitOfWork = unitOfWork ??
+            throw new ArgumentNullException(nameof(unitOfWork));
+
+        _transactionManager = transactionManager ??
+            throw new ArgumentNullException(nameof(transactionManager));
+
+        _paymentInitiationLock = paymentInitiationLock ??
+            throw new ArgumentNullException(nameof(paymentInitiationLock));
+
+        _clock = clock ??
+            throw new ArgumentNullException(nameof(clock));
     }
 
     public async Task<Result> HandleAsync(
@@ -75,9 +87,18 @@ public sealed class ExpireBookingPaymentCommandHandler
 
             if (booking.Status != BookingStatus.PendingPayment)
             {
-                return await ExpireAndCommitAsync(
+                return await RollbackSuccessAsync(
                     transaction,
-                    booking,
+                    cancellationToken);
+            }
+
+            DateTimeOffset nowUtc = _clock.UtcNow;
+
+            if (booking.PaymentDueAtUtc is null ||
+                booking.PaymentDueAtUtc > nowUtc)
+            {
+                return await RollbackSuccessAsync(
+                    transaction,
                     cancellationToken);
             }
 
@@ -85,7 +106,7 @@ public sealed class ExpireBookingPaymentCommandHandler
 
             if (payment is null)
             {
-                return await ExpireAndCommitAsync(transaction, booking, cancellationToken);
+                return await ExpireAndCommitAsync(transaction, booking, nowUtc, cancellationToken);
             }
 
             Result<PaymentCancellationOutcome> paymentCancellationResult =
@@ -106,10 +127,10 @@ public sealed class ExpireBookingPaymentCommandHandler
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
-                return Result.Failure(ExpireBookingPaymentErrors.PaymentAlreadySucceeded(booking.Id));
+                return Result.Success();
             }
 
-            return await ExpireAndCommitAsync(transaction, booking, cancellationToken);
+            return await ExpireAndCommitAsync(transaction, booking, nowUtc, cancellationToken);
         }
         catch
         {
@@ -121,9 +142,10 @@ public sealed class ExpireBookingPaymentCommandHandler
     private async Task<Result> ExpireAndCommitAsync(
         ITransaction transaction,
         DomainBooking booking,
+        DateTimeOffset expiredAtUtc,
         CancellationToken cancellationToken)
     {
-        Result expirationResult = booking.ExpirePayment(_clock.UtcNow);
+        Result expirationResult = booking.ExpirePayment(expiredAtUtc);
 
         if (expirationResult.IsFailure)
         {
@@ -135,6 +157,15 @@ public sealed class ExpireBookingPaymentCommandHandler
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        return Result.Success();
+    }
+
+    private static async Task<Result> RollbackSuccessAsync(
+        ITransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        await transaction.RollbackAsync(cancellationToken);
 
         return Result.Success();
     }
