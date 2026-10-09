@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using Bookify.Services.Booking.Application.Abstractions.Security;
+using Bookify.Services.Booking.Application.Notifications;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -108,6 +109,7 @@ public sealed class BookingApiFactory
     {
         builder.UseEnvironment("Testing");
         builder.UseContentRoot(GetApiContentRoot());
+
         builder.UseSetting("BackgroundJobs:Enabled", "false");
         builder.UseSetting("Payments:Provider", "Fake");
         builder.UseSetting("Payments:Stripe:WebhookSecret", StripeWebhookSecret);
@@ -130,41 +132,29 @@ public sealed class BookingApiFactory
         builder.ConfigureTestServices(
             services =>
             {
+                services.AddSingleton<FakeBookingNotificationSender>();
+                services.AddSingleton<IBookingNotificationSender>(
+                    serviceProvider =>
+                        serviceProvider.GetRequiredService<FakeBookingNotificationSender>());
+
                 services.PostConfigure<JwtBearerOptions>(
                     JwtBearerDefaults.AuthenticationScheme,
                     options =>
                     {
-                        var configuration =
-                            new OpenIdConnectConfiguration
-                            {
-                                Issuer =
-                                    IdentityAuthority
-                            };
+                        var configuration = new OpenIdConnectConfiguration
+                        {
+                            Issuer = IdentityAuthority
+                        };
 
-                        configuration.SigningKeys.Add(
-                            TestIdentityTokens.SigningKey);
+                        configuration.SigningKeys.Add(TestIdentityTokens.SigningKey);
 
                         // Prevent OIDC network discovery
                         // in integration tests.
-                        options.Configuration =
-                            configuration;
-
-                        options.ConfigurationManager =
-                            new StaticConfigurationManager<
-                                OpenIdConnectConfiguration>(
-                                    configuration);
-
-                        options.TokenValidationParameters
-                            .IssuerSigningKey =
-                                TestIdentityTokens.SigningKey;
-
-                        options.TokenValidationParameters
-                            .ValidIssuer =
-                                IdentityAuthority;
-
-                        options.TokenValidationParameters
-                            .ValidAudience =
-                                IdentityAudience;
+                        options.Configuration = configuration;
+                        options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
+                        options.TokenValidationParameters.IssuerSigningKey = TestIdentityTokens.SigningKey;
+                        options.TokenValidationParameters.ValidIssuer = IdentityAuthority;
+                        options.TokenValidationParameters.ValidAudience = IdentityAudience;
                     });
             });
     }
