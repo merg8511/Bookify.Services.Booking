@@ -73,6 +73,7 @@ public sealed class NotificationsDependencyInjectionTests
         var message =
             new BookingNotificationMessage(
                 Guid.NewGuid(),
+                BookingNotificationType.BookingApproved,
                 "guest@example.com",
                 "Bookify test",
                 "Notification test.");
