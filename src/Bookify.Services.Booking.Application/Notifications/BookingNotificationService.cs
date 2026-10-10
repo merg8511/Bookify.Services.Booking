@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.ReadModels;
 using Bookify.Services.Booking.Domain.Bookings;
@@ -10,16 +11,26 @@ public sealed class BookingNotificationService
 {
     private readonly IBookingReadService _bookingReadService;
     private readonly IBookingNotificationSender _notificationSender;
+    private readonly INotificationDeliveryStore _deliveryStore;
+    private readonly IClock _clock;
 
     public BookingNotificationService(
         IBookingReadService bookingReadService,
-        IBookingNotificationSender notificationSender)
+        IBookingNotificationSender notificationSender,
+        INotificationDeliveryStore deliveryStore,
+        IClock clock)
     {
         _bookingReadService = bookingReadService ??
             throw new ArgumentNullException(nameof(bookingReadService));
 
         _notificationSender = notificationSender ??
             throw new ArgumentNullException(nameof(notificationSender));
+
+        _deliveryStore = deliveryStore ??
+            throw new ArgumentNullException(nameof(deliveryStore));
+
+        _clock = clock ??
+            throw new ArgumentNullException(nameof(clock));
     }
 
     public async Task<Result<BookingNotificationDispatchOutcome>> SendAsync(
@@ -31,6 +42,15 @@ public sealed class BookingNotificationService
         {
             return Result<BookingNotificationDispatchOutcome>.Failure(
                 BookingNotificationErrors.InvalidBookingId);
+        }
+
+        bool alreadyDelivered = await _deliveryStore.HasBeenDeliveredAsync(
+            bookingId, notificationType, cancellationToken);
+
+        if (alreadyDelivered)
+        {
+            return Result<BookingNotificationDispatchOutcome>.Success(
+                BookingNotificationDispatchOutcome.AlreadyDelivered);
         }
 
         BookingDetailsReadModel? booking = await _bookingReadService
@@ -67,6 +87,12 @@ public sealed class BookingNotificationService
         {
             return Result<BookingNotificationDispatchOutcome>.Failure(deliveryResult.Error);
         }
+
+        await _deliveryStore.TryRecordDeliveredAsync(
+            booking.Id,
+            notificationType,
+            _clock.UtcNow,
+            cancellationToken);
 
         return Result<BookingNotificationDispatchOutcome>.Success(BookingNotificationDispatchOutcome.Sent);
     }
