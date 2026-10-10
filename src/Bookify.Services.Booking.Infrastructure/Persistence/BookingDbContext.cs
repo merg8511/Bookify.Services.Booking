@@ -5,6 +5,7 @@ using Bookify.Services.Booking.Domain.Payments;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared.DomainEvents;
 using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
+using Bookify.Services.Booking.Infrastructure.Persistence.Notifications;
 using Bookify.Services.Booking.Infrastructure.Persistence.Outbox;
 using Bookify.Services.Booking.Infrastructure.Persistence.Payments.Webhooks;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +40,7 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
     internal DbSet<IdempotencyRequest> IdempotencyRequests => Set<IdempotencyRequest>();
     internal DbSet<PaymentWebhookEvent> PaymentWebhookEvents => Set<PaymentWebhookEvent>();
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    internal DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

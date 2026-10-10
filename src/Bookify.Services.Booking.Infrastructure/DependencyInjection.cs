@@ -7,6 +7,7 @@ using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.BackgroundJobs;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Notifications;
 using Bookify.Services.Booking.Application.Outbox;
 using Bookify.Services.Booking.Application.Payments;
 using Bookify.Services.Booking.Application.Payments.Initiate;
@@ -20,6 +21,7 @@ using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
 using Bookify.Services.Booking.Infrastructure.Persistence.Dapper;
 using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
+using Bookify.Services.Booking.Infrastructure.Persistence.Notifications;
 using Bookify.Services.Booking.Infrastructure.Persistence.Outbox;
 using Bookify.Services.Booking.Infrastructure.Persistence.Payments.Webhooks;
 using Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
@@ -175,5 +177,8 @@ public static class DependencyInjection
         services.AddScoped<
             IOutboxMessageReader,
             DapperOutboxMessageReader>();
+
+        services.AddScoped<
+            INotificationDeliveryStore, EfCoreNotificationDeliveryStore>();
     }
 }

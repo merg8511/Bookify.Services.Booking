@@ -399,6 +399,27 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Bookify.Services.Booking.Infrastructure.Persistence.Notifications.NotificationDelivery", b =>
+                {
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("booking_id");
+
+                    b.Property<string>("NotificationType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("notification_type");
+
+                    b.Property<DateTimeOffset>("DeliveredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("delivered_at_utc");
+
+                    b.HasKey("BookingId", "NotificationType")
+                        .HasName("pk_notification_deliveries");
+
+                    b.ToTable("notification_deliveries", (string)null);
+                });
+
             modelBuilder.Entity("Bookify.Services.Booking.Infrastructure.Persistence.Outbox.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
