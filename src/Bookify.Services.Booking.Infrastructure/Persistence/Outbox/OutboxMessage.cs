@@ -65,4 +65,21 @@ internal sealed class OutboxMessage
             createdAtUtc.ToUniversalTime());
     }
 
+    public void MarkProcessed(DateTimeOffset processedAtUtc)
+    {
+        if (ProcessedAtUtc is not null)
+        {
+            return;
+        }
+
+        DateTimeOffset normalizedProcessedAtUtc = processedAtUtc.ToUniversalTime();
+
+        if (normalizedProcessedAtUtc < CreatedAtUtc)
+        {
+            throw new InvalidOperationException("An outbox message cannot be processed before it was created.");
+        }
+
+        ProcessedAtUtc = normalizedProcessedAtUtc;
+    }
+
 }
