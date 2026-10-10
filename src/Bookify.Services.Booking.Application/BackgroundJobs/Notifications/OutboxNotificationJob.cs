@@ -6,7 +6,6 @@ using Bookify.Services.Booking.Application.Outbox;
 using Bookify.Services.Booking.Domain.Bookings.Events;
 using Bookify.Services.Booking.Domain.Shared;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
 using System.Text.Json;
 
 namespace Bookify.Services.Booking.Application.BackgroundJobs.Notifications;
@@ -16,6 +15,7 @@ public sealed class OutboxNotificationJob : IBackgroundJob
     private readonly IOutboxMessageReader _outboxReader;
     private readonly IOutboxMessageStore _outboxStore;
     private readonly BookingNotificationService _notificationService;
+    private readonly IBackgroundJobClaimManager _claimManager;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ILogger<OutboxNotificationJob> _logger;
@@ -24,6 +24,7 @@ public sealed class OutboxNotificationJob : IBackgroundJob
         IOutboxMessageReader outboxReader,
         IOutboxMessageStore outboxStore,
         BookingNotificationService notificationService,
+        IBackgroundJobClaimManager claimManager,
         IUnitOfWork unitOfWork,
         IClock clock,
         ILogger<OutboxNotificationJob> logger)
@@ -36,6 +37,9 @@ public sealed class OutboxNotificationJob : IBackgroundJob
 
         _notificationService = notificationService ??
             throw new ArgumentNullException(nameof(notificationService));
+
+        _claimManager = claimManager ??
+            throw new ArgumentNullException(nameof(claimManager));
 
         _unitOfWork = unitOfWork ??
             throw new ArgumentNullException(nameof(unitOfWork));
@@ -70,11 +74,24 @@ public sealed class OutboxNotificationJob : IBackgroundJob
 
             try
             {
-                bool processed = await ProcessMessageAsync(message, cancellationToken);
+                IBackgroundJobClaim? claim = await _claimManager.TryAcquireAsync(
+                    BackgroundJobClaimKeys.OutboxNotification,
+                    message.Id,
+                    cancellationToken);
 
-                if (processed)
+                if (claim is null)
                 {
-                    processedCount++;
+                    continue;
+                }
+
+                await using (claim)
+                {
+                    bool processed = await ProcessMessageAsync(message, cancellationToken);
+
+                    if (processed)
+                    {
+                        processedCount++;
+                    }
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -10,6 +10,7 @@ public sealed class PaymentDeadlineReminderJob : IBackgroundJob
 {
     private readonly IPendingBookingWorkSelector _workSelector;
     private readonly BookingNotificationService _notificationService;
+    private readonly IBackgroundJobClaimManager _claimManager;
     private readonly IBookingReminderSchedule _schedule;
     private readonly IClock _clock;
     private readonly ILogger<PaymentDeadlineReminderJob> _logger;
@@ -17,6 +18,7 @@ public sealed class PaymentDeadlineReminderJob : IBackgroundJob
     public PaymentDeadlineReminderJob(
         IPendingBookingWorkSelector workSelector,
         BookingNotificationService notificationService,
+        IBackgroundJobClaimManager claimManager,
         IBookingReminderSchedule schedule,
         IClock clock,
         ILogger<PaymentDeadlineReminderJob> logger)
@@ -26,6 +28,9 @@ public sealed class PaymentDeadlineReminderJob : IBackgroundJob
 
         _notificationService = notificationService ??
             throw new ArgumentNullException(nameof(notificationService));
+
+        _claimManager = claimManager ??
+            throw new ArgumentNullException(nameof(claimManager));
 
         _schedule = schedule ??
             throw new ArgumentNullException(nameof(schedule));
@@ -61,25 +66,38 @@ public sealed class PaymentDeadlineReminderJob : IBackgroundJob
 
             try
             {
-                Result<BookingNotificationDispatchOutcome> result = await _notificationService
-                    .SendAsync(bookingId, BookingNotificationType.PaymentDeadlineReminder, cancellationToken);
+                IBackgroundJobClaim? claim = await _claimManager.TryAcquireAsync(
+                    BackgroundJobClaimKeys.PaymentDeadlineReminder,
+                    bookingId,
+                    cancellationToken);
 
-                if (result.IsFailure)
+                if (claim is null)
                 {
-                    if (result.Error != BookingNotificationErrors.DeliveryDisabled)
-                    {
-                        _logger.LogWarning(
-                            "Payment deadline reminder failed for booking {BookingId}. ErrorCode: {ErrorCode}.",
-                            bookingId,
-                            result.Error.Code);
-                    }
-
                     continue;
                 }
 
-                if (result.Value == BookingNotificationDispatchOutcome.Sent)
+                await using (claim)
                 {
-                    sentCount++;
+                    Result<BookingNotificationDispatchOutcome> result = await _notificationService
+                    .SendAsync(bookingId, BookingNotificationType.PaymentDeadlineReminder, cancellationToken);
+
+                    if (result.IsFailure)
+                    {
+                        if (result.Error != BookingNotificationErrors.DeliveryDisabled)
+                        {
+                            _logger.LogWarning(
+                                "Payment deadline reminder failed for booking {BookingId}. ErrorCode: {ErrorCode}.",
+                                bookingId,
+                                result.Error.Code);
+                        }
+
+                        continue;
+                    }
+
+                    if (result.Value == BookingNotificationDispatchOutcome.Sent)
+                    {
+                        sentCount++;
+                    }
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
