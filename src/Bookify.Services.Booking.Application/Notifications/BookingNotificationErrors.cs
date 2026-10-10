@@ -24,6 +24,18 @@ public static class BookingNotificationErrors
         "Notification.DeliveryDisabled",
         "Email notification delivery is disabled.");
 
+    public static Error BookingNotFound(Guid bookingId) => Error.NotFound(
+        "Notification.BookingNotFound",
+        $"The booking with ID '{bookingId}' was not found.");
+
+    public static Error RecipientUnavailable(Guid bookingId) => Error.Failure(
+        "Notification.RecipientUnavailable",
+        $"Booking '{bookingId}' does not contain an email recipient.");
+
+    public static Error RequiredDataMissing(Guid bookingId, string dataName) => Error.Failure(
+        "Notification.RequiredDataMissing",
+        $"Booking '{bookingId}' does not contain required notification data '{dataName}'.");
+
     public static Error DeliveryFailed(Guid bookingId) => Error.Failure(
         "Notification.DeliveryFailed",
         $"The notification for booking '{bookingId}' could not be delivered.");
