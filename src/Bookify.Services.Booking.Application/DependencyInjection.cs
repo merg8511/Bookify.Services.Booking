@@ -5,6 +5,7 @@ using Bookify.Services.Booking.Application.Availability.Get;
 using Bookify.Services.Booking.Application.Availability.ReadModels;
 using Bookify.Services.Booking.Application.BackgroundJobs.Completion;
 using Bookify.Services.Booking.Application.BackgroundJobs.Expiration;
+using Bookify.Services.Booking.Application.BackgroundJobs.Notifications;
 using Bookify.Services.Booking.Application.Bookings.Approve;
 using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Application.Bookings.Complete;
@@ -18,6 +19,7 @@ using Bookify.Services.Booking.Application.Common.Pagination;
 using Bookify.Services.Booking.Application.DomainEvents;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
+using Bookify.Services.Booking.Application.Notifications;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.GetStatus;
 using Bookify.Services.Booking.Application.Payments.Initiate;
@@ -206,6 +208,11 @@ public static class DependencyInjection
             ProcessStripeWebhookCommandHandler>();
 
         // ==========================================
+        // Module: Notifications
+        // ==========================================
+        services.AddScoped<BookingNotificationService>();
+
+        // ==========================================
         // Module: Background Jobs
         // ==========================================
         services.AddScoped<
@@ -219,6 +226,22 @@ public static class DependencyInjection
         services.AddScoped<
             IBackgroundJob,
             BookingCompletionJob>();
+
+        services.AddScoped<
+            IBackgroundJob,
+            BookingCompletionJob>();
+
+        services.AddScoped<
+            IBackgroundJob,
+            OutboxNotificationJob>();
+
+        services.AddScoped<
+            IBackgroundJob,
+            PaymentDeadlineReminderJob>();
+
+        services.AddScoped<
+            IBackgroundJob,
+            UpcomingCheckInReminderJob>();
 
         return services;
     }

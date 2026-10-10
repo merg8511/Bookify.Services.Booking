@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Notifications;
 using Bookify.Services.Booking.Infrastructure.Notifications.Smtp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using MimeKit;
 
 namespace Bookify.Services.Booking.Infrastructure.Notifications;
@@ -15,6 +16,16 @@ public static class NotificationsDependencyInjection
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        AddSmtp(services, configuration);
+        AddReminders(services, configuration);
+
+
+
+        return services;
+    }
+
+    private static void AddSmtp(IServiceCollection services, IConfiguration configuration)
+    {
         services
             .AddOptions<SmtpNotificationOptions>()
             .Bind(configuration.GetSection(SmtpNotificationOptions.SectionName))
@@ -47,7 +58,20 @@ public static class NotificationsDependencyInjection
         services.AddScoped<
             IBookingNotificationSender,
             SmtpBookingNotificationSender>();
+    }
 
-        return services;
+    private static void AddReminders(IServiceCollection services, IConfiguration configuration)
+    {
+        services
+            .AddOptions<NotificationReminderOptions>()
+            .Bind(configuration.GetSection(NotificationReminderOptions.SectionName))
+            .Validate(options => options.PaymentDeadlineLeadTime > TimeSpan.Zero,
+                "Notifications:Reminders:UpcomingCheckInLeadTime must be greater than zero.")
+            .Validate(options => options.SelectionWindow > TimeSpan.Zero,
+                "Notifications:Reminders:SelectionWindow must be greater than zero.")
+            .ValidateOnStart();
+
+        services.AddSingleton<IBookingReminderSchedule>(serviceProvider =>
+            serviceProvider.GetRequiredService<IOptions<NotificationReminderOptions>>().Value);
     }
 }
