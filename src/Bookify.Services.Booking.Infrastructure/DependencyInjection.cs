@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.Idempotency;
 using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
@@ -110,6 +111,10 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentInitiationLock,
             PostgreSqlPaymentInitiationLock>();
+
+        services.AddScoped<
+            IBackgroundJobClaimManager,
+            PostgreSqlBackgroundJobClaimManager>();
 
         // ==========================================
         // Idempotency & Webhook Persistence
