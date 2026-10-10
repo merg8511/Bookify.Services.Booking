@@ -11,12 +11,14 @@ public sealed class PaymentExpirationJob : IBackgroundJob
 {
     private readonly IPendingBookingWorkSelector _workSelector;
     private readonly ICommandExecutor<ExpireBookingPaymentCommand> _commandExecutor;
+    private readonly IBackgroundJobClaimManager _claimManager;
     private readonly IClock _clock;
     private readonly ILogger<PaymentExpirationJob> _logger;
 
     public PaymentExpirationJob(
         IPendingBookingWorkSelector workSelector,
         ICommandExecutor<ExpireBookingPaymentCommand> commandExecutor,
+        IBackgroundJobClaimManager claimManager,
         IClock clock,
         ILogger<PaymentExpirationJob> logger)
     {
@@ -25,6 +27,9 @@ public sealed class PaymentExpirationJob : IBackgroundJob
 
         _commandExecutor = commandExecutor ??
             throw new ArgumentNullException(nameof(commandExecutor));
+
+        _claimManager = claimManager ??
+            throw new ArgumentNullException(nameof(claimManager));
 
         _clock = clock ??
             throw new ArgumentNullException(nameof(clock));
@@ -56,21 +61,34 @@ public sealed class PaymentExpirationJob : IBackgroundJob
 
             try
             {
-                Result result = await _commandExecutor.ExecuteAsync(
-                    new ExpireBookingPaymentCommand(bookingId),
+                IBackgroundJobClaim? claim = await _claimManager.TryAcquireAsync(
+                    BackgroundJobClaimKeys.PaymentExpiration,
+                    bookingId,
                     cancellationToken);
 
-                if (result.IsFailure)
+                if (claim is null)
                 {
-                    _logger.LogWarning("Could not expire payment for booking " +
-                        "{BookingId}. ErrorCode: {ErrorCode}.",
-                        bookingId,
-                        result.Error.Code);
-
                     continue;
                 }
 
-                processedCount++;
+                await using (claim)
+                {
+                    Result result = await _commandExecutor.ExecuteAsync(
+                    new ExpireBookingPaymentCommand(bookingId),
+                    cancellationToken);
+
+                    if (result.IsFailure)
+                    {
+                        _logger.LogWarning("Could not expire payment for booking " +
+                            "{BookingId}. ErrorCode: {ErrorCode}.",
+                            bookingId,
+                            result.Error.Code);
+
+                        continue;
+                    }
+
+                    processedCount++;
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

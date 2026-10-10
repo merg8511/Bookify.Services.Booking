@@ -11,12 +11,14 @@ public sealed class BookingCompletionJob : IBackgroundJob
 {
     private readonly IPendingBookingWorkSelector _workSelector;
     private readonly ICommandExecutor<CompleteBookingCommand> _commandExecutor;
+    private readonly IBackgroundJobClaimManager _claimManager;
     private readonly IClock _clock;
     private readonly ILogger<BookingCompletionJob> _logger;
 
     public BookingCompletionJob(
         IPendingBookingWorkSelector workSelector,
         ICommandExecutor<CompleteBookingCommand> commandExecutor,
+        IBackgroundJobClaimManager claimManager,
         IClock clock,
         ILogger<BookingCompletionJob> logger)
     {
@@ -25,6 +27,9 @@ public sealed class BookingCompletionJob : IBackgroundJob
 
         _commandExecutor = commandExecutor ??
             throw new ArgumentNullException(nameof(workSelector));
+
+        _claimManager = claimManager ??
+            throw new ArgumentNullException(nameof(claimManager));
 
         _clock = clock ??
             throw new ArgumentNullException(nameof(workSelector));
@@ -56,20 +61,33 @@ public sealed class BookingCompletionJob : IBackgroundJob
 
             try
             {
-                Result result = await _commandExecutor.ExecuteAsync(
-                    new CompleteBookingCommand(bookingId),
+                IBackgroundJobClaim? claim = await _claimManager.TryAcquireAsync(
+                    BackgroundJobClaimKeys.BookingCompletion,
+                    bookingId,
                     cancellationToken);
 
-                if (result.IsFailure)
+                if (claim is null)
                 {
-                    _logger.LogWarning("Could not complete booking {BookingId}. ErrorCode: {ErrorCode}.",
-                        bookingId,
-                        result.Error.Code);
-
                     continue;
                 }
 
-                processedCount++;
+                await using (claim)
+                {
+                    Result result = await _commandExecutor.ExecuteAsync(
+                    new CompleteBookingCommand(bookingId),
+                    cancellationToken);
+
+                    if (result.IsFailure)
+                    {
+                        _logger.LogWarning("Could not complete booking {BookingId}. ErrorCode: {ErrorCode}.",
+                            bookingId,
+                            result.Error.Code);
+
+                        continue;
+                    }
+
+                    processedCount++;
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

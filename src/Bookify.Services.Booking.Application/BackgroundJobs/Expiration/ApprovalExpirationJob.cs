@@ -11,12 +11,14 @@ public sealed class ApprovalExpirationJob : IBackgroundJob
 {
     private readonly IPendingBookingWorkSelector _workSelector;
     private readonly ICommandExecutor<ExpireBookingApprovalCommand> _commandExecutor;
+    private readonly IBackgroundJobClaimManager _claimManager;
     private readonly IClock _clock;
     private readonly ILogger<ApprovalExpirationJob> _logger;
 
     public ApprovalExpirationJob(
         IPendingBookingWorkSelector workSelector,
         ICommandExecutor<ExpireBookingApprovalCommand> commandExecutor,
+        IBackgroundJobClaimManager claimManager,
         IClock clock,
         ILogger<ApprovalExpirationJob> logger)
     {
@@ -25,6 +27,9 @@ public sealed class ApprovalExpirationJob : IBackgroundJob
 
         _commandExecutor = commandExecutor ??
             throw new ArgumentNullException(nameof(commandExecutor));
+
+        _claimManager = claimManager ??
+            throw new ArgumentNullException(nameof(claimManager));
 
         _clock = clock ??
             throw new ArgumentNullException(nameof(clock));
@@ -57,22 +62,35 @@ public sealed class ApprovalExpirationJob : IBackgroundJob
 
             try
             {
-                Result result = await _commandExecutor.ExecuteAsync(
-                    new ExpireBookingApprovalCommand(bookingId),
+                IBackgroundJobClaim? claim = await _claimManager.TryAcquireAsync(
+                    BackgroundJobClaimKeys.ApprovalExpiration,
+                    bookingId,
                     cancellationToken);
 
-                if (result.IsFailure)
+                if (claim is null)
                 {
-                    _logger.LogWarning(
-                        "Could not expire approval for booking" +
-                        "{BookingId}. ErrorCode: {ErrorCode}.",
-                        bookingId,
-                        result.Error.Code);
-
                     continue;
                 }
 
-                processedCount++;
+                await using (claim)
+                {
+                    Result result = await _commandExecutor.ExecuteAsync(
+                    new ExpireBookingApprovalCommand(bookingId),
+                    cancellationToken);
+
+                    if (result.IsFailure)
+                    {
+                        _logger.LogWarning(
+                            "Could not expire approval for booking" +
+                            "{BookingId}. ErrorCode: {ErrorCode}.",
+                            bookingId,
+                            result.Error.Code);
+
+                        continue;
+                    }
+
+                    processedCount++;
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
