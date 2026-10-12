@@ -20,4 +20,11 @@ internal static class ApiLogEvents
 
     public static readonly EventId BackgroundJobFailed =
         new(2011, nameof(BackgroundJobFailed));
+
+    // HTTP request logging
+    public static readonly EventId HttpRequestCompleted =
+        new(2020, nameof(HttpRequestCompleted));
+
+    public static readonly EventId HttpRequestFailed =
+        new(2021, nameof(HttpRequestFailed));
 }
