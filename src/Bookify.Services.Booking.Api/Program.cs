@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Api.BackgroundJobs;
 using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.Observability;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Api.Security.Http;
@@ -59,6 +60,7 @@ var app = builder.Build();
 // ==========================================
 
 app.UseForwardedHeaders();
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
 {
