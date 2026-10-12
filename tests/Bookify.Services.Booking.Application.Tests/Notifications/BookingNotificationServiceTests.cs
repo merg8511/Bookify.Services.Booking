@@ -1,7 +1,8 @@
-using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.ReadModels;
 using Bookify.Services.Booking.Application.Notifications;
+using Bookify.Services.Booking.Application.Tests.Infrastructure;
+using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Shared;
 
 namespace Bookify.Services.Booking.Application.Tests.Notifications;
@@ -18,10 +19,38 @@ public sealed class BookingNotificationServiceTests
             0,
             TimeSpan.Zero);
 
-    [Fact]
-    public async Task SendAsync_WhenBookingApproved_ShouldComposeSendAndRecordDelivery()
+    [Theory]
+    [InlineData(
+        BookingNotificationType.BookingApproved,
+        "PendingPayment",
+        "approved",
+        "Payment deadline")]
+    [InlineData(
+        BookingNotificationType.PaymentConfirmed,
+        "Paid",
+        "Payment confirmed",
+        "has been confirmed")]
+    [InlineData(
+        BookingNotificationType.BookingCancelled,
+        "Cancelled",
+        "cancelled",
+        "payment deadline expired")]
+    [InlineData(
+        BookingNotificationType.PaymentDeadlineReminder,
+        "PendingPayment",
+        "Payment reminder",
+        "still pending")]
+    [InlineData(
+        BookingNotificationType.UpcomingCheckInReminder,
+        "Paid",
+        "Upcoming check-in",
+        "is approaching")]
+    public async Task SendAsync_WhenNotificationIsApplicable_ShouldComposeSendAndRecordDelivery(
+        BookingNotificationType notificationType,
+        string status,
+        string expectedSubjectFragment,
+        string expectedBodyFragment)
     {
-        // ARRANGE
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
@@ -31,7 +60,7 @@ public sealed class BookingNotificationServiceTests
         BookingDetailsReadModel booking =
             CreateBooking(
                 bookingId,
-                status: "PendingPayment");
+                status);
 
         var sender =
             new SpyNotificationSender();
@@ -45,17 +74,14 @@ public sealed class BookingNotificationServiceTests
                 sender,
                 deliveryStore);
 
-        // ACT
-        Result<BookingNotificationDispatchOutcome>
-            result =
-                await service.SendAsync(
-                    bookingId,
-                    BookingNotificationType
-                        .BookingApproved,
-                    cancellationToken);
+        Result<BookingNotificationDispatchOutcome> result =
+            await service.SendAsync(
+                bookingId,
+                notificationType,
+                cancellationToken);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingNotificationDispatchOutcome.Sent,
@@ -70,28 +96,32 @@ public sealed class BookingNotificationServiceTests
             message.BookingId);
 
         Assert.Equal(
-            BookingNotificationType.BookingApproved,
+            notificationType,
             message.Type);
 
         Assert.Equal(
             "ada@example.com",
             message.RecipientEmail);
 
+        Assert.Contains(
+            expectedSubjectFragment,
+            message.Subject,
+            StringComparison.OrdinalIgnoreCase);
+
+        Assert.Contains(
+            expectedBodyFragment,
+            message.Body,
+            StringComparison.OrdinalIgnoreCase);
+
         Assert.True(
             deliveryStore.Contains(
                 bookingId,
-                BookingNotificationType
-                    .BookingApproved));
-
-        Assert.Equal(
-            1,
-            deliveryStore.RecordCallCount);
+                notificationType));
     }
 
     [Fact]
-    public async Task SendAsync_WhenSameNotificationWasAlreadyDelivered_ShouldNotSendAgain()
+    public async Task SendAsync_WhenNotificationWasAlreadyDelivered_ShouldReturnAlreadyDeliveredWithoutReadingBookingOrSending()
     {
-        // ARRANGE
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
@@ -101,7 +131,11 @@ public sealed class BookingNotificationServiceTests
         BookingDetailsReadModel booking =
             CreateBooking(
                 bookingId,
-                status: "PendingPayment");
+                "PendingPayment");
+
+        var readService =
+            new StubBookingReadService(
+                booking);
 
         var sender =
             new SpyNotificationSender();
@@ -109,55 +143,44 @@ public sealed class BookingNotificationServiceTests
         var deliveryStore =
             new StubNotificationDeliveryStore();
 
+        deliveryStore.Seed(
+            bookingId,
+            BookingNotificationType
+                .BookingApproved);
+
         var service =
-            CreateService(
-                booking,
+            new BookingNotificationService(
+                readService,
                 sender,
-                deliveryStore);
+                deliveryStore,
+                new FixedClock(UtcNow));
 
-        Result<BookingNotificationDispatchOutcome>
-            firstResult =
-                await service.SendAsync(
-                    bookingId,
-                    BookingNotificationType
-                        .BookingApproved,
-                    cancellationToken);
+        Result<BookingNotificationDispatchOutcome> result =
+            await service.SendAsync(
+                bookingId,
+                BookingNotificationType
+                    .BookingApproved,
+                cancellationToken);
 
-        // ACT
-        Result<BookingNotificationDispatchOutcome>
-            secondResult =
-                await service.SendAsync(
-                    bookingId,
-                    BookingNotificationType
-                        .BookingApproved,
-                    cancellationToken);
-
-        // ASSERT
-        Assert.True(firstResult.IsSuccess);
-
-        Assert.Equal(
-            BookingNotificationDispatchOutcome.Sent,
-            firstResult.Value);
-
-        Assert.True(secondResult.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingNotificationDispatchOutcome
                 .AlreadyDelivered,
-            secondResult.Value);
-
-        Assert.Single(
-            sender.Messages);
+            result.Value);
 
         Assert.Equal(
-            1,
-            deliveryStore.RecordCallCount);
+            0,
+            readService.GetByIdCallCount);
+
+        Assert.Empty(
+            sender.Messages);
     }
 
     [Fact]
-    public async Task SendAsync_WhenSameBookingUsesDifferentNotificationType_ShouldSendBoth()
+    public async Task SendAsync_WhenSameBookingHasDifferentNotificationTypes_ShouldDeliverEachTypeOnce()
     {
-        // ARRANGE
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
@@ -167,7 +190,7 @@ public sealed class BookingNotificationServiceTests
         BookingDetailsReadModel booking =
             CreateBooking(
                 bookingId,
-                status: "Paid");
+                "Paid");
 
         var sender =
             new SpyNotificationSender();
@@ -181,29 +204,22 @@ public sealed class BookingNotificationServiceTests
                 sender,
                 deliveryStore);
 
-        // ACT
-        Result<BookingNotificationDispatchOutcome>
-            approvedResult =
-                await service.SendAsync(
-                    bookingId,
-                    BookingNotificationType
-                        .BookingApproved,
-                    cancellationToken);
+        Result<BookingNotificationDispatchOutcome> first =
+            await service.SendAsync(
+                bookingId,
+                BookingNotificationType
+                    .BookingApproved,
+                cancellationToken);
 
-        Result<BookingNotificationDispatchOutcome>
-            paymentResult =
-                await service.SendAsync(
-                    bookingId,
-                    BookingNotificationType
-                        .PaymentConfirmed,
-                    cancellationToken);
+        Result<BookingNotificationDispatchOutcome> second =
+            await service.SendAsync(
+                bookingId,
+                BookingNotificationType
+                    .PaymentConfirmed,
+                cancellationToken);
 
-        // ASSERT
-        Assert.True(
-            approvedResult.IsSuccess);
-
-        Assert.True(
-            paymentResult.IsSuccess);
+        Assert.True(first.IsSuccess);
+        Assert.True(second.IsSuccess);
 
         Assert.Equal(
             2,
@@ -220,16 +236,11 @@ public sealed class BookingNotificationServiceTests
                 bookingId,
                 BookingNotificationType
                     .PaymentConfirmed));
-
-        Assert.Equal(
-            2,
-            deliveryStore.RecordCallCount);
     }
 
     [Fact]
     public async Task SendAsync_WhenSenderFails_ShouldNotRecordDelivery()
     {
-        // ARRANGE
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
@@ -239,7 +250,7 @@ public sealed class BookingNotificationServiceTests
         BookingDetailsReadModel booking =
             CreateBooking(
                 bookingId,
-                status: "PendingPayment");
+                "PendingPayment");
 
         var sender =
             new SpyNotificationSender
@@ -259,17 +270,15 @@ public sealed class BookingNotificationServiceTests
                 sender,
                 deliveryStore);
 
-        // ACT
-        Result<BookingNotificationDispatchOutcome>
-            result =
-                await service.SendAsync(
-                    bookingId,
-                    BookingNotificationType
-                        .BookingApproved,
-                    cancellationToken);
+        Result<BookingNotificationDispatchOutcome> result =
+            await service.SendAsync(
+                bookingId,
+                BookingNotificationType
+                    .BookingApproved,
+                cancellationToken);
 
-        // ASSERT
-        Assert.True(result.IsFailure);
+        Assert.True(
+            result.IsFailure);
 
         Assert.Equal(
             BookingNotificationErrors
@@ -282,16 +291,19 @@ public sealed class BookingNotificationServiceTests
                 bookingId,
                 BookingNotificationType
                     .BookingApproved));
-
-        Assert.Equal(
-            0,
-            deliveryStore.RecordCallCount);
     }
 
-    [Fact]
-    public async Task SendAsync_WhenReminderCandidateIsStale_ShouldSkipWithoutRecordingDelivery()
+    [Theory]
+    [InlineData(
+        BookingNotificationType.PaymentDeadlineReminder,
+        "Paid")]
+    [InlineData(
+        BookingNotificationType.UpcomingCheckInReminder,
+        "Completed")]
+    public async Task SendAsync_WhenReminderStateIsStale_ShouldSkipWithoutSendingOrRecordingDelivery(
+        BookingNotificationType notificationType,
+        string status)
     {
-        // ARRANGE
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
@@ -301,7 +313,7 @@ public sealed class BookingNotificationServiceTests
         BookingDetailsReadModel booking =
             CreateBooking(
                 bookingId,
-                status: "Paid");
+                status);
 
         var sender =
             new SpyNotificationSender();
@@ -315,17 +327,14 @@ public sealed class BookingNotificationServiceTests
                 sender,
                 deliveryStore);
 
-        // ACT
-        Result<BookingNotificationDispatchOutcome>
-            result =
-                await service.SendAsync(
-                    bookingId,
-                    BookingNotificationType
-                        .PaymentDeadlineReminder,
-                    cancellationToken);
+        Result<BookingNotificationDispatchOutcome> result =
+            await service.SendAsync(
+                bookingId,
+                notificationType,
+                cancellationToken);
 
-        // ASSERT
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess);
 
         Assert.Equal(
             BookingNotificationDispatchOutcome.Skipped,
@@ -337,36 +346,119 @@ public sealed class BookingNotificationServiceTests
         Assert.False(
             deliveryStore.Contains(
                 bookingId,
-                BookingNotificationType
-                    .PaymentDeadlineReminder));
-
-        Assert.Equal(
-            0,
-            deliveryStore.RecordCallCount);
+                notificationType));
     }
 
-    private static BookingNotificationService
-        CreateService(
-            BookingDetailsReadModel booking,
-            IBookingNotificationSender sender,
-            INotificationDeliveryStore deliveryStore)
+    [Fact]
+    public async Task SendAsync_WhenBookingDoesNotExist_ShouldReturnNotFound()
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        Guid bookingId =
+            Guid.NewGuid();
+
+        var service =
+            new BookingNotificationService(
+                new StubBookingReadService(null),
+                new SpyNotificationSender(),
+                new StubNotificationDeliveryStore(),
+                new FixedClock(UtcNow));
+
+        Result<BookingNotificationDispatchOutcome> result =
+            await service.SendAsync(
+                bookingId,
+                BookingNotificationType
+                    .BookingApproved,
+                cancellationToken);
+
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            BookingNotificationErrors
+                .BookingNotFound(
+                    bookingId),
+            result.Error);
+    }
+
+    [Fact]
+    public async Task SendAsync_WhenRecipientEmailIsMissing_ShouldReturnFailureWithoutDeliveryRecord()
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        Guid bookingId =
+            Guid.NewGuid();
+
+        BookingDetailsReadModel booking =
+            CreateBooking(
+                bookingId,
+                "PendingPayment");
+
+        booking.GuestEmail =
+            null;
+
+        var deliveryStore =
+            new StubNotificationDeliveryStore();
+
+        var sender =
+            new SpyNotificationSender();
+
+        var service =
+            CreateService(
+                booking,
+                sender,
+                deliveryStore);
+
+        Result<BookingNotificationDispatchOutcome> result =
+            await service.SendAsync(
+                bookingId,
+                BookingNotificationType
+                    .BookingApproved,
+                cancellationToken);
+
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            BookingNotificationErrors
+                .RecipientUnavailable(
+                    bookingId),
+            result.Error);
+
+        Assert.Empty(
+            sender.Messages);
+
+        Assert.False(
+            deliveryStore.Contains(
+                bookingId,
+                BookingNotificationType
+                    .BookingApproved));
+    }
+
+    private static BookingNotificationService CreateService(
+        BookingDetailsReadModel booking,
+        IBookingNotificationSender sender,
+        INotificationDeliveryStore deliveryStore)
     {
         return new BookingNotificationService(
             new StubBookingReadService(
                 booking),
             sender,
             deliveryStore,
-            new StubClock(UtcNow));
+            new FixedClock(UtcNow));
     }
 
-    private static BookingDetailsReadModel
-        CreateBooking(
-            Guid bookingId,
-            string status)
+    private static BookingDetailsReadModel CreateBooking(
+        Guid bookingId,
+        string status)
     {
         return new BookingDetailsReadModel
         {
-            Id = bookingId,
+            Id =
+                bookingId,
+
             BookingReference =
                 "BK-TEST-001",
 
@@ -394,6 +486,11 @@ public sealed class BookingNotificationServiceTests
             Status =
                 status,
 
+            CancellationReason =
+                nameof(
+                    BookingCancellationReason
+                        .PaymentExpired),
+
             PaymentDueAtUtc =
                 new DateTimeOffset(
                     2026,
@@ -418,6 +515,12 @@ public sealed class BookingNotificationServiceTests
             _booking = booking;
         }
 
+        public int GetByIdCallCount
+        {
+            get;
+            private set;
+        }
+
         public Task<BookingDetailsReadModel?>
             GetByIdAsync(
                 Guid bookingId,
@@ -425,6 +528,8 @@ public sealed class BookingNotificationServiceTests
         {
             cancellationToken
                 .ThrowIfCancellationRequested();
+
+            GetByIdCallCount++;
 
             return Task.FromResult(
                 _booking?.Id == bookingId
@@ -475,15 +580,15 @@ public sealed class BookingNotificationServiceTests
             cancellationToken
                 .ThrowIfCancellationRequested();
 
-            Messages.Add(
-                message);
-
             if (ErrorToReturn is not null)
             {
                 return Task.FromResult(
                     Result.Failure(
                         ErrorToReturn));
             }
+
+            Messages.Add(
+                message);
 
             return Task.FromResult(
                 Result.Success());
@@ -494,14 +599,11 @@ public sealed class BookingNotificationServiceTests
         : INotificationDeliveryStore
     {
         private readonly HashSet<
-            (Guid BookingId, BookingNotificationType Type)>
+            (
+                Guid BookingId,
+                BookingNotificationType Type
+            )>
             _deliveries = [];
-
-        public int RecordCallCount
-        {
-            get;
-            private set;
-        }
 
         public Task<bool> HasBeenDeliveredAsync(
             Guid bookingId,
@@ -526,17 +628,12 @@ public sealed class BookingNotificationServiceTests
             cancellationToken
                 .ThrowIfCancellationRequested();
 
-            RecordCallCount++;
-
-            bool added =
+            return Task.FromResult(
                 _deliveries.Add(
                     (
                         bookingId,
                         notificationType
-                    ));
-
-            return Task.FromResult(
-                added);
+                    )));
         }
 
         public bool Contains(
@@ -549,20 +646,16 @@ public sealed class BookingNotificationServiceTests
                     notificationType
                 ));
         }
-    }
 
-    private sealed class StubClock
-        : IClock
-    {
-        public StubClock(
-            DateTimeOffset utcNow)
+        public void Seed(
+            Guid bookingId,
+            BookingNotificationType notificationType)
         {
-            UtcNow = utcNow;
-        }
-
-        public DateTimeOffset UtcNow
-        {
-            get;
+            _deliveries.Add(
+                (
+                    bookingId,
+                    notificationType
+                ));
         }
     }
 }
