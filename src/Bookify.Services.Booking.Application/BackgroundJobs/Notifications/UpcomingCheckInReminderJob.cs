@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Notifications;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Domain.Shared;
 using Microsoft.Extensions.Logging;
 
@@ -87,6 +88,7 @@ public sealed class UpcomingCheckInReminderJob : IBackgroundJob
                         if (result.Error != BookingNotificationErrors.DeliveryDisabled)
                         {
                             _logger.LogWarning(
+                                ApplicationLogEvents.UpcomingCheckInReminderFailed,
                                 "Upcoming check-in reminder failed for booking {BookingId}. ErrorCode: {ErrorCode}.",
                                 bookingId,
                                 result.Error.Code);
@@ -108,6 +110,7 @@ public sealed class UpcomingCheckInReminderJob : IBackgroundJob
             catch (Exception exception)
             {
                 _logger.LogError(
+                    ApplicationLogEvents.UpcomingCheckInReminderUnhandledException,
                     exception,
                     "Unexpected error sending upcoming check-in reminder for booking {BookingId}.",
                     bookingId);

@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings.ExpireApproval;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Domain.Shared;
 using Microsoft.Extensions.Logging;
 
@@ -81,8 +82,8 @@ public sealed class ApprovalExpirationJob : IBackgroundJob
                     if (result.IsFailure)
                     {
                         _logger.LogWarning(
-                            "Could not expire approval for booking" +
-                            "{BookingId}. ErrorCode: {ErrorCode}.",
+                            ApplicationLogEvents.ApprovalExpirationFailed,
+                            "Could not expire approval for booking {BookingId}. ErrorCode: {ErrorCode}.",
                             bookingId,
                             result.Error.Code);
 
@@ -99,6 +100,7 @@ public sealed class ApprovalExpirationJob : IBackgroundJob
             catch (Exception exception)
             {
                 _logger.LogError(
+                    ApplicationLogEvents.ApprovalExpirationUnhandledException,
                     exception,
                     "Unexpected error expiring approval for booking {BookingId}.", bookingId);
             }

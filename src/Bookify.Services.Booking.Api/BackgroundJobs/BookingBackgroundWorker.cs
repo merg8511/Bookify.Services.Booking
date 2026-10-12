@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Api.Observability;
 using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Microsoft.Extensions.Options;
 
@@ -39,11 +40,15 @@ public sealed class BookingBackgroundWorker : BackgroundService
     {
         if (!_options.Enabled)
         {
-            _logger.LogInformation("Booking background worker is disabled.");
+            _logger.LogInformation(
+                ApiLogEvents.BackgroundWorkerDisabled,
+                "Booking background worker is disabled.");
             return;
         }
 
-        _logger.LogInformation("Booking background worker started. " +
+        _logger.LogInformation(
+            ApiLogEvents.BackgroundWorkerStarted,
+            "Booking background worker started. " +
             "Polling interval: {PollingInterval}. " +
             "Batch size: {BatchSize}",
             _options.PollingInterval,
@@ -61,7 +66,10 @@ public sealed class BookingBackgroundWorker : BackgroundService
             }
             catch (Exception exception)
             {
-                _logger.LogError(exception, "Unexpected error executing background work cycle.");
+                _logger.LogError(
+                    ApiLogEvents.BackgroundWorkerCycleFailed,
+                    exception,
+                    "Unexpected error executing background work cycle.");
             }
 
             try
@@ -77,7 +85,9 @@ public sealed class BookingBackgroundWorker : BackgroundService
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Booking background worker is stopping.");
+        _logger.LogInformation(
+            ApiLogEvents.BackgroundWorkerStopping,
+            "Booking background worker is stopping.");
 
         await base.StopAsync(cancellationToken);
     }
@@ -102,7 +112,9 @@ public sealed class BookingBackgroundWorker : BackgroundService
 
                 if (processedCount > 0)
                 {
-                    _logger.LogInformation("Background job {JobName} processed {ProcessedCount} item(s).",
+                    _logger.LogInformation(
+                        ApiLogEvents.BackgroundJobProcessed,
+                        "Background job {JobName} processed {ProcessedCount} item(s).",
                         jobName,
                         processedCount);
                 }
@@ -113,7 +125,10 @@ public sealed class BookingBackgroundWorker : BackgroundService
             }
             catch (Exception exception)
             {
-                _logger.LogError(exception, "Background job {JobName} failed.", jobName);
+                _logger.LogError(
+                    ApiLogEvents.BackgroundJobFailed,
+                    exception,
+                    "Background job {JobName} failed.", jobName);
             }
         }
     }

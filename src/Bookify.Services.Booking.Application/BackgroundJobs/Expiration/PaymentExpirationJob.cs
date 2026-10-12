@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings.ExpirePayment;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Domain.Shared;
 using Microsoft.Extensions.Logging;
 
@@ -79,8 +80,9 @@ public sealed class PaymentExpirationJob : IBackgroundJob
 
                     if (result.IsFailure)
                     {
-                        _logger.LogWarning("Could not expire payment for booking " +
-                            "{BookingId}. ErrorCode: {ErrorCode}.",
+                        _logger.LogWarning(
+                            ApplicationLogEvents.PaymentExpirationFailed,
+                            "Could not expire payment for booking {BookingId}. ErrorCode: {ErrorCode}.",
                             bookingId,
                             result.Error.Code);
 
@@ -97,6 +99,7 @@ public sealed class PaymentExpirationJob : IBackgroundJob
             catch (Exception exception)
             {
                 _logger.LogError(
+                    ApplicationLogEvents.PaymentExpirationUnhandledException,
                     exception,
                     "Unexpected error expiring payment for booking {BookingId}.", bookingId);
             }

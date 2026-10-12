@@ -1,12 +1,11 @@
-using System.IO;
-using System.Net.Sockets;
 using Bookify.Services.Booking.Application.Notifications;
 using Bookify.Services.Booking.Domain.Shared;
+using Bookify.Services.Booking.Infrastructure.Observability;
 using MailKit.Net.Smtp;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
-
+using System.Net.Sockets;
 using MailKitAuthenticationException = MailKit.Security.AuthenticationException;
 using MailKitSslHandshakeException = MailKit.Security.SslHandshakeException;
 
@@ -87,7 +86,9 @@ internal sealed class SmtpBookingNotificationSender : IBookingNotificationSender
             await smtpClient.SendAsync(email, cancellationToken);
 
             _logger.LogInformation(
-                "Booking notification accepted by SMTP server for booking {BookingId}.", message.BookingId);
+                InfrastructureLogEvents.SmtpNotificationAccepted,
+                "Booking notification accepted by SMTP server for booking {BookingId}.",
+                message.BookingId);
 
             return Result.Success();
         }
@@ -114,9 +115,11 @@ internal sealed class SmtpBookingNotificationSender : IBookingNotificationSender
                 catch (Exception exception)
                 {
                     _logger.LogWarning(
+                        InfrastructureLogEvents.SmtpDisconnectFailed,
                         exception,
-                        "SMTP disconnect failed after processing booking notification {BookingId}.",
-                        message.BookingId);
+                        "SMTP disconnect failed after processing booking notification {BookingId}. ExceptionType: {ExceptionType}.",
+                        message.BookingId,
+                        exception.GetType().Name);
                 }
             }
         }
@@ -127,9 +130,10 @@ internal sealed class SmtpBookingNotificationSender : IBookingNotificationSender
         Exception exception)
     {
         _logger.LogWarning(
-            exception,
-            "SMTP delivery failed for booking {BookingId}.",
-            message.BookingId);
+            InfrastructureLogEvents.SmtpNotificationDeliveryFailed,
+            "SMTP delivery failed for booking {BookingId}. ExceptionType: {ExceptionType}.",
+            message.BookingId,
+            exception.GetType().Name);
 
         return Result.Failure(BookingNotificationErrors.DeliveryFailed(message.BookingId));
     }
