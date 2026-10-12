@@ -13,6 +13,11 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ==========================================
+// Observability — Serilog
+// ==========================================
+builder.Services.AddBookifySerilog(builder.Configuration);
+
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
 if (string.IsNullOrWhiteSpace(configuredConnectionString))
