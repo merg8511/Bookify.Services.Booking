@@ -53,6 +53,10 @@ public sealed class BookingBackgroundWorkerTests
                 builder =>
                 {
                     builder.UseSetting(
+    "ConnectionStrings:Database",
+    _factory.DatabaseConnectionString);
+
+                    builder.UseSetting(
                         "BackgroundJobs:Enabled",
                         "true");
 
@@ -121,6 +125,10 @@ public sealed class BookingBackgroundWorkerTests
             _factory.WithWebHostBuilder(
                 builder =>
                 {
+                    builder.UseSetting(
+    "ConnectionStrings:Database",
+    _factory.DatabaseConnectionString);
+
                     builder.UseSetting(
                         "BackgroundJobs:Enabled",
                         "true");
@@ -210,6 +218,10 @@ public sealed class BookingBackgroundWorkerTests
             _factory.WithWebHostBuilder(
                 builder =>
                 {
+                    builder.UseSetting(
+    "ConnectionStrings:Database",
+    _factory.DatabaseConnectionString);
+
                     builder.UseSetting(
                         "BackgroundJobs:Enabled",
                         "true");
