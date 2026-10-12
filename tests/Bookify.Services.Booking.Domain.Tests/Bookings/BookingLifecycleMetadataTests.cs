@@ -132,4 +132,34 @@ public sealed class BookingLifecycleMetadataTests
         Assert.Equal(BookingTestTime.CompletedAtUtc, booking.CompletedAtUtc);
         Assert.Null(booking.CancelledAtUtc);
     }
+
+    [Fact]
+    public void ExpireApproval_ShouldSetCancelledAtUtc()
+    {
+        DomainBooking booking =
+            BookingTestFactory.CreateValidBooking();
+
+        Result result =
+            booking.ExpireApproval(
+                BookingTestTime.CancelledAtUtc);
+
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            BookingStatus.Cancelled,
+            booking.Status);
+
+        Assert.Equal(
+            BookingCancellationReason.ApprovalExpired,
+            booking.CancellationReason);
+
+        Assert.Equal(
+            BookingTestTime.CancelledAtUtc,
+            booking.CancelledAtUtc);
+
+        Assert.Null(booking.ApprovedAtUtc);
+        Assert.Null(booking.PaymentDueAtUtc);
+        Assert.Null(booking.PaidAtUtc);
+        Assert.Null(booking.CompletedAtUtc);
+    }
 }

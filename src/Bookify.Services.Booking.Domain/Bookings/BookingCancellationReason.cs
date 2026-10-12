@@ -4,5 +4,6 @@ public enum BookingCancellationReason
 {
     RejectedByOwner = 1,
     PaymentExpired = 2,
-    CancelledByGuest = 3
+    CancelledByGuest = 3,
+    ApprovalExpired = 4
 }

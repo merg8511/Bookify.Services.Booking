@@ -91,6 +91,14 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerSubjectId")
                         .HasDatabaseName("ix_bookings_customer_subject_id");
 
+                    b.HasIndex("ApprovalDueAtUtc", "Id")
+                        .HasDatabaseName("ix_bookings_pending_approval_due_at_utc")
+                        .HasFilter("status = 'PendingApproval' AND approval_due_at_utc IS NOT NULL");
+
+                    b.HasIndex("PaymentDueAtUtc", "Id")
+                        .HasDatabaseName("ix_bookings_pending_payment_due_at_utc")
+                        .HasFilter("status = 'PendingPayment' AND payment_due_at_utc IS NOT NULL");
+
                     b.HasIndex("PropertyId", "Status")
                         .HasDatabaseName("ix_bookings_property_id_status");
 
@@ -391,6 +399,62 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Bookify.Services.Booking.Infrastructure.Persistence.Notifications.NotificationDelivery", b =>
+                {
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("booking_id");
+
+                    b.Property<string>("NotificationType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("notification_type");
+
+                    b.Property<DateTimeOffset>("DeliveredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("delivered_at_utc");
+
+                    b.HasKey("BookingId", "NotificationType")
+                        .HasName("pk_notification_deliveries");
+
+                    b.ToTable("notification_deliveries", (string)null);
+                });
+
+            modelBuilder.Entity("Bookify.Services.Booking.Infrastructure.Persistence.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("event_type");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTimeOffset?>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_outbox_messages");
+
+                    b.HasIndex("CreatedAtUtc", "Id")
+                        .HasDatabaseName("ix_outbox_messages_pending_created_at_utc")
+                        .HasFilter("processed_at_utc IS NULL");
+
+                    b.ToTable("outbox_messages", (string)null);
+                });
+
             modelBuilder.Entity("Bookify.Services.Booking.Infrastructure.Persistence.Payments.Webhooks.PaymentWebhookEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -646,6 +710,14 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                 .HasColumnName("check_out_date");
 
                             b1.HasKey("BookingId");
+
+                            b1.HasIndex("CheckInDate")
+                                .HasDatabaseName("ix_bookings_paid_check_in_date")
+                                .HasFilter("status = 'Paid'");
+
+                            b1.HasIndex("CheckOutDate")
+                                .HasDatabaseName("ix_bookings_paid_check_out_date")
+                                .HasFilter("status = 'Paid'");
 
                             b1.HasIndex("CheckInDate", "CheckOutDate")
                                 .HasDatabaseName("ix_bookings_check_in_date_check_out_date");

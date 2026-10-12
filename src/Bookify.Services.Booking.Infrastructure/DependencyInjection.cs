@@ -1,22 +1,29 @@
+using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.Idempotency;
 using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Availability;
+using Bookify.Services.Booking.Application.BackgroundJobs;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.Create;
+using Bookify.Services.Booking.Application.Notifications;
+using Bookify.Services.Booking.Application.Outbox;
 using Bookify.Services.Booking.Application.Payments;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Infrastructure.Bookings;
+using Bookify.Services.Booking.Infrastructure.Notifications;
 using Bookify.Services.Booking.Infrastructure.Payments;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Bookify.Services.Booking.Infrastructure.Persistence.Concurrency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Connections;
 using Bookify.Services.Booking.Infrastructure.Persistence.Dapper;
 using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
+using Bookify.Services.Booking.Infrastructure.Persistence.Notifications;
+using Bookify.Services.Booking.Infrastructure.Persistence.Outbox;
 using Bookify.Services.Booking.Infrastructure.Persistence.Payments.Webhooks;
 using Bookify.Services.Booking.Infrastructure.Persistence.ReadServices;
 using Bookify.Services.Booking.Infrastructure.Persistence.Repositories;
@@ -53,8 +60,7 @@ public static class DependencyInjection
         services.AddSingleton<NpgsqlDataSource>(
             _ => NpgsqlDataSource.Create(connectionString));
 
-        services.AddDbContext<BookingDbContext>(
-            (serviceProvider, options) =>
+        services.AddDbContext<BookingDbContext>((serviceProvider, options) =>
             {
                 NpgsqlDataSource dataSource = serviceProvider
                     .GetRequiredService<NpgsqlDataSource>();
@@ -78,17 +84,17 @@ public static class DependencyInjection
         services.AddBookings(configuration);
         services.AddPayments(configuration);
 
+        NotificationsDependencyInjection.AddNotifications(services, configuration);
+
         return services;
     }
 
-    private static void AddPersistence(
-        IServiceCollection services)
+    private static void AddPersistence(IServiceCollection services)
     {
         // ==========================================
         // Transactions & Unit of Work
         // ==========================================
-        services.AddScoped<IUnitOfWork>(
-            serviceProvider =>
+        services.AddScoped<IUnitOfWork>(serviceProvider =>
                 serviceProvider.GetRequiredService<BookingDbContext>());
 
         services.AddScoped<
@@ -106,6 +112,10 @@ public static class DependencyInjection
             IPaymentInitiationLock,
             PostgreSqlPaymentInitiationLock>();
 
+        services.AddScoped<
+            IBackgroundJobClaimManager,
+            PostgreSqlBackgroundJobClaimManager>();
+
         // ==========================================
         // Idempotency & Webhook Persistence
         // ==========================================
@@ -116,6 +126,8 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentWebhookEventStore,
             EfCorePaymentWebhookEventStore>();
+
+        services.AddScoped<IOutboxMessageStore, EfCoreOutboxMessageStore>();
 
         // ==========================================
         // Repositories (Write Side)
@@ -162,5 +174,16 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentReadService,
             DapperPaymentReadService>();
+
+        services.AddScoped<
+            IPendingBookingWorkSelector,
+            DapperPendingBookingWorkSelector>();
+
+        services.AddScoped<
+            IOutboxMessageReader,
+            DapperOutboxMessageReader>();
+
+        services.AddScoped<
+            INotificationDeliveryStore, EfCoreNotificationDeliveryStore>();
     }
 }
