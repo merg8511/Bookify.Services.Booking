@@ -26,16 +26,16 @@ public sealed class BookingCompletionJob : IBackgroundJob
             throw new ArgumentNullException(nameof(workSelector));
 
         _commandExecutor = commandExecutor ??
-            throw new ArgumentNullException(nameof(workSelector));
+            throw new ArgumentNullException(nameof(commandExecutor));
 
         _claimManager = claimManager ??
             throw new ArgumentNullException(nameof(claimManager));
 
         _clock = clock ??
-            throw new ArgumentNullException(nameof(workSelector));
+            throw new ArgumentNullException(nameof(clock));
 
         _logger = logger ??
-            throw new ArgumentNullException(nameof(workSelector));
+            throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<int> ExecuteBatchAsync(int batchSize, CancellationToken cancellationToken = default)

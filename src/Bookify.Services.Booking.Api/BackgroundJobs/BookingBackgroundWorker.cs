@@ -5,6 +5,16 @@ namespace Bookify.Services.Booking.Api.BackgroundJobs;
 
 public sealed class BookingBackgroundWorker : BackgroundService
 {
+    private static readonly string[] JobKeys =
+    [
+        BackgroundJobClaimKeys.ApprovalExpiration,
+        BackgroundJobClaimKeys.PaymentExpiration,
+        BackgroundJobClaimKeys.BookingCompletion,
+        BackgroundJobClaimKeys.OutboxNotification,
+        BackgroundJobClaimKeys.PaymentDeadlineReminder,
+        BackgroundJobClaimKeys.UpcomingCheckInReminder
+    ];
+
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<BookingBackgroundWorker> _logger;
     private readonly BackgroundJobsOptions _options;
@@ -20,6 +30,7 @@ public sealed class BookingBackgroundWorker : BackgroundService
         ArgumentNullException.ThrowIfNull(options);
 
         _options = options.Value;
+
         _logger = logger ??
             throw new ArgumentNullException(nameof(logger));
     }
@@ -73,19 +84,21 @@ public sealed class BookingBackgroundWorker : BackgroundService
 
     private async Task ExecuteCycleAsync(CancellationToken cancellationToken)
     {
-        await using AsyncServiceScope scope = _serviceScopeFactory.CreateAsyncScope();
-
-        IEnumerable<IBackgroundJob> jobs = scope.ServiceProvider.GetServices<IBackgroundJob>();
-
-        foreach (IBackgroundJob job in jobs)
+        foreach (string jobKey in JobKeys)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            await using AsyncServiceScope jobScope = _serviceScopeFactory.CreateAsyncScope();
+
+            IBackgroundJob job = jobScope.ServiceProvider
+                .GetRequiredKeyedService<IBackgroundJob>(jobKey);
 
             string jobName = job.GetType().Name;
 
             try
             {
-                int processedCount = await job.ExecuteBatchAsync(_options.BatchSize, cancellationToken);
+                int processedCount = await job.ExecuteBatchAsync(
+                    _options.BatchSize, cancellationToken);
 
                 if (processedCount > 0)
                 {

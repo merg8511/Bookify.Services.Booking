@@ -215,33 +215,29 @@ public static class DependencyInjection
         // ==========================================
         // Module: Background Jobs
         // ==========================================
-        services.AddScoped<
+        services.AddKeyedScoped<
             IBackgroundJob,
-            ApprovalExpirationJob>();
+            ApprovalExpirationJob>(BackgroundJobClaimKeys.ApprovalExpiration);
 
-        services.AddScoped<
+        services.AddKeyedScoped<
             IBackgroundJob,
-            PaymentExpirationJob>();
+            PaymentExpirationJob>(BackgroundJobClaimKeys.PaymentExpiration);
 
-        services.AddScoped<
+        services.AddKeyedScoped<
             IBackgroundJob,
-            BookingCompletionJob>();
+            BookingCompletionJob>(BackgroundJobClaimKeys.BookingCompletion);
 
-        services.AddScoped<
+        services.AddKeyedScoped<
             IBackgroundJob,
-            BookingCompletionJob>();
+            OutboxNotificationJob>(BackgroundJobClaimKeys.OutboxNotification);
 
-        services.AddScoped<
+        services.AddKeyedScoped<
             IBackgroundJob,
-            OutboxNotificationJob>();
+            PaymentDeadlineReminderJob>(BackgroundJobClaimKeys.PaymentDeadlineReminder);
 
-        services.AddScoped<
+        services.AddKeyedScoped<
             IBackgroundJob,
-            PaymentDeadlineReminderJob>();
-
-        services.AddScoped<
-            IBackgroundJob,
-            UpcomingCheckInReminderJob>();
+            UpcomingCheckInReminderJob>(BackgroundJobClaimKeys.UpcomingCheckInReminder);
 
         return services;
     }
