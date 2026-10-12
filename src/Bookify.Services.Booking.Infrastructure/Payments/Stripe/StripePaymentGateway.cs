@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Domain.Shared;
-
+using Bookify.Services.Booking.Infrastructure.Observability;
+using System.Diagnostics;
 using StripeException = global::Stripe.StripeException;
 using StripePaymentIntent = global::Stripe.PaymentIntent;
 using StripePaymentIntentAutomaticPaymentMethodsOptions = global::Stripe.PaymentIntentAutomaticPaymentMethodsOptions;
@@ -28,18 +29,22 @@ public sealed class StripePaymentGateway : IPaymentGateway
         ArgumentNullException.ThrowIfNull(request.Amount);
         cancellationToken.ThrowIfCancellationRequested();
 
+        using Activity? activity = BookingActivitySource.Instance.StartActivity(
+            "stripe.payment_intent.create",
+            ActivityKind.Client);
+
+        activity?.SetTag("peer.service", "stripe");
+        activity?.SetTag("bookify.payment.operation", "create");
+
         string idempotencyKey = request.IdempotencyKey?.Trim() ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(idempotencyKey))
         {
             return Result<CreatePaymentAttemptResponse>
-                .Failure(
-                    PaymentGatewayErrors
-                        .IdempotencyKeyRequired);
+                .Failure(PaymentGatewayErrors.IdempotencyKeyRequired);
         }
 
-        Result<long> amountResult = StripeAmountConverter
-            .ToMinorUnits(request.Amount);
+        Result<long> amountResult = StripeAmountConverter.ToMinorUnits(request.Amount);
 
         if (amountResult.IsFailure)
         {
@@ -68,22 +73,22 @@ public sealed class StripePaymentGateway : IPaymentGateway
 
         try
         {
-            StripePaymentIntent paymentIntent =
-                await _paymentIntentService
-                    .CreateAsync(
-                        options,
-                        requestOptions,
-                        cancellationToken);
+            StripePaymentIntent paymentIntent = await _paymentIntentService
+                .CreateAsync(options, requestOptions, cancellationToken);
 
             return MapCreatedPaymentIntent(paymentIntent);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "Provider timeout");
+
             return Result<CreatePaymentAttemptResponse>
                 .Failure(PaymentGatewayErrors.ProviderTimeout);
         }
         catch (StripeException exception)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "Stripe request failed");
+
             return Result<CreatePaymentAttemptResponse>
                 .Failure(MapStripeException(exception));
         }
@@ -94,6 +99,13 @@ public sealed class StripePaymentGateway : IPaymentGateway
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        using Activity? activity = BookingActivitySource.Instance.StartActivity(
+            "stripe.payment_intent.get",
+            ActivityKind.Client);
+
+        activity?.SetTag("peer.service", "stripe");
+        activity?.SetTag("bookify.payment.operation", "get");
 
         string normalizedExternalReference = NormalizeExternalReference(externalReference);
 
@@ -114,11 +126,15 @@ public sealed class StripePaymentGateway : IPaymentGateway
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "Provider timeout");
+
             return Result<PaymentGatewayResponse>
                 .Failure(PaymentGatewayErrors.ProviderTimeout);
         }
         catch (StripeException exception)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "Stripe request failed");
+
             return Result<PaymentGatewayResponse>
                 .Failure(MapStripeException(exception, normalizedExternalReference));
         }
@@ -130,6 +146,13 @@ public sealed class StripePaymentGateway : IPaymentGateway
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        using Activity? activity = BookingActivitySource.Instance.StartActivity(
+            "stripe.payment_intent.cancel",
+            ActivityKind.Client);
+
+        activity?.SetTag("peer.service", "stripe");
+        activity?.SetTag("bookify.payment.operation", "cancel");
+
         string normalizedExternalReference = NormalizeExternalReference(externalReference);
 
         if (string.IsNullOrWhiteSpace(normalizedExternalReference))
@@ -140,11 +163,8 @@ public sealed class StripePaymentGateway : IPaymentGateway
 
         try
         {
-            StripePaymentIntent currentPaymentIntent =
-                await _paymentIntentService
-                    .GetAsync(
-                        normalizedExternalReference,
-                        cancellationToken: cancellationToken);
+            StripePaymentIntent currentPaymentIntent = await _paymentIntentService
+                    .GetAsync(normalizedExternalReference, cancellationToken: cancellationToken);
 
             Result<PaymentGatewayResponse> currentResult = MapPaymentIntent(currentPaymentIntent);
 
@@ -167,28 +187,26 @@ public sealed class StripePaymentGateway : IPaymentGateway
             }
 
             StripePaymentIntent cancelledPaymentIntent =
-                await _paymentIntentService
-                    .CancelAsync(
-                        normalizedExternalReference,
-                        cancellationToken: cancellationToken);
+                await _paymentIntentService.CancelAsync(normalizedExternalReference, cancellationToken: cancellationToken);
 
             return MapPaymentIntent(cancelledPaymentIntent);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "Provider timeout");
+
             return Result<PaymentGatewayResponse>
                 .Failure(PaymentGatewayErrors.ProviderTimeout);
         }
         catch (StripeException exception)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "Stripe request failed");
             return Result<PaymentGatewayResponse>
-                .Failure(
-                    MapStripeException(exception, normalizedExternalReference));
+                .Failure(MapStripeException(exception, normalizedExternalReference));
         }
     }
 
-    private static Result<CreatePaymentAttemptResponse>
-        MapCreatedPaymentIntent(StripePaymentIntent paymentIntent)
+    private static Result<CreatePaymentAttemptResponse> MapCreatedPaymentIntent(StripePaymentIntent paymentIntent)
     {
         Result<PaymentGatewayResponse> paymentResult = MapPaymentIntent(paymentIntent);
 
@@ -214,8 +232,7 @@ public sealed class StripePaymentGateway : IPaymentGateway
                     paymentIntent.ClientSecret));
     }
 
-    private static Result<PaymentGatewayResponse> MapPaymentIntent
-        (StripePaymentIntent paymentIntent)
+    private static Result<PaymentGatewayResponse> MapPaymentIntent(StripePaymentIntent paymentIntent)
     {
         ArgumentNullException.ThrowIfNull(paymentIntent);
 
@@ -225,28 +242,25 @@ public sealed class StripePaymentGateway : IPaymentGateway
                 .Failure(PaymentGatewayErrors.ProviderUnavailable);
         }
 
-        PaymentGatewayStatus? status =
-            paymentIntent.Status switch
-            {
-                "requires_payment_method" => PaymentGatewayStatus.Pending,
-                "requires_confirmation" => PaymentGatewayStatus.Pending,
-                "requires_action" => PaymentGatewayStatus.Pending,
-                "processing" => PaymentGatewayStatus.Pending,
-                "requires_capture" => PaymentGatewayStatus.Pending,
-                "succeeded" => PaymentGatewayStatus.Succeeded,
-                "canceled" => PaymentGatewayStatus.Cancelled,
-                _ => null
-            };
+        PaymentGatewayStatus? status = paymentIntent.Status switch
+        {
+            "requires_payment_method" => PaymentGatewayStatus.Pending,
+            "requires_confirmation" => PaymentGatewayStatus.Pending,
+            "requires_action" => PaymentGatewayStatus.Pending,
+            "processing" => PaymentGatewayStatus.Pending,
+            "requires_capture" => PaymentGatewayStatus.Pending,
+            "succeeded" => PaymentGatewayStatus.Succeeded,
+            "canceled" => PaymentGatewayStatus.Cancelled,
+            _ => null
+        };
 
         if (status is null)
         {
-            return Result<PaymentGatewayResponse>
-                .Failure(PaymentGatewayErrors
-                    .UnsupportedProviderStatus(paymentIntent.Status ?? string.Empty));
+            return Result<PaymentGatewayResponse>.Failure(
+                PaymentGatewayErrors.UnsupportedProviderStatus(paymentIntent.Status ?? string.Empty));
         }
 
-        return Result<PaymentGatewayResponse>
-            .Success(
+        return Result<PaymentGatewayResponse>.Success(
                 new PaymentGatewayResponse(
                     paymentIntent.Id,
                     status.Value));
