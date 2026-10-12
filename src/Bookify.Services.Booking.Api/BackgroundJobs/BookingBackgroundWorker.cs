@@ -1,11 +1,15 @@
 using Bookify.Services.Booking.Api.Observability;
 using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 
 namespace Bookify.Services.Booking.Api.BackgroundJobs;
 
 public sealed class BookingBackgroundWorker : BackgroundService
 {
+    private static readonly ActivitySource JobActivitySource =
+        new("Bookify.Services.Booking.BackgroundJobs");
+
     private static readonly string[] JobKeys =
     [
         BackgroundJobClaimKeys.ApprovalExpiration,
@@ -105,10 +109,18 @@ public sealed class BookingBackgroundWorker : BackgroundService
 
             string jobName = job.GetType().Name;
 
+            using Activity? activity = JobActivitySource.StartActivity(
+                "backgroun_job.execute",
+                ActivityKind.Internal);
+
+            activity?.SetTag("bookify.job.name", jobName);
+            activity?.SetTag("bookify.job.key", jobKey);
+
             try
             {
-                int processedCount = await job.ExecuteBatchAsync(
-                    _options.BatchSize, cancellationToken);
+                int processedCount = await job.ExecuteBatchAsync(_options.BatchSize, cancellationToken);
+
+                activity?.SetTag("bookify.job.processed_count", processedCount);
 
                 if (processedCount > 0)
                 {
@@ -121,14 +133,18 @@ public sealed class BookingBackgroundWorker : BackgroundService
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                activity?.SetStatus(ActivityStatusCode.Unset);
                 throw;
             }
             catch (Exception exception)
             {
+                activity?.SetStatus(ActivityStatusCode.Error, "Background job execution failed");
+
                 _logger.LogError(
                     ApiLogEvents.BackgroundJobFailed,
                     exception,
-                    "Background job {JobName} failed.", jobName);
+                    "Background job {JobName} failed.",
+                    jobName);
             }
         }
     }
