@@ -359,6 +359,92 @@ public sealed class CompleteBookingCommandHandlerTests
             ArgumentNullException>(Action);
     }
 
+    [Theory]
+    [InlineData(1, 16)]
+    [InlineData(7, 15)]
+    public async Task HandleAsync_WhenPropertyUsesDstTimeZone_ShouldCalculateCheckoutUsingDateSpecificOffset(
+    int month,
+    int expectedUtcHour)
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        DateOnly checkOutDate =
+            new(
+                2026,
+                month,
+                15);
+
+        Property property =
+            PropertyTestFactory.CreateValidProperty(
+                timeZoneId:
+                    "America/New_York",
+                checkOutTime:
+                    new TimeOnly(11, 0));
+
+        RentableUnit rentableUnit =
+            RentableUnitTestFactory
+                .CreateValidRentableUnit(
+                    property.Id);
+
+        StayPeriod stayPeriod =
+            StayPeriod.Create(
+                checkOutDate.AddDays(-2),
+                checkOutDate)
+            .Value;
+
+        DomainBooking booking =
+            BookingTestFactory.CreatePaidBooking(
+                rentableUnit:
+                    rentableUnit,
+                stayPeriod:
+                    stayPeriod);
+
+        DateTimeOffset expectedCheckoutUtc =
+            new(
+                2026,
+                month,
+                15,
+                expectedUtcHour,
+                0,
+                0,
+                TimeSpan.Zero);
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        var handler =
+            new CompleteBookingCommandHandler(
+                new StubBookingRepository(
+                    booking),
+                new StubPropertyRepository(
+                    property),
+                unitOfWork,
+                new FixedClock(
+                    expectedCheckoutUtc));
+
+        Result result =
+            await handler.HandleAsync(
+                new CompleteBookingCommand(
+                    booking.Id),
+                cancellationToken);
+
+        Assert.True(
+            result.IsSuccess);
+
+        Assert.Equal(
+            BookingStatus.Completed,
+            booking.Status);
+
+        Assert.Equal(
+            expectedCheckoutUtc,
+            booking.CompletedAtUtc);
+
+        Assert.Equal(
+            1,
+            unitOfWork.SaveChangesCallCount);
+    }
+
     private static (
         Property Property,
         DomainBooking Booking)
