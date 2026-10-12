@@ -280,16 +280,15 @@ public sealed class OutboxNotificationJobIntegrationTests
     }
 
     private async Task<int> ExecuteOutboxJobAsync(
-        CancellationToken cancellationToken)
+    CancellationToken cancellationToken)
     {
         using IServiceScope scope =
             _factory.Services.CreateScope();
 
-        OutboxNotificationJob job =
+        IBackgroundJob job =
             scope.ServiceProvider
-                .GetServices<IBackgroundJob>()
-                .OfType<OutboxNotificationJob>()
-                .Single();
+                .GetRequiredKeyedService<IBackgroundJob>(
+                    BackgroundJobClaimKeys.OutboxNotification);
 
         return await job.ExecuteBatchAsync(
             batchSize: 10_000,

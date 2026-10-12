@@ -14,9 +14,17 @@ namespace Bookify.Services.Booking.Integration.Tests.BackgroundJobs;
 [Trait("Category", "Integration")]
 public sealed class BookingBackgroundWorkerTests
 {
+    private static readonly string[] JobKeys =
+    [
+        BackgroundJobClaimKeys.ApprovalExpiration,
+        BackgroundJobClaimKeys.PaymentExpiration,
+        BackgroundJobClaimKeys.BookingCompletion,
+        BackgroundJobClaimKeys.OutboxNotification,
+        BackgroundJobClaimKeys.PaymentDeadlineReminder,
+        BackgroundJobClaimKeys.UpcomingCheckInReminder
+    ];
+
     private readonly BookingApiFactory _factory;
-    private const string ConnectionStringVariable =
-    "ConnectionStrings__Database";
 
     public BookingBackgroundWorkerTests(
         BookingApiFactory factory)
@@ -25,14 +33,20 @@ public sealed class BookingBackgroundWorkerTests
     }
 
     [Fact]
-    public async Task Worker_WhenPollingContinues_ShouldCreateNewScopeForEachCycle()
+    public async Task Worker_WhenPollingContinues_ShouldCreateNewScopeForEachJobExecution()
     {
         CancellationToken cancellationToken =
             TestContext.Current.CancellationToken;
 
+        // Six jobs execute during the first cycle.
+        // Waiting for seven disposals proves that:
+        //
+        // 1. each job received its own scope;
+        // 2. the worker started another polling cycle.
         var probe =
             new CycleProbe(
-                requiredDisposals: 2);
+                requiredDisposals:
+                    JobKeys.Length + 1);
 
         WebApplicationFactory<Program> workerFactory =
             _factory.WithWebHostBuilder(
@@ -43,8 +57,8 @@ public sealed class BookingBackgroundWorkerTests
                         "true");
 
                     builder.UseSetting(
-                        "BackgroundJobs:PollingIntervalSeconds",
-                        "1");
+                        "BackgroundJobs:PollingInterval",
+                        "00:00:00.100");
 
                     builder.UseSetting(
                         "BackgroundJobs:BatchSize",
@@ -59,26 +73,23 @@ public sealed class BookingBackgroundWorkerTests
                             services.AddSingleton(
                                 probe);
 
-                            services.AddScoped<
-                                IBackgroundJob>(
-                                serviceProvider =>
-                                    new ScopedProbeBackgroundJob(
-                                        serviceProvider
-                                            .GetRequiredService<
-                                                CycleProbe>()));
+                            RegisterAllJobKeys<
+                                ScopedProbeBackgroundJob>(
+                                    services);
                         });
                 });
 
         try
         {
-            using HttpClient client = CreateWorkerClient(
-        workerFactory);
+            using HttpClient client =
+                workerFactory.CreateClient();
 
             await probe.WaitForRequiredDisposalsAsync(
                 cancellationToken);
 
             Assert.True(
-                probe.DistinctInstanceCount >= 2);
+                probe.DistinctInstanceCount >=
+                JobKeys.Length + 1);
 
             Assert.All(
                 probe.BatchSizes,
@@ -88,7 +99,8 @@ public sealed class BookingBackgroundWorkerTests
                         batchSize));
 
             Assert.True(
-                probe.DisposalCount >= 2);
+                probe.DisposalCount >=
+                JobKeys.Length + 1);
         }
         finally
         {
@@ -114,8 +126,8 @@ public sealed class BookingBackgroundWorkerTests
                         "true");
 
                     builder.UseSetting(
-                        "BackgroundJobs:PollingIntervalSeconds",
-                        "1");
+                        "BackgroundJobs:PollingInterval",
+                        "00:00:00.100");
 
                     builder.UseSetting(
                         "BackgroundJobs:BatchSize",
@@ -130,26 +142,48 @@ public sealed class BookingBackgroundWorkerTests
                             services.AddSingleton(
                                 probe);
 
-                            services.AddScoped<
-                                IBackgroundJob>(
-                                _ =>
-                                    new ThrowingBackgroundJob());
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                ThrowingBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .ApprovalExpiration);
 
-                            services.AddScoped<
-                                IBackgroundJob>(
-                                serviceProvider =>
-                                    new SuccessfulBackgroundJob(
-                                        serviceProvider
-                                            .GetRequiredService<
-                                                ExecutionProbe>()));
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                SuccessfulBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .PaymentExpiration);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .BookingCompletion);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .OutboxNotification);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .PaymentDeadlineReminder);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .UpcomingCheckInReminder);
                         });
                 });
 
         try
         {
             using HttpClient client =
-                 CreateWorkerClient(
-        workerFactory);
+                workerFactory.CreateClient();
 
             await probe.WaitForExecutionAsync(
                 cancellationToken);
@@ -181,8 +215,8 @@ public sealed class BookingBackgroundWorkerTests
                         "true");
 
                     builder.UseSetting(
-                        "BackgroundJobs:PollingIntervalSeconds",
-                        "10");
+                        "BackgroundJobs:PollingInterval",
+                        "00:00:10");
 
                     builder.UseSetting(
                         "BackgroundJobs:BatchSize",
@@ -197,20 +231,48 @@ public sealed class BookingBackgroundWorkerTests
                             services.AddSingleton(
                                 probe);
 
-                            services.AddScoped<
-                                IBackgroundJob>(
-                                serviceProvider =>
-                                    new BlockingBackgroundJob(
-                                        serviceProvider
-                                            .GetRequiredService<
-                                                CancellationProbe>()));
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                BlockingBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .ApprovalExpiration);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .PaymentExpiration);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .BookingCompletion);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .OutboxNotification);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .PaymentDeadlineReminder);
+
+                            services.AddKeyedScoped<
+                                IBackgroundJob,
+                                NoOpBackgroundJob>(
+                                BackgroundJobClaimKeys
+                                    .UpcomingCheckInReminder);
                         });
                 });
 
         try
         {
-            using HttpClient client = CreateWorkerClient(
-        workerFactory);
+            using HttpClient client =
+                workerFactory.CreateClient();
 
             await probe.WaitForStartAsync(
                 cancellationToken);
@@ -234,26 +296,16 @@ public sealed class BookingBackgroundWorkerTests
         }
     }
 
-    private HttpClient CreateWorkerClient(
-    WebApplicationFactory<Program> workerFactory)
+    private static void RegisterAllJobKeys<TJob>(
+        IServiceCollection services)
+        where TJob : class, IBackgroundJob
     {
-        string? previousConnectionString =
-            Environment.GetEnvironmentVariable(
-                ConnectionStringVariable);
-
-        Environment.SetEnvironmentVariable(
-            ConnectionStringVariable,
-            _factory.DatabaseConnectionString);
-
-        try
+        foreach (string jobKey in JobKeys)
         {
-            return workerFactory.CreateClient();
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(
-                ConnectionStringVariable,
-                previousConnectionString);
+            services.AddKeyedScoped<
+                IBackgroundJob,
+                TJob>(
+                jobKey);
         }
     }
 
@@ -323,7 +375,7 @@ public sealed class BookingBackgroundWorkerTests
             CancellationToken cancellationToken)
         {
             return _completed.Task.WaitAsync(
-                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(5),
                 cancellationToken);
         }
     }
@@ -431,6 +483,21 @@ public sealed class BookingBackgroundWorkerTests
 
             return Task.FromResult(
                 1);
+        }
+    }
+
+    private sealed class NoOpBackgroundJob
+        : IBackgroundJob
+    {
+        public Task<int> ExecuteBatchAsync(
+            int batchSize,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken
+                .ThrowIfCancellationRequested();
+
+            return Task.FromResult(
+                0);
         }
     }
 
