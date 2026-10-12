@@ -189,7 +189,7 @@ public sealed class OutboxNotificationJob : IBackgroundJob
         if (string.Equals(eventType, nameof(BookingCancelledDomainEvent),
             StringComparison.Ordinal))
         {
-            notificationType = default;
+            notificationType = BookingNotificationType.BookingCancelled;
 
             return true;
         }
