@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Api.Observability;
 using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
+using Bookify.Services.Booking.Application.Observability;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 
@@ -122,6 +123,8 @@ public sealed class BookingBackgroundWorker : BackgroundService
 
                 activity?.SetTag("bookify.job.processed_count", processedCount);
 
+                BookingMetrics.RecordJobProcessed(jobName, processedCount);
+
                 if (processedCount > 0)
                 {
                     _logger.LogInformation(
@@ -139,6 +142,8 @@ public sealed class BookingBackgroundWorker : BackgroundService
             catch (Exception exception)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, "Background job execution failed");
+
+                BookingMetrics.RecordJobFailed(jobName);
 
                 _logger.LogError(
                     ApiLogEvents.BackgroundJobFailed,
