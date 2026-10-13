@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings.Policies;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Bookings.Services;
 using Bookify.Services.Booking.Domain.Bookings.ValueObjects;
@@ -224,6 +225,8 @@ public sealed class CreateBookingCommandHandler : ICommandHandler<CreateBookingC
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+
+            BookingMetrics.RecordBookingCreated();
 
             string? guestAccessToken = booking.TakeGuestAccessToken();
 
