@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings;
 using Bookify.Services.Booking.Application.Bookings.ReadModels;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Shared;
 using System.Globalization;
@@ -81,10 +82,25 @@ public sealed class BookingNotificationService
             return Result<BookingNotificationDispatchOutcome>.Failure(messageResult.Error);
         }
 
-        Result deliveryResult = await _notificationSender.SendAsync(messageResult.Value, cancellationToken);
+        Result deliveryResult;
+        try
+        {
+            deliveryResult = await _notificationSender.SendAsync(messageResult.Value, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            BookingMetrics.RecordNotificationDelivery(notificationType.ToString(), "failed");
+            throw;
+        }
 
         if (deliveryResult.IsFailure)
         {
+            BookingMetrics.RecordNotificationDelivery(notificationType.ToString(), "failed");
+
             return Result<BookingNotificationDispatchOutcome>.Failure(deliveryResult.Error);
         }
 
@@ -93,6 +109,8 @@ public sealed class BookingNotificationService
             notificationType,
             _clock.UtcNow,
             cancellationToken);
+
+        BookingMetrics.RecordNotificationDelivery(notificationType.ToString(), "sent");
 
         return Result<BookingNotificationDispatchOutcome>.Success(BookingNotificationDispatchOutcome.Sent);
     }
