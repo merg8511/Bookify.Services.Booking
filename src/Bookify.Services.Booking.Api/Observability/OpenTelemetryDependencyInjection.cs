@@ -1,5 +1,5 @@
+using Bookify.Services.Booking.Application.Observability;
 using Npgsql;
-using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -10,7 +10,7 @@ internal static class OpenTelemetryDependencyInjection
 {
     private const string ServiceName = "Bookify.Services.Booking";
     private const string ApplicationActivitySource = "Bookify.Services.Booking";
-    private const string BackgroundJobsActivitySource = "Bookify.Services.Booking.Backgrounds";
+    private const string BackgroundJobsActivitySource = "Bookify.Services.Booking.BackgroundJobs";
 
     public static IServiceCollection AddBookifyOpenTelemetry(this IServiceCollection services)
     {
@@ -33,7 +33,10 @@ internal static class OpenTelemetryDependencyInjection
             })
             .WithMetrics(metrics =>
             {
-                metrics.AddRuntimeInstrumentation();
+                metrics
+                    .AddRuntimeInstrumentation()
+                    .AddAspNetCoreInstrumentation()
+                    .AddMeter(BookingMetrics.MeterName);
             });
 
         return services;
