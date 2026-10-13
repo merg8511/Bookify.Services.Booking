@@ -111,7 +111,7 @@ public sealed class BookingBackgroundWorker : BackgroundService
             string jobName = job.GetType().Name;
 
             using Activity? activity = JobActivitySource.StartActivity(
-                "backgroun_job.execute",
+                "background_job.execute",
                 ActivityKind.Internal);
 
             activity?.SetTag("bookify.job.name", jobName);
