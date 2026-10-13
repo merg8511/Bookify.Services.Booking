@@ -170,15 +170,27 @@ public sealed class BookingMetricsTests
     [Fact]
     public void RecordNotificationDelivery_ShouldRejectUnexpectedOutcome()
     {
+        const string notificationType =
+            "UnexpectedOutcomeTest";
+
         using var capture = new MetricCapture(
             "bookify.notifications.delivery");
 
         Assert.Throws<ArgumentOutOfRangeException>(
             () => BookingMetrics.RecordNotificationDelivery(
-                "BookingApproved",
+                notificationType,
                 "customer-123"));
 
-        Assert.Empty(capture.Measurements);
+        Assert.DoesNotContain(
+            capture.Measurements,
+            measurement =>
+                measurement.Tags.TryGetValue(
+                    "notification.type",
+                    out object? value) &&
+                string.Equals(
+                    value?.ToString(),
+                    notificationType,
+                    StringComparison.Ordinal));
     }
 
     [Fact]
