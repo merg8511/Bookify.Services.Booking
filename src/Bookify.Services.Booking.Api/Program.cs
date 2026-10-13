@@ -17,7 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Observability — Serilog
 // ==========================================
 builder.Services.AddBookifySerilog(builder.Configuration);
-builder.Services.AddBookifyOpenTelemetry();
+builder.Services.AddBookifyOpenTelemetry(builder.Configuration);
 
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
