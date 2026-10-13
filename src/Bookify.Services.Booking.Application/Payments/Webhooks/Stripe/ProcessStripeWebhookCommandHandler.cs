@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Payments.Reconciliation;
 using Bookify.Services.Booking.Domain.Payments;
@@ -133,6 +134,7 @@ public sealed class ProcessStripeWebhookCommandHandler
             if (preparation.Status == PaymentWebhookPreparationStatus.AlreadyProcessed)
             {
                 await transaction.CommitAsync(cancellationToken);
+                BookingMetrics.RecordDuplicateWebhook();
                 return Result.Success();
             }
 
@@ -264,10 +266,26 @@ public sealed class ProcessStripeWebhookCommandHandler
                     cancellationToken);
             }
 
-            return await CompleteProcessedAsync(
+            Result completedResult = await CompleteProcessedAsync(
                 transaction,
                 eventRecordId,
                 cancellationToken);
+
+            if (completedResult.IsSuccess)
+            {
+                switch (observedStatus)
+                {
+                    case PaymentGatewayStatus.Succeeded:
+                        BookingMetrics.RecordPaymentOutcome("succeeded");
+                        break;
+
+                    case PaymentGatewayStatus.Failed:
+                        BookingMetrics.RecordPaymentOutcome("failed");
+                        break;
+                }
+            }
+
+            return completedResult;
         }
         catch
         {
