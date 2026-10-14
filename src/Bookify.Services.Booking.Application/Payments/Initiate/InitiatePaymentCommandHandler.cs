@@ -3,6 +3,7 @@ using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Application.Payments.Reconciliation;
 using Bookify.Services.Booking.Domain.Bookings;
 using Bookify.Services.Booking.Domain.Bookings.Pricing;
@@ -173,6 +174,8 @@ public sealed class InitiatePaymentCommandHandler
 
                     await transaction.CommitAsync(cancellationToken);
 
+                    BookingMetrics.RecordPaymentTransition(paymentStatusBefore, payment.Status);
+
                     return Result<InitiatePaymentResponse>
                         .Success(ToResponse(payment, existingAttempt, existingSession.ClientSecret));
                 }
@@ -283,7 +286,7 @@ public sealed class InitiatePaymentCommandHandler
             }
 
             PaymentAttempt attempt = attemptResult.Value;
-
+            PaymentStatus newAttemptPaymentStatusBefore = payment.Status;
             Result newAttemptReconciliationResult = PaymentReconciler
                 .Reconcile(
                     payment,
@@ -301,8 +304,9 @@ public sealed class InitiatePaymentCommandHandler
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-
             await transaction.CommitAsync(cancellationToken);
+
+            BookingMetrics.RecordPaymentTransition(newAttemptPaymentStatusBefore, payment.Status);
 
             return Result<InitiatePaymentResponse>
                 .Success(

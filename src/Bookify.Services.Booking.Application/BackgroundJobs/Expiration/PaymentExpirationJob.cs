@@ -80,6 +80,8 @@ public sealed class PaymentExpirationJob : IBackgroundJob
 
                     if (result.IsFailure)
                     {
+                        BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.PaymentExpiration);
+
                         _logger.LogWarning(
                             ApplicationLogEvents.PaymentExpirationFailed,
                             "Could not expire payment for booking {BookingId}. ErrorCode: {ErrorCode}.",
@@ -98,10 +100,13 @@ public sealed class PaymentExpirationJob : IBackgroundJob
             }
             catch (Exception exception)
             {
+                BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.PaymentExpiration);
+
                 _logger.LogError(
                     ApplicationLogEvents.PaymentExpirationUnhandledException,
-                    exception,
-                    "Unexpected error expiring payment for booking {BookingId}.", bookingId);
+                    "Unexpected error expiring payment for booking {BookingId}. ExceptionType: {ExceptionType}",
+                    bookingId,
+                    exception.GetType().Name);
             }
         }
 

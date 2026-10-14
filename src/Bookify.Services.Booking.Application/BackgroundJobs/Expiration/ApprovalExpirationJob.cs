@@ -81,6 +81,8 @@ public sealed class ApprovalExpirationJob : IBackgroundJob
 
                     if (result.IsFailure)
                     {
+                        BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.ApprovalExpiration);
+
                         _logger.LogWarning(
                             ApplicationLogEvents.ApprovalExpirationFailed,
                             "Could not expire approval for booking {BookingId}. ErrorCode: {ErrorCode}.",
@@ -102,7 +104,9 @@ public sealed class ApprovalExpirationJob : IBackgroundJob
                 _logger.LogError(
                     ApplicationLogEvents.ApprovalExpirationUnhandledException,
                     exception,
-                    "Unexpected error expiring approval for booking {BookingId}.", bookingId);
+                    "Unexpected error expiring approval for booking {BookingId}. ExceptionType: {ExceptionType}",
+                    bookingId,
+                    exception.GetType().Name);
             }
         }
 

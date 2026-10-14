@@ -250,6 +250,8 @@ public sealed class ProcessStripeWebhookCommandHandler
                     cancellationToken);
             }
 
+            PaymentStatus paymentStatusBefore = payment.Status;
+
             Result reconciliationResult = PaymentReconciler.Reconcile(
                 payment,
                 attempt,
@@ -273,6 +275,8 @@ public sealed class ProcessStripeWebhookCommandHandler
 
             if (completedResult.IsSuccess)
             {
+                BookingMetrics.RecordPaymentTransition(paymentStatusBefore, payment.Status);
+
                 switch (observedStatus)
                 {
                     case PaymentGatewayStatus.Succeeded:

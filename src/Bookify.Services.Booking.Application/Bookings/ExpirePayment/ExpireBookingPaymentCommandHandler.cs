@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Domain.Bookings;
@@ -109,6 +110,8 @@ public sealed class ExpireBookingPaymentCommandHandler : ICommandHandler<ExpireB
                 return await ExpireAndCommitAsync(transaction, booking, nowUtc, cancellationToken);
             }
 
+            PaymentStatus paymentStatusBefore = payment.Status;
+
             Result<PaymentCancellationOutcome> paymentCancellationResult =
                 await _paymentCancellationCoordinator.EnsurePaymentCannotSucceedAsync(
                     payment,
@@ -127,10 +130,18 @@ public sealed class ExpireBookingPaymentCommandHandler : ICommandHandler<ExpireB
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
+                BookingMetrics.RecordPaymentTransition(paymentStatusBefore, payment.Status);
+
                 return Result.Success();
             }
 
-            return await ExpireAndCommitAsync(transaction, booking, nowUtc, cancellationToken);
+            return await ExpireAndCommitAsync(
+                transaction,
+                booking,
+                nowUtc,
+                cancellationToken,
+                payment,
+                paymentStatusBefore);
         }
         catch
         {
@@ -143,7 +154,9 @@ public sealed class ExpireBookingPaymentCommandHandler : ICommandHandler<ExpireB
         ITransaction transaction,
         DomainBooking booking,
         DateTimeOffset expiredAtUtc,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Payment? payment = null,
+        PaymentStatus? paymentStatusBefore = null)
     {
         Result expirationResult = booking.ExpirePayment(expiredAtUtc);
 
@@ -157,6 +170,11 @@ public sealed class ExpireBookingPaymentCommandHandler : ICommandHandler<ExpireB
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        if (payment is not null && paymentStatusBefore.HasValue)
+        {
+            BookingMetrics.RecordPaymentTransition(paymentStatusBefore.Value, payment.Status);
+        }
 
         return Result.Success();
     }

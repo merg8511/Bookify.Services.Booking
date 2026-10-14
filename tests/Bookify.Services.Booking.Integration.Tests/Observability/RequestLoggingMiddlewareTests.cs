@@ -1,5 +1,3 @@
-
-using System.Diagnostics;
 using Bookify.Services.Booking.Api.Observability;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -71,7 +69,7 @@ public sealed class RequestLoggingMiddlewareTests
 
         Assert.DoesNotContain(
             "123",
-            entry.Properties["RouteTemplate"]?.ToString(),StringComparison.Ordinal);
+            entry.Properties["RouteTemplate"]?.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -165,7 +163,12 @@ public sealed class RequestLoggingMiddlewareTests
 
         Assert.Equal(LogLevel.Error, entry.Level);
         Assert.Equal(2021, entry.EventId.Id);
-        Assert.Same(exception, entry.Exception);
+
+        Assert.Null(entry.Exception);
+
+        Assert.Equal(
+            nameof(InvalidOperationException),
+            entry.Properties["ExceptionType"]);
 
         Assert.Equal(
             500,
@@ -234,6 +237,60 @@ public sealed class RequestLoggingMiddlewareTests
 
         Assert.DoesNotContain(
             "secret-payment-value", serialized, StringComparison.Ordinal);
+    }
+
+
+    [Fact]
+    public async Task ExceptionContainingSecrets_ShouldNotExposeThemInLog()
+    {
+        const string secret = "sk_test_secret_do_not_log";
+        const string email = "private-guest@example.com";
+
+        var logger =
+            new CapturingLogger<RequestLoggingMiddleware>();
+
+        RequestDelegate next = _ =>
+            Task.FromException(
+                new InvalidOperationException(
+                    $"Provider failed. Token={secret}; email={email}"));
+
+        var middleware =
+            new RequestLoggingMiddleware(next, logger);
+
+        var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Post;
+        context.Request.Path = "/api/v1/bookings";
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => middleware.InvokeAsync(context));
+
+        CapturedLog entry = Assert.Single(logger.Entries);
+
+        Assert.Equal(2021, entry.EventId.Id);
+        Assert.Equal(LogLevel.Error, entry.Level);
+        Assert.Null(entry.Exception);
+
+        Assert.Equal(
+            nameof(InvalidOperationException),
+            entry.Properties["ExceptionType"]);
+
+        string serialized =
+            System.Text.Json.JsonSerializer.Serialize(
+                new
+                {
+                    entry.Message,
+                    entry.Properties
+                });
+
+        Assert.DoesNotContain(
+            secret,
+            serialized,
+            StringComparison.Ordinal);
+
+        Assert.DoesNotContain(
+            email,
+            serialized,
+            StringComparison.Ordinal);
     }
 
     private static Endpoint CreateEndpoint(string template)

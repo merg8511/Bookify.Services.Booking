@@ -73,8 +73,9 @@ public sealed class BookingBackgroundWorker : BackgroundService
             {
                 _logger.LogError(
                     ApiLogEvents.BackgroundWorkerCycleFailed,
-                    exception,
-                    "Unexpected error executing background work cycle.");
+                    "Unexpected error executing background work cycle. " +
+                    "ExceptionType: {ExceptionType}.",
+                    exception.GetType().Name);
             }
 
             try
@@ -147,9 +148,10 @@ public sealed class BookingBackgroundWorker : BackgroundService
 
                 _logger.LogError(
                     ApiLogEvents.BackgroundJobFailed,
-                    exception,
-                    "Background job {JobName} failed.",
-                    jobName);
+
+                    "Background job {JobName} failed. ExceptionType: {ExceptionType}.",
+                    jobName,
+                    exception.GetType().Name);
             }
         }
     }

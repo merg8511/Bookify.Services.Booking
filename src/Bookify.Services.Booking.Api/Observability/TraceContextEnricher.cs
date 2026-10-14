@@ -13,18 +13,18 @@ internal sealed class TraceContextEnricher : ILogEventEnricher
 
         Activity? activity = Activity.Current;
 
-        if(activity is null)
+        if (activity is null)
         {
             return;
         }
 
-        if(activity.TraceId != default)
+        if (activity.TraceId != default)
         {
             logEvent.AddPropertyIfAbsent(
                 propertyFactory.CreateProperty("TraceId", activity.TraceId.ToString()));
         }
 
-        if(activity.SpanId != default)
+        if (activity.SpanId != default)
         {
             logEvent.AddPropertyIfAbsent(
                 propertyFactory.CreateProperty("SpanId", activity.SpanId.ToString()));

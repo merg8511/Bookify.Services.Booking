@@ -34,27 +34,27 @@ internal sealed class RequestLoggingMiddleware
         catch (Exception exception)
         {
             double durationMs = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
-            string routeTemplate = GetRouteTemplate(httpContext);
 
             _logger.LogError(
                 ApiLogEvents.HttpRequestFailed,
-                exception,
                 "HTTP request failed. " +
                 "HttpMethod: {HttpMethod}. " +
                 "RouteTemplate: {RouteTemplate}. " +
                 "StatusCode: {StatusCode}. " +
-                "DurationMs: {DurationMs}",
+                "DurationMs: {DurationMs}. " +
+                "ExceptionType: {ExceptionType}",
                 httpContext.Request.Method,
-                routeTemplate,
+                GetRouteTemplate(httpContext),
                 StatusCodes.Status500InternalServerError,
-                durationMs);
+                durationMs,
+                exception.GetType().Name);
 
             throw;
         }
 
         double elapsedMs = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
         int statusCode = httpContext.Response.StatusCode;
-        string completedRouteTemplate = GetRouteTemplate(httpContext);
+        string routeTemplate = GetRouteTemplate(httpContext);
 
         if (statusCode >= StatusCodes.Status500InternalServerError)
         {
@@ -66,7 +66,7 @@ internal sealed class RequestLoggingMiddleware
                 "StatusCode: {StatusCode}. " +
                 "DurationMs: {DurationMs}",
                 httpContext.Request.Method,
-                completedRouteTemplate,
+                routeTemplate,
                 statusCode,
                 elapsedMs);
 
@@ -81,7 +81,7 @@ internal sealed class RequestLoggingMiddleware
             "StatusCode: {StatusCode}. " +
             "DurationMs: {DurationMs}",
             httpContext.Request.Method,
-            completedRouteTemplate,
+            routeTemplate,
             statusCode,
             elapsedMs);
     }

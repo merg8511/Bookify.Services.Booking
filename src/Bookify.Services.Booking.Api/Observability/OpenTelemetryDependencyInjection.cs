@@ -45,8 +45,8 @@ internal static class OpenTelemetryDependencyInjection
                 tracing
                     .AddSource(ApplicationActivitySource)
                     .AddSource(BackgroundJobsActivitySource)
-                    .AddAspNetCoreInstrumentation(options => { options.RecordException = true; })
-                    .AddHttpClientInstrumentation(options => { options.RecordException = true; })
+                    .AddAspNetCoreInstrumentation(options => { options.RecordException = false; })
+                    .AddHttpClientInstrumentation(options => { options.RecordException = false; })
                     .AddNpgsql();
 
                 if (tracingEndpoint is not null)

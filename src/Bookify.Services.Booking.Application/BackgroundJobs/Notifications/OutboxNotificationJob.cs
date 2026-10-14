@@ -101,11 +101,13 @@ public sealed class OutboxNotificationJob : IBackgroundJob
             }
             catch (Exception exception)
             {
+                BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.OutboxNotification);
+
                 _logger.LogError(
                     ApplicationLogEvents.OutboxMessageUnhandledException,
-                    exception,
-                    "Unexpected error processing outbox message {OutboxMessageId}.",
-                    message.Id);
+                    "Unexpected error processing outbox message {OutboxMessageId}. ExceptionType: {ExceptionType}",
+                    message.Id,
+                    exception.GetType().Name);
             }
         }
 
@@ -127,6 +129,8 @@ public sealed class OutboxNotificationJob : IBackgroundJob
 
         if (!TryMapNotificationType(message.EventType, out BookingNotificationType notificationType))
         {
+            BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.OutboxNotification);
+
             _logger.LogWarning(
                 ApplicationLogEvents.OutboxUnsupportedEventType,
                 "Outbox message {OutboxMessageId} has unsupported event type {EventType}.",
@@ -138,6 +142,8 @@ public sealed class OutboxNotificationJob : IBackgroundJob
 
         if (!TryGetBookingId(message.Payload, out Guid bookingId))
         {
+            BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.OutboxNotification);
+
             _logger.LogWarning(
                 ApplicationLogEvents.OutboxInvalidPayload,
                 "Outbox message {OutboxMessageId} contains an invalid booking payload.",
@@ -153,6 +159,8 @@ public sealed class OutboxNotificationJob : IBackgroundJob
         {
             if (deliveryResult.Error != BookingNotificationErrors.DeliveryDisabled)
             {
+                BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.OutboxNotification);
+
                 _logger.LogWarning(
                     ApplicationLogEvents.OutboxNotificationDeliveryFailed,
                     "Notification delivery failed for outbox message {OutboxMessageId}. ErrorCode: {ErrorCode}.",
