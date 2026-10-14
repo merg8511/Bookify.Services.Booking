@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Api.BackgroundJobs;
 using Bookify.Services.Booking.Api.Endpoints;
+using Bookify.Services.Booking.Api.ExceptionHandling;
 using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Api.Observability;
 using Bookify.Services.Booking.Api.RateLimiting;
@@ -18,6 +19,12 @@ var builder = WebApplication.CreateBuilder(args);
 // ==========================================
 builder.Services.AddBookifySerilog(builder.Configuration);
 builder.Services.AddBookifyOpenTelemetry(builder.Configuration);
+
+// ==========================================
+// Global Exception Handling
+// ==========================================
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -67,6 +74,7 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseExceptionHandler();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
 if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
