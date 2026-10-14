@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Api.Observability;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
@@ -87,7 +88,8 @@ internal sealed class BookifyCorsOptionsSetup : IConfigureOptions<CorsOptions>
                 .WithExposedHeaders(
                     BookingGuestAccessHeader.Name,
                     HeaderNames.Location,
-                    HeaderNames.RetryAfter)
+                    HeaderNames.RetryAfter,
+                    CorrelationIdMiddleware.HeaderName)
                 .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
         });
     }

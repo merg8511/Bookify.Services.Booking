@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Api.BackgroundJobs;
 using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.Idempotency;
+using Bookify.Services.Booking.Api.Observability;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Api.Security.Http;
@@ -11,6 +12,12 @@ using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ==========================================
+// Observability — Serilog
+// ==========================================
+builder.Services.AddBookifySerilog(builder.Configuration);
+builder.Services.AddBookifyOpenTelemetry(builder.Configuration);
 
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -59,6 +66,8 @@ var app = builder.Build();
 // ==========================================
 
 app.UseForwardedHeaders();
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
 
 if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
 {

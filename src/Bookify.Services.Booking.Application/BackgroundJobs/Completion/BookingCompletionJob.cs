@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Bookings.Complete;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Domain.Shared;
 using Microsoft.Extensions.Logging;
 
@@ -79,7 +80,9 @@ public sealed class BookingCompletionJob : IBackgroundJob
 
                     if (result.IsFailure)
                     {
-                        _logger.LogWarning("Could not complete booking {BookingId}. ErrorCode: {ErrorCode}.",
+                        _logger.LogWarning(
+                            ApplicationLogEvents.BookingCompletionFailed,
+                            "Could not complete booking {BookingId}. ErrorCode: {ErrorCode}.",
                             bookingId,
                             result.Error.Code);
 
@@ -96,6 +99,7 @@ public sealed class BookingCompletionJob : IBackgroundJob
             catch (Exception exception)
             {
                 _logger.LogError(
+                    ApplicationLogEvents.BookingCompletionUnhandledException,
                     exception,
                     "Unexpected error completing booking {BookingId}.",
                     bookingId);

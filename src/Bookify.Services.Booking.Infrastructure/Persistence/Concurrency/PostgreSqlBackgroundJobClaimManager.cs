@@ -1,5 +1,6 @@
 using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
+using Bookify.Services.Booking.Infrastructure.Observability;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using System.Buffers.Binary;
@@ -151,7 +152,8 @@ internal sealed class PostgreSqlBackgroundJobClaimManager : IBackgroundJobClaimM
                     if (!released)
                     {
                         _logger.LogWarning(
-                            "PostgreSQL advisory claim was not released because it was no longer held." +
+                            InfrastructureLogEvents.BackgroundJobClaimNotReleased,
+                            "PostgreSQL advisory claim was not released because it was no longer held. " +
                             "JobKey: {JobKey}. WorkItemId: {WorkItemId}.", _jobKey, _workItemId);
                     }
                 }
@@ -159,9 +161,12 @@ internal sealed class PostgreSqlBackgroundJobClaimManager : IBackgroundJobClaimM
             catch (Exception exception)
             {
                 _logger.LogWarning(
+                    InfrastructureLogEvents.BackgroundJobClaimReleaseFailed,
                     exception,
-                    "Failed to explicitly release PostgreSQL background job claim." +
-                    "JobKey: {JobKey}. WorkItemId: {WorkItemId}.", _jobKey, _workItemId);
+                    "Failed to explicitly release PostgreSQL background job claim. " +
+                    "JobKey: {JobKey}. WorkItemId: {WorkItemId}.",
+                    _jobKey,
+                    _workItemId);
             }
             finally
             {

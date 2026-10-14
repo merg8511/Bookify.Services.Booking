@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Notifications;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Application.Outbox;
 using Bookify.Services.Booking.Domain.Bookings.Events;
 using Bookify.Services.Booking.Domain.Shared;
@@ -101,6 +102,7 @@ public sealed class OutboxNotificationJob : IBackgroundJob
             catch (Exception exception)
             {
                 _logger.LogError(
+                    ApplicationLogEvents.OutboxMessageUnhandledException,
                     exception,
                     "Unexpected error processing outbox message {OutboxMessageId}.",
                     message.Id);
@@ -126,6 +128,7 @@ public sealed class OutboxNotificationJob : IBackgroundJob
         if (!TryMapNotificationType(message.EventType, out BookingNotificationType notificationType))
         {
             _logger.LogWarning(
+                ApplicationLogEvents.OutboxUnsupportedEventType,
                 "Outbox message {OutboxMessageId} has unsupported event type {EventType}.",
                 message.Id,
                 message.EventType);
@@ -136,6 +139,7 @@ public sealed class OutboxNotificationJob : IBackgroundJob
         if (!TryGetBookingId(message.Payload, out Guid bookingId))
         {
             _logger.LogWarning(
+                ApplicationLogEvents.OutboxInvalidPayload,
                 "Outbox message {OutboxMessageId} contains an invalid booking payload.",
                 message.Id);
 
@@ -150,6 +154,7 @@ public sealed class OutboxNotificationJob : IBackgroundJob
             if (deliveryResult.Error != BookingNotificationErrors.DeliveryDisabled)
             {
                 _logger.LogWarning(
+                    ApplicationLogEvents.OutboxNotificationDeliveryFailed,
                     "Notification delivery failed for outbox message {OutboxMessageId}. ErrorCode: {ErrorCode}.",
                     message.Id, deliveryResult.Error.Code);
             }
