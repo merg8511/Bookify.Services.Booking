@@ -87,6 +87,8 @@ public sealed class UpcomingCheckInReminderJob : IBackgroundJob
                     {
                         if (result.Error != BookingNotificationErrors.DeliveryDisabled)
                         {
+                            BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.UpcomingCheckInReminder);
+
                             _logger.LogWarning(
                                 ApplicationLogEvents.UpcomingCheckInReminderFailed,
                                 "Upcoming check-in reminder failed for booking {BookingId}. ErrorCode: {ErrorCode}.",
@@ -109,11 +111,14 @@ public sealed class UpcomingCheckInReminderJob : IBackgroundJob
             }
             catch (Exception exception)
             {
+                BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.UpcomingCheckInReminder);
+
                 _logger.LogError(
                     ApplicationLogEvents.UpcomingCheckInReminderUnhandledException,
-                    exception,
-                    "Unexpected error sending upcoming check-in reminder for booking {BookingId}.",
-                    bookingId);
+                    "Unexpected error sending upcoming check-in reminder for booking {BookingId}. " +
+                    "ExceptionType: {ExceptionType}",
+                    bookingId,
+                    exception.GetType().Name);
             }
         }
 

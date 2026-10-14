@@ -1,3 +1,5 @@
+using Bookify.Services.Booking.Application.Abstractions.BackgroundJobs;
+using Bookify.Services.Booking.Domain.Payments;
 using System.Diagnostics.Metrics;
 
 namespace Bookify.Services.Booking.Application.Observability;
@@ -42,6 +44,18 @@ public static class BookingMetrics
             "bookify.notifications.delivery",
             unit: "{attempt}",
             description: "Notification delivery attempts and their outcomes.");
+
+    private static readonly Counter<long> JobItemsFailed = Meter
+        .CreateCounter<long>(
+            "bookify.jobs.items.failed",
+            unit: "{attempt}",
+            description: "Failed individual background job processing attempts.");
+
+    private static readonly Counter<long> PaymentTransitions = Meter
+        .CreateCounter<long>(
+            "bookify.payments.transitions",
+            unit: "{transition}",
+            description: "Commited payment status transitions to Succeeded or Failed.");
 
     public static void RecordBookingCreated()
     {
@@ -107,5 +121,49 @@ public static class BookingMetrics
             1,
             new KeyValuePair<string, object?>("notification.type", notificationType),
             new KeyValuePair<string, object?>("delivery.outcome", outcome));
+    }
+
+    public static void RecordJobItemFailed(string jobKey)
+    {
+        if (jobKey is not (
+            BackgroundJobClaimKeys.ApprovalExpiration or
+            BackgroundJobClaimKeys.PaymentExpiration or
+            BackgroundJobClaimKeys.BookingCompletion or
+            BackgroundJobClaimKeys.OutboxNotification or
+            BackgroundJobClaimKeys.PaymentDeadlineReminder or
+            BackgroundJobClaimKeys.UpcomingCheckInReminder))
+        {
+            throw new ArgumentOutOfRangeException(nameof(jobKey), "Unsupported background job key.");
+        }
+
+        JobItemsFailed.Add(
+            1,
+            new KeyValuePair<string, object?>("job.key", jobKey));
+    }
+
+    public static void RecordPaymentTransition(
+        PaymentStatus previousStatus,
+        PaymentStatus currentStatus)
+    {
+        if (previousStatus == currentStatus)
+        {
+            return;
+        }
+
+        string? outcome = currentStatus switch
+        {
+            PaymentStatus.Succeeded => "succeeded",
+            PaymentStatus.Failed => "failed",
+            _ => null
+        };
+
+        if (outcome is null)
+        {
+            return;
+        }
+
+        PaymentTransitions.Add(
+            1,
+            new KeyValuePair<string, object?>("payment.status", outcome));
     }
 }

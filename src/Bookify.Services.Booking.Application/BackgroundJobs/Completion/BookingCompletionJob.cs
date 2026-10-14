@@ -80,6 +80,8 @@ public sealed class BookingCompletionJob : IBackgroundJob
 
                     if (result.IsFailure)
                     {
+                        BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.BookingCompletion);
+
                         _logger.LogWarning(
                             ApplicationLogEvents.BookingCompletionFailed,
                             "Could not complete booking {BookingId}. ErrorCode: {ErrorCode}.",
@@ -98,11 +100,13 @@ public sealed class BookingCompletionJob : IBackgroundJob
             }
             catch (Exception exception)
             {
+                BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.BookingCompletion);
+
                 _logger.LogError(
                     ApplicationLogEvents.BookingCompletionUnhandledException,
-                    exception,
-                    "Unexpected error completing booking {BookingId}.",
-                    bookingId);
+                    "Unexpected error completing booking {BookingId}. ExceptionType: {ExceptionType}",
+                    bookingId,
+                    exception.GetType().Name);
             }
         }
 

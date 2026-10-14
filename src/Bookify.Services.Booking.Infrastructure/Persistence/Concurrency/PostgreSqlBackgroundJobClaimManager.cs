@@ -162,11 +162,12 @@ internal sealed class PostgreSqlBackgroundJobClaimManager : IBackgroundJobClaimM
             {
                 _logger.LogWarning(
                     InfrastructureLogEvents.BackgroundJobClaimReleaseFailed,
-                    exception,
                     "Failed to explicitly release PostgreSQL background job claim. " +
-                    "JobKey: {JobKey}. WorkItemId: {WorkItemId}.",
+                    "JobKey: {JobKey}. WorkItemId: {WorkItemId}. " +
+                    "ExceptionType: {ExceptionType}.",
                     _jobKey,
-                    _workItemId);
+                    _workItemId,
+                    exception.GetType().Name);
             }
             finally
             {

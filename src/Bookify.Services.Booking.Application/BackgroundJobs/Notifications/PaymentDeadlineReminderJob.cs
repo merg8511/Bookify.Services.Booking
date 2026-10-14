@@ -86,6 +86,8 @@ public sealed class PaymentDeadlineReminderJob : IBackgroundJob
                     {
                         if (result.Error != BookingNotificationErrors.DeliveryDisabled)
                         {
+                            BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.PaymentDeadlineReminder);
+
                             _logger.LogWarning(
                                 ApplicationLogEvents.PaymentDeadlineReminderFailed,
                                 "Payment deadline reminder failed for booking {BookingId}. ErrorCode: {ErrorCode}.",
@@ -108,11 +110,14 @@ public sealed class PaymentDeadlineReminderJob : IBackgroundJob
             }
             catch (Exception exception)
             {
+                BookingMetrics.RecordJobItemFailed(BackgroundJobClaimKeys.PaymentDeadlineReminder);
+
                 _logger.LogError(
                     ApplicationLogEvents.PaymentdeadlineReminderUnhandledException,
-                    exception,
-                    "Unexpected error sending payment deadline reminder for booking {BookingId}.",
-                    bookingId);
+                    "Unexpected error sending payment deadline reminder for booking {BookingId}. " +
+                    "ExceptionType: {ExceptionType}",
+                    bookingId,
+                    exception.GetType().Name);
             }
         }
 
