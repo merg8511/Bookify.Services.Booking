@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Domain.Bookings;
@@ -97,6 +98,8 @@ public sealed class CancelBookingCommandHandler
                     cancellationToken);
             }
 
+            PaymentStatus paymentStatusBefore = payment.Status;
+
             Result<PaymentCancellationOutcome> paymentCancellationResult =
                 await _paymentCancellationCoordinator
                     .EnsurePaymentCannotSucceedAsync(payment, booking, cancellationToken);
@@ -114,6 +117,8 @@ public sealed class CancelBookingCommandHandler
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
+                BookingMetrics.RecordPaymentTransition(paymentStatusBefore, payment.Status);
+
                 return Result.Failure(
                     CancelBookingErrors.PaymentAlreadySucceeded(booking.Id));
             }
@@ -121,7 +126,9 @@ public sealed class CancelBookingCommandHandler
             return await CancelBookingAndCommitAsync(
                 transaction,
                 booking,
-                cancellationToken);
+                cancellationToken,
+                payment,
+                paymentStatusBefore);
         }
         catch
         {
@@ -133,7 +140,9 @@ public sealed class CancelBookingCommandHandler
     private async Task<Result> CancelBookingAndCommitAsync(
         ITransaction transaction,
         DomainBooking booking,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Payment? payment = null,
+        PaymentStatus? paymentStatusBefore = null)
     {
         Result cancellationResult = booking.Cancel(_clock.UtcNow);
 
@@ -146,8 +155,12 @@ public sealed class CancelBookingCommandHandler
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-
         await transaction.CommitAsync(cancellationToken);
+
+        if (payment is not null && paymentStatusBefore.HasValue)
+        {
+            BookingMetrics.RecordPaymentTransition(paymentStatusBefore.Value, payment.Status);
+        }
 
         return Result.Success();
     }

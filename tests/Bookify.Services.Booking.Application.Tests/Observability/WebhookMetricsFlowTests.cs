@@ -2,10 +2,8 @@ using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Application.Abstractions.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
-using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Application.Payments.Initiate;
-using Bookify.Services.Booking.Application.Payments.Webhooks;
 using Bookify.Services.Booking.Application.Payments.Webhooks.Stripe;
 using Bookify.Services.Booking.Application.Tests.Infrastructure;
 using Bookify.Services.Booking.Domain.Payments;
@@ -36,6 +34,7 @@ public sealed class WebhookMetricsFlowTests
                 "t=1,v1=test"),
             TestContext.Current.CancellationToken);
 
+        Assert.Empty(capture.PaymentTransitions);
         Assert.True(result.IsSuccess);
         Assert.Equal(1, capture.Duplicates);
         Assert.Empty(capture.PaymentStatuses);
@@ -57,6 +56,7 @@ public sealed class WebhookMetricsFlowTests
                 "t=1,v1=test"),
             TestContext.Current.CancellationToken);
 
+        Assert.Equal(expectedStatus, Assert.Single(capture.PaymentTransitions));
         Assert.True(result.IsSuccess);
         Assert.Equal(0, capture.Duplicates);
         Assert.Equal(expectedStatus, Assert.Single(capture.PaymentStatuses));
@@ -76,6 +76,7 @@ public sealed class WebhookMetricsFlowTests
                 "t=1,v1=invalid"),
             TestContext.Current.CancellationToken);
 
+        Assert.Empty(capture.PaymentTransitions);
         Assert.True(result.IsFailure);
         Assert.Equal(0, capture.Duplicates);
         Assert.Empty(capture.PaymentStatuses);
@@ -195,14 +196,21 @@ public sealed class WebhookMetricsFlowTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
+
     private sealed class WebhookMetricCapture : IDisposable
     {
         private readonly ConcurrentQueue<string> _statuses = new();
+        private readonly ConcurrentQueue<string> _transitions = new();
         private readonly MeterListener _listener;
         private int _duplicates;
 
         public int Duplicates => Volatile.Read(ref _duplicates);
-        public IReadOnlyList<string> PaymentStatuses => _statuses.ToArray();
+
+        public IReadOnlyList<string> PaymentStatuses =>
+            _statuses.ToArray();
+
+        public IReadOnlyList<string> PaymentTransitions =>
+            _transitions.ToArray();
 
         public WebhookMetricCapture()
         {
@@ -210,33 +218,56 @@ public sealed class WebhookMetricsFlowTests
             {
                 InstrumentPublished = (instrument, listener) =>
                 {
-                    if (instrument.Meter.Name == BookingMetrics.MeterName &&
-                        instrument.Name is "bookify.webhooks.duplicates" or
-                            "bookify.payments.outcomes")
+                    if (instrument.Meter.Name != BookingMetrics.MeterName)
+                    {
+                        return;
+                    }
+
+                    if (instrument.Name is
+                        "bookify.webhooks.duplicates" or
+                        "bookify.payments.outcomes" or
+                        "bookify.payments.transitions")
                     {
                         listener.EnableMeasurementEvents(instrument);
                     }
                 }
             };
 
-            _listener.SetMeasurementEventCallback<long>((instrument, count, tags, _) =>
-            {
-                if (instrument.Name == "bookify.webhooks.duplicates")
+            _listener.SetMeasurementEventCallback<long>(
+                (instrument, count, tags, _) =>
                 {
-                    Interlocked.Add(ref _duplicates, (int)count);
-                    return;
-                }
-                foreach (KeyValuePair<string, object?> tag in tags)
-                {
-                    if (tag.Key == "payment.status" && tag.Value is string value)
+                    if (instrument.Name == "bookify.webhooks.duplicates")
                     {
-                        _statuses.Enqueue(value);
+                        Interlocked.Add(ref _duplicates, (int)count);
+                        return;
                     }
-                }
-            });
+
+                    foreach (KeyValuePair<string, object?> tag in tags)
+                    {
+                        if (tag.Key != "payment.status" ||
+                            tag.Value is not string status)
+                        {
+                            continue;
+                        }
+
+                        if (instrument.Name == "bookify.payments.outcomes")
+                        {
+                            _statuses.Enqueue(status);
+                        }
+                        else if (instrument.Name ==
+                                 "bookify.payments.transitions")
+                        {
+                            _transitions.Enqueue(status);
+                        }
+                    }
+                });
+
             _listener.Start();
         }
 
-        public void Dispose() => _listener.Dispose();
+        public void Dispose()
+        {
+            _listener.Dispose();
+        }
     }
 }
