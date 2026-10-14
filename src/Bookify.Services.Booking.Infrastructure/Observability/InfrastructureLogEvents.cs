@@ -16,7 +16,7 @@ internal static class InfrastructureLogEvents
 
     // 3100-3199 — PostgreSQL coordination
     public static readonly EventId BackgroundJobClaimNotReleased =
-        new(3010, nameof(BackgroundJobClaimNotReleased));
+        new(3100, nameof(BackgroundJobClaimNotReleased));
 
     public static readonly EventId BackgroundJobClaimReleaseFailed =
         new(3101, nameof(BackgroundJobClaimReleaseFailed));
