@@ -134,11 +134,9 @@ public sealed class InitiatePaymentCommandHandler
                         existingSession.ExternalReference,
                         StringComparison.Ordinal))
                     {
-                        return await RollbackFailureAsync(
-                            transaction,
-                            PaymentGatewayErrors
-                                .IdempotencyResultMismatch,
-                            cancellationToken);
+                        throw new InvalidOperationException(
+                            "The payment provider returned a different external reference for an " +
+                            "existing idempotent payment attempt.");
                     }
 
                     DateTimeOffset observedAtUtc = _clock.UtcNow;

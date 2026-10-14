@@ -3,6 +3,9 @@
   <Folder Name="/docs/api/">
     <File Path="docs/api/rest-conventions.md" />
   </Folder>
+  <Folder Name="/docs/architecture/">
+    <File Path="docs/architecture/result-vs-exception.md" />
+  </Folder>
   <Folder Name="/docs/security/">
     <File Path="docs/security/endpoint-access-matrix.md" />
     <File Path="docs/security/guest-access.md" />

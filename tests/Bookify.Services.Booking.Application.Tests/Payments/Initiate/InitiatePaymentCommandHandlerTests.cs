@@ -406,25 +406,41 @@ public sealed class InitiatePaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WithSameIdempotencyKeyAndDifferentProviderReference_ShouldReturnFailure()
+    public async Task HandleAsync_WithSameIdempotencyKeyAndDifferentProviderReference_ShouldThrow()
     {
         // Arrange
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
 
-        DomainBooking booking = BookingTestFactory.CreatePendingPaymentBooking();
+        DomainBooking booking =
+            BookingTestFactory.CreatePendingPaymentBooking();
+
         Payment payment = CreatePayment(booking);
 
-        string operationKey = CreateExpectedOperationKey(booking.Id, "operation-001");
-        Result<PaymentAttempt> attemptResult = payment.AddAttempt(operationKey, "fake_external_original", UtcNow);
+        string operationKey = CreateExpectedOperationKey(
+            booking.Id,
+            "operation-001");
+
+        Result<PaymentAttempt> attemptResult =
+            payment.AddAttempt(
+                operationKey,
+                "fake_external_original",
+                UtcNow);
+
         Assert.True(attemptResult.IsSuccess);
 
-        var bookingRepository = new StubBookingRepository(booking);
-        var paymentRepository = new SpyPaymentRepository(payment);
-        var paymentGateway = new SpyPaymentGateway(
-            new CreatePaymentAttemptResponse(
-                "fake_external_different",
-                PaymentGatewayStatus.Pending,
-                "fake_external_different_client_secret"));
+        var bookingRepository =
+            new StubBookingRepository(booking);
+
+        var paymentRepository =
+            new SpyPaymentRepository(payment);
+
+        var paymentGateway =
+            new SpyPaymentGateway(
+                new CreatePaymentAttemptResponse(
+                    "fake_external_different",
+                    PaymentGatewayStatus.Pending,
+                    "fake_external_different_client_secret"));
 
         var unitOfWork = new SpyUnitOfWork();
 
@@ -434,15 +450,31 @@ public sealed class InitiatePaymentCommandHandlerTests
             paymentGateway,
             unitOfWork);
 
-        var command = new InitiatePaymentCommand(booking.Id, "operation-001");
+        var command = new InitiatePaymentCommand(
+            booking.Id,
+            "operation-001");
 
-        // Act
-        Result<InitiatePaymentResponse> result = await handler.HandleAsync(command, cancellationToken);
+        // Act & Assert
+        InvalidOperationException exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => handler.HandleAsync(
+                    command,
+                    cancellationToken));
 
-        // Assert
-        Assert.True(result.IsFailure);
-        Assert.Equal(PaymentGatewayErrors.IdempotencyResultMismatch, result.Error);
+        Assert.Equal(
+            "The payment provider returned a different external " +
+            "reference for an existing idempotent payment attempt.",
+            exception.Message);
+
         Assert.Single(payment.Attempts);
+
+        Assert.Equal(
+            "fake_external_original",
+            payment.Attempts.Single().ExternalReference);
+
+        Assert.Equal(
+            0,
+            unitOfWork.SaveChangesCallCount);
     }
 
     [Fact]
