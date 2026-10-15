@@ -6,6 +6,7 @@ using Bookify.Services.Booking.Api.Observability;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Api.Security.Http;
+using Bookify.Services.Booking.Api.Timeouts;
 using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Infrastructure;
@@ -25,6 +26,12 @@ builder.Services.AddBookifyOpenTelemetry(builder.Configuration);
 // ==========================================
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+// ==========================================
+// HTTP Request Timeouts
+// ==========================================
+builder.Services.AddBookifyRequestTimeouts(builder.Configuration);
+
 
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -88,6 +95,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 }
 
 app.UseRouting();
+app.UseRequestTimeouts();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors(BookifyCorsPolicies.TrustedFrontends);
 app.UseAuthentication();
