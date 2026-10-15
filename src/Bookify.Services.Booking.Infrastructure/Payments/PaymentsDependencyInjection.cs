@@ -46,6 +46,12 @@ public static class PaymentsDependencyInjection
                 options.HttpTimeoutSeconds is >= 1 and <= 60,
                 "Payments:Stripe:HttpTimeoutSeconds must be between 1 and 60.")
             .Validate(options =>
+                options.MaxTransientRetries is >= 0 and <= 2,
+                "Payments:Stripe:MaxTransientRetries must be between 0 and 2.")
+            .Validate(options =>
+                options.RetryBaseDelayMilliseconds is >= 1 and <= 1000,
+                "Payments:Stripe:RetryBaseDelayMilliseconds must be between 1 and 1000.")
+            .Validate(options =>
                 provider != PaymentProvider.Stripe || !string.IsNullOrWhiteSpace(options.SecretKey),
                 "Payments:Stripe:SecretKey is required when Stripe is the configured provider.")
             .Validate(options =>
@@ -104,7 +110,18 @@ public static class PaymentsDependencyInjection
 
         services.AddSingleton<PaymentIntentService>();
 
-        services.AddSingleton<StripePaymentGateway>();
+        services.AddSingleton<StripePaymentGateway>(
+            serviceProvider =>
+            {
+                StripePaymentOptions options = serviceProvider
+                    .GetRequiredService<IOptions<StripePaymentOptions>>()
+                    .Value;
+
+                return new StripePaymentGateway(
+                    serviceProvider.GetRequiredService<PaymentIntentService>(),
+                    options.MaxTransientRetries,
+                    options.RetryBaseDelayMilliseconds);
+            });
 
         services.AddSingleton<IPaymentGateway>(serviceProvider => serviceProvider.GetRequiredService<StripePaymentGateway>());
 
