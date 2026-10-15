@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
+using Bookify.Services.Booking.Api.Timeouts;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Domain.Shared;
@@ -14,6 +15,7 @@ namespace Bookify.Services.Booking.Api.Endpoints.Payments.Initiate;
 internal static class InitiatePaymentEndpoint
 {
     private const string IdempotencyHeaderName = "Idempotency-Key";
+
 
     public static void Map(RouteGroupBuilder paymentsGroup)
     {
@@ -33,8 +35,11 @@ internal static class InitiatePaymentEndpoint
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
-            .ProducesProblem(StatusCodes.Status500InternalServerError);
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout)
+            .WithRequestTimeout(BookifyRequestTimeoutPolicies.PaymentInitiation);
     }
+
 
     private static async Task<Results<Ok<InitiatePaymentResponse>, ProblemHttpResult>> HandleAsync(
         InitiatePaymentRequest request,
