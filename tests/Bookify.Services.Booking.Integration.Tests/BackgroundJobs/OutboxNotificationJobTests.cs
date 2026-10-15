@@ -97,7 +97,8 @@ public sealed class OutboxNotificationJobTests
                 """
                 UPDATE outbox_messages
                 SET processed_at_utc = CURRENT_TIMESTAMP
-                WHERE processed_at_utc IS NULL;
+                WHERE processed_at_utc IS NULL
+                  AND failed_at_utc IS NULL;
                 """,
                 cancellationToken:
                     cancellationToken));
