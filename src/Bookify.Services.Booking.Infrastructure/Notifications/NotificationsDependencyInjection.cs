@@ -19,8 +19,6 @@ public static class NotificationsDependencyInjection
         AddSmtp(services, configuration);
         AddReminders(services, configuration);
 
-
-
         return services;
     }
 
@@ -34,12 +32,12 @@ public static class NotificationsDependencyInjection
             .Validate(options => !options.Enabled || options.Port is >= 1 and <= 65535,
                 "Notifications:Smtp:Port must be between 1 and 65535.")
             .Validate(options => !options.Enabled || !string.IsNullOrWhiteSpace(options.FromName),
-                "Notifications:Smtp:FromName is requried when SMTP delivery is enabled.")
+                "Notifications:Smtp:FromName is required when SMTP delivery is enabled.")
             .Validate(options => !options.Enabled || (!string.IsNullOrWhiteSpace(options.FromAddress) &&
                 MailboxAddress.TryParse(options.FromAddress.Trim(), out _)),
                 "Notifications:Smtp:FromAddress must contain a valid email address.")
-            .Validate(options => !options.Enabled || options.TimeoutMilliseconds > 0,
-                "Notifications:Smtp:TimeouteMilliseconds must be greater than zero.")
+            .Validate(options => !options.Enabled || options.TimeoutMilliseconds is >= 1 and <= 300000,
+                "Notifications:Smtp:TimeoutMilliseconds must be between 1 and 300000 when SMTP delivery is enabled.")
             .Validate(options =>
             {
                 if (!options.Enabled)

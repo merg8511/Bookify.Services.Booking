@@ -13,6 +13,7 @@ namespace Bookify.Services.Booking.Infrastructure.Notifications.Smtp;
 
 internal sealed class SmtpBookingNotificationSender : IBookingNotificationSender
 {
+    private static readonly TimeSpan DisconnectTimeout = TimeSpan.FromSeconds(2);
     private readonly SmtpNotificationOptions _options;
     private readonly ILogger<SmtpBookingNotificationSender> _logger;
 
@@ -67,23 +68,29 @@ internal sealed class SmtpBookingNotificationSender : IBookingNotificationSender
             Timeout = _options.TimeoutMilliseconds
         };
 
+        using var deliveryTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        deliveryTimeout.CancelAfter(TimeSpan.FromMilliseconds(_options.TimeoutMilliseconds));
+
+        CancellationToken deliveryToken = deliveryTimeout.Token;
+
         try
         {
             await smtpClient.ConnectAsync(
                 _options.Host.Trim(),
                 _options.Port,
                 _options.Security,
-                cancellationToken);
+                deliveryToken);
 
             if (!string.IsNullOrWhiteSpace(_options.Username))
             {
                 await smtpClient.AuthenticateAsync(
                     _options.Username.Trim(),
                     _options.Password,
-                    cancellationToken);
+                    deliveryToken);
             }
 
-            await smtpClient.SendAsync(email, cancellationToken);
+            await smtpClient.SendAsync(email, deliveryToken);
 
             _logger.LogInformation(
                 InfrastructureLogEvents.SmtpNotificationAccepted,
@@ -95,6 +102,10 @@ internal sealed class SmtpBookingNotificationSender : IBookingNotificationSender
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
+        }
+        catch (OperationCanceledException) when (deliveryTimeout.IsCancellationRequested)
+        {
+            return HandleDeliveryTimeout(message);
         }
         catch (OperationCanceledException exception)
         {
@@ -108,21 +119,32 @@ internal sealed class SmtpBookingNotificationSender : IBookingNotificationSender
         {
             if (smtpClient.IsConnected)
             {
+                using var disconnectTimeout = new CancellationTokenSource(DisconnectTimeout);
+
                 try
                 {
-                    await smtpClient.DisconnectAsync(quit: true, CancellationToken.None);
+                    await smtpClient.DisconnectAsync(quit: true, disconnectTimeout.Token);
                 }
                 catch (Exception exception)
                 {
                     _logger.LogWarning(
                         InfrastructureLogEvents.SmtpDisconnectFailed,
-                        exception,
                         "SMTP disconnect failed after processing booking notification {BookingId}. ExceptionType: {ExceptionType}.",
                         message.BookingId,
                         exception.GetType().Name);
                 }
             }
         }
+    }
+
+    private Result HandleDeliveryTimeout(BookingNotificationMessage message)
+    {
+        _logger.LogWarning(
+            InfrastructureLogEvents.SmtpNotificationDeliveryFailed,
+            "SMTP delivery exceeded the configured timeout for booking {BookingId}.",
+            message.BookingId);
+
+        return Result.Failure(BookingNotificationErrors.DeliveryFailed(message.BookingId));
     }
 
     private Result HandleDeliveryFailure(
