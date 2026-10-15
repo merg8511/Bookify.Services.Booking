@@ -46,6 +46,15 @@ internal static class ApplicationLogEvents
     public static readonly EventId OutboxNotificationDeliveryFailed =
         new(1203, nameof(OutboxNotificationDeliveryFailed));
 
+    public static readonly EventId OutboxRetryScheduled =
+        new(1204, nameof(OutboxRetryScheduled));
+
+    public static readonly EventId OutboxDeadLettered =
+        new(1205, nameof(OutboxDeadLettered));
+
+    public static readonly EventId OutboxDeliveryDeferred =
+        new(1206, nameof(OutboxDeliveryDeferred));
+
     public static readonly EventId PaymentDeadlineReminderFailed =
         new(1210, nameof(PaymentDeadlineReminderFailed));
 

@@ -55,6 +55,19 @@ public static class DependencyInjection
 
         DapperTypeHandlers.Register();
 
+        services
+            .AddOptions<OutboxRetryOptions>()
+            .Bind(configuration.GetSection(OutboxRetryOptions.SectionName))
+            .Validate(options =>
+                    options.MaxAttempts is >= 1 and <= 20 &&
+                    options.BaseDelay > TimeSpan.Zero &&
+                    options.MaxDelay >= options.BaseDelay &&
+                    options.MaxDelay <= TimeSpan.FromDays(1) &&
+                    options.DisabledDelay > TimeSpan.Zero &&
+                    options.DisabledDelay <= TimeSpan.FromDays(1),
+                "OutboxRetry configuration contains invalid values.")
+            .ValidateOnStart();
+
         // ==========================================
         // PostgreSQL Timeouts 
         // ==========================================
