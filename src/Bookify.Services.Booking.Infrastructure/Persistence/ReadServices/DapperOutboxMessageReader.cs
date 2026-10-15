@@ -16,6 +16,12 @@ internal sealed class DapperOutboxMessageReader : IOutboxMessageReader
             created_at_utc AS "CreatedAtUtc"
         FROM outbox_messages
         WHERE processed_at_utc IS NULL
+            AND failed_at_utc IS NULL
+            AND
+            (
+                next_attempt_at_utc IS NULL
+                OR next_attempt_at_utc <= CURRENT_TIMESTAMP
+            )
         ORDER BY
             created_at_utc,
             id

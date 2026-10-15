@@ -1,5 +1,7 @@
+using Bookify.Services.Booking.Application.Outbox;
 using Bookify.Services.Booking.Domain.Bookings.Events;
 using Bookify.Services.Booking.Domain.Shared.DomainEvents;
+using MimeKit.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -36,6 +38,10 @@ internal sealed class OutboxMessage
     public string Payload { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? ProcessedAtUtc { get; private set; }
+    public int AttemptCount { get; private set; }
+    public DateTimeOffset? NextAttemptAtUtc { get; private set; }
+    public DateTimeOffset? FailedAtUtc { get; private set; }
+    public string? LastFailureCode { get; private set; }
 
     public static OutboxMessage FromDomainEvent(
         IDomainEvent domainEvent,
@@ -72,6 +78,8 @@ internal sealed class OutboxMessage
             return;
         }
 
+        EnsureNotDeadLettered();
+
         DateTimeOffset normalizedProcessedAtUtc = processedAtUtc.ToUniversalTime();
 
         if (normalizedProcessedAtUtc < CreatedAtUtc)
@@ -80,6 +88,84 @@ internal sealed class OutboxMessage
         }
 
         ProcessedAtUtc = normalizedProcessedAtUtc;
+        NextAttemptAtUtc = null;
+        LastFailureCode = null;
     }
 
+    public OutboxFailureOutcome RecordFailure(
+        DateTimeOffset failedAtUtc,
+        string failureCode,
+        int maxAttempts,
+        TimeSpan baseDelay,
+        TimeSpan maxDelay,
+        bool isPermanent)
+    {
+        EnsurePending();
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(failureCode);
+
+        if (failureCode.Length > 128)
+        {
+            throw new ArgumentOutOfRangeException(nameof(failureCode));
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxAttempts);
+
+        if (baseDelay <= TimeSpan.Zero || maxDelay < baseDelay)
+        {
+            throw new ArgumentOutOfRangeException(nameof(baseDelay));
+        }
+
+        DateTimeOffset now = failedAtUtc.ToUniversalTime();
+        AttemptCount++;
+        LastFailureCode = failureCode;
+
+        if (isPermanent || AttemptCount >= maxAttempts)
+        {
+            FailedAtUtc = now;
+            NextAttemptAtUtc = null;
+
+            return new OutboxFailureOutcome(
+                AttemptCount,
+                IsDeadLettered: true,
+                NextAttemptAtUtc: null);
+        }
+
+        double delayMilliseconds = Math.Min(
+            maxDelay.TotalMilliseconds,
+            baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(AttemptCount - 1, 20)));
+
+        NextAttemptAtUtc = now.Add(TimeSpan.FromMilliseconds(delayMilliseconds));
+
+        return new OutboxFailureOutcome(
+            AttemptCount,
+            IsDeadLettered: false,
+            NextAttemptAtUtc);
+    }
+
+    public void Defer(DateTimeOffset nextAttemptAtUtc)
+    {
+        EnsurePending();
+        NextAttemptAtUtc = nextAttemptAtUtc.ToUniversalTime();
+    }
+
+    private void EnsurePending()
+    {
+        if (ProcessedAtUtc is not null)
+        {
+            throw new InvalidOperationException(
+                "A processed outbox message cannot be retried.");
+        }
+
+        EnsureNotDeadLettered();
+    }
+
+    private void EnsureNotDeadLettered()
+    {
+        if (FailedAtUtc is not null)
+        {
+            throw new InvalidOperationException(
+                "A dead-lettered outbox message cannot be processed automatically.");
+        }
+    }
 }
