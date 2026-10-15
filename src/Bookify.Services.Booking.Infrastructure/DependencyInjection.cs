@@ -32,6 +32,7 @@ using Bookify.Services.Booking.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 namespace Bookify.Services.Booking.Infrastructure;
@@ -55,17 +56,48 @@ public static class DependencyInjection
         DapperTypeHandlers.Register();
 
         // ==========================================
+        // PostgreSQL Timeouts 
+        // ==========================================
+        services
+            .AddOptions<PostgreSqlTimeoutOptions>()
+            .Bind(configuration.GetSection(PostgreSqlTimeoutOptions.SectionName))
+            .Validate(options =>
+                        options.ConnectionTimeoutSeconds is >= 1 and <= 60 &&
+                        options.CommandTimeoutSeconds is >= 1 and <= 300,
+                        "PostgreSql timeout values are invalid. " +
+                        "ConnectionTimeoutSeconds must be between 1 and 60. " +
+                        "CommandTimeoutSeconds must be between 1 and 300.")
+            .ValidateOnStart();
+
+        // ==========================================
         // Database Core Setup
         // ==========================================
         services.AddSingleton<NpgsqlDataSource>(
-            _ => NpgsqlDataSource.Create(connectionString));
+            serviceProvider =>
+            {
+                PostgreSqlTimeoutOptions timeoutOptions = serviceProvider
+                    .GetRequiredService<IOptions<PostgreSqlTimeoutOptions>>().Value;
+
+                var connectionStringBuilder = new NpgsqlConnectionStringBuilder(connectionString)
+                {
+                    Timeout = timeoutOptions.ConnectionTimeoutSeconds,
+                    CommandTimeout = timeoutOptions.CommandTimeoutSeconds
+                };
+
+                return NpgsqlDataSource.Create(connectionStringBuilder.ConnectionString);
+            });
 
         services.AddDbContext<BookingDbContext>((serviceProvider, options) =>
             {
-                NpgsqlDataSource dataSource = serviceProvider
-                    .GetRequiredService<NpgsqlDataSource>();
+                NpgsqlDataSource dataSource = serviceProvider.GetRequiredService<NpgsqlDataSource>();
 
-                options.UseNpgsql(dataSource);
+                PostgreSqlTimeoutOptions timeoutOptions = serviceProvider
+                    .GetRequiredService<IOptions<PostgreSqlTimeoutOptions>>().Value;
+
+                options.UseNpgsql(
+                    dataSource,
+                    npgsqlOptions => npgsqlOptions.CommandTimeout(timeoutOptions.CommandTimeoutSeconds));
+
                 options.EnableSensitiveDataLogging(false);
             });
 
@@ -127,7 +159,9 @@ public static class DependencyInjection
             IPaymentWebhookEventStore,
             EfCorePaymentWebhookEventStore>();
 
-        services.AddScoped<IOutboxMessageStore, EfCoreOutboxMessageStore>();
+        services.AddScoped<
+            IOutboxMessageStore,
+            EfCoreOutboxMessageStore>();
 
         // ==========================================
         // Repositories (Write Side)
