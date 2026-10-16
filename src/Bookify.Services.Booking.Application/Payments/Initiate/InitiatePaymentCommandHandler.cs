@@ -6,7 +6,6 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Observability;
 using Bookify.Services.Booking.Application.Payments.Reconciliation;
 using Bookify.Services.Booking.Domain.Bookings;
-using Bookify.Services.Booking.Domain.Bookings.Pricing;
 using Bookify.Services.Booking.Domain.Payments;
 using Bookify.Services.Booking.Domain.Payments.Errors;
 using Bookify.Services.Booking.Domain.Shared;
@@ -20,7 +19,7 @@ namespace Bookify.Services.Booking.Application.Payments.Initiate;
 public sealed class InitiatePaymentCommandHandler
     : ICommandHandler<InitiatePaymentCommand, InitiatePaymentResponse>
 {
-    private static readonly TimeSpan SessionRecoveryWindow = TimeSpan.FromHours(23);
+    private static readonly TimeSpan RecoveryWindow = TimeSpan.FromHours(23);
     private readonly IBookingRepository _bookingRepository;
     private readonly IPaymentRepository _paymentRepository;
     private readonly IPaymentGateway _paymentGateway;
@@ -53,257 +52,433 @@ public sealed class InitiatePaymentCommandHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        string incomingIdempotencyKey = command.IdempotencyKey?.Trim() ?? string.Empty;
+        string incomingKey = command.IdempotencyKey?.Trim() ?? string.Empty;
 
-        if (string.IsNullOrWhiteSpace(incomingIdempotencyKey))
+        if (string.IsNullOrWhiteSpace(incomingKey))
         {
-            return Result<InitiatePaymentResponse>
-                .Failure(InitiatePaymentErrors.IdempotencyKeyRequired);
+            return Result<InitiatePaymentResponse>.Failure(
+                InitiatePaymentErrors.IdempotencyKeyRequired);
         }
 
-        await using ITransaction transaction = await _transactionManager.BeginAsync(cancellationToken);
+        string operationKey = CreateOperationKey(command.BookingId, incomingKey);
+
+        Payment? reservedPayment = null;
+
+        // PHASE 1:
+        // Commit the provider operation identity BEFORE the call.
+        await using (ITransaction preparation = await _transactionManager.BeginAsync(cancellationToken))
+        {
+            try
+            {
+                bool locked = await _paymentInitiationLock.TryAcquireAsync(
+                        command.BookingId,
+                        cancellationToken);
+
+                if (!locked)
+                {
+                    return await RollbackFailureAsync(
+                        preparation,
+                        InitiatePaymentErrors.BookingNotFound(command.BookingId),
+                        cancellationToken);
+                }
+
+                DomainBooking? booking = await _bookingRepository.GetByIdAsync(
+                        command.BookingId,
+                        cancellationToken);
+
+                if (booking is null)
+                {
+                    return await RollbackFailureAsync(
+                        preparation,
+                        InitiatePaymentErrors.BookingNotFound(command.BookingId),
+                        cancellationToken);
+                }
+
+                Payment? payment = await _paymentRepository.GetByBookingIdAsync(
+                        booking.Id,
+                        cancellationToken);
+
+                if (payment is not null)
+                {
+                    PaymentAttempt? existingAttempt = FindAttempt(payment, operationKey);
+
+                    if (existingAttempt is not null)
+                    {
+                        if (HasRecoveryWindowExpired(existingAttempt.CreatedAtUtc))
+                        {
+                            return await RollbackFailureAsync(
+                                preparation,
+                                InitiatePaymentErrors.SessionRecoveryWindowExpired,
+                                cancellationToken);
+                        }
+
+                        Result<CreatePaymentAttemptResponse> session =
+                            await _paymentGateway.CreatePaymentAttemptAsync(
+                                    new CreatePaymentAttemptRequest(
+                                        booking.Id,
+                                        payment.Amount,
+                                        operationKey),
+                                    cancellationToken);
+
+                        if (session.IsFailure)
+                        {
+                            return await RollbackFailureAsync(
+                                preparation,
+                                session.Error,
+                                cancellationToken);
+                        }
+
+                        return await ReconcileExistingAsync(
+                            preparation,
+                            booking,
+                            payment,
+                            existingAttempt,
+                            session.Value,
+                            cancellationToken);
+                    }
+                }
+
+                if (booking.Status != BookingStatus.PendingPayment)
+                {
+                    return await RollbackFailureAsync(preparation,
+                        InitiatePaymentErrors.BookingNotPendingPayment(booking.Status),
+                        cancellationToken);
+                }
+
+                if (payment is not null)
+                {
+                    if (payment.Status == PaymentStatus.Succeeded)
+                    {
+                        return await RollbackFailureAsync(
+                            preparation,
+                            InitiatePaymentErrors.PaymentAlreadySucceeded,
+                            cancellationToken);
+                    }
+
+                    if (payment.Attempts.Any(attempt =>
+                        attempt.Status == PaymentAttemptStatus.Pending))
+                    {
+                        return await RollbackFailureAsync(
+                            preparation,
+                            PaymentErrors.ActiveAttemptAlreadyExists,
+                            cancellationToken);
+                    }
+
+                    if (payment.PendingInitiationKey is not null)
+                    {
+                        if (!string.Equals(
+                            payment.PendingInitiationKey,
+                            operationKey,
+                            StringComparison.Ordinal))
+                        {
+                            return await RollbackFailureAsync(
+                                preparation,
+                                InitiatePaymentErrors.PaymentOutcomeUncertain,
+                                cancellationToken);
+                        }
+
+                        DateTimeOffset reservedAt = payment.PendingInitiationCreatedAtUtc ??
+                            throw new InvalidOperationException(
+                                "An initiation reservation requires a date.");
+
+                        if (HasRecoveryWindowExpired(reservedAt))
+                        {
+                            return await RollbackFailureAsync(
+                                preparation,
+                                InitiatePaymentErrors.SessionRecoveryWindowExpired,
+                                cancellationToken);
+                        }
+
+                        // Same key: recover the durable operation.
+                        // Do not generate a new key or change the amount.
+                    }
+                    else if (payment.Attempts.Count == 0)
+                    {
+                        // Fail closed for historical Payments created
+                        // before the durable reservation was introduced.
+                        return await RollbackFailureAsync(
+                            preparation,
+                            InitiatePaymentErrors.PaymentOutcomeUncertain,
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        // A new operation is allowed only after
+                        // all previous attempts are non-pending.
+                        payment.ReserveInitiation(operationKey, _clock.UtcNow);
+
+                        await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    }
+                }
+                else
+                {
+                    if (booking.PriceSnapshot is null)
+                    {
+                        return await RollbackFailureAsync(
+                            preparation,
+                            InitiatePaymentErrors.PriceSnapshotMissing(booking.Id),
+                            cancellationToken);
+                    }
+
+                    Result<Payment> paymentResult = Payment.Create(
+                        booking.Id,
+                        booking.PriceSnapshot.TotalPrice,
+                        _clock.UtcNow);
+
+                    if (paymentResult.IsFailure)
+                    {
+                        return await RollbackFailureAsync(
+                            preparation,
+                            paymentResult.Error,
+                            cancellationToken);
+                    }
+
+                    payment = paymentResult.Value;
+
+                    payment.ReserveInitiation(operationKey, _clock.UtcNow);
+
+                    _paymentRepository.Add(payment);
+
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                }
+
+                reservedPayment = payment;
+
+                // After this commit, the operation identity survives
+                // a crash or network timeout.
+                await preparation.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await preparation.RollbackAsync(CancellationToken.None);
+                throw;
+            }
+        }
+
+        Payment activePayment = reservedPayment ??
+            throw new InvalidOperationException(
+                "Payment initiation was not reserved.");
+
+        // PHASE 2:
+        // The external call executes OUTSIDE a database transaction.
+        // Retries inside StripePaymentGateway must preserve this key.
+        Result<CreatePaymentAttemptResponse> gatewayResult = await _paymentGateway.CreatePaymentAttemptAsync(
+                new CreatePaymentAttemptRequest(
+                    command.BookingId,
+                    activePayment.Amount,
+                    operationKey),
+                cancellationToken);
+
+        if (gatewayResult.IsFailure)
+        {
+            // Never erase the reservation on an uncertain result.
+            return Result<InitiatePaymentResponse>.Failure(gatewayResult.Error);
+        }
+
+        // PHASE 3:
+        // Reacquire the booking lock and persist the provider reference.
+        await using ITransaction completion = await _transactionManager.BeginAsync(cancellationToken);
 
         try
         {
-            bool bookingLocked = await _paymentInitiationLock
-                    .TryAcquireAsync(command.BookingId, cancellationToken);
+            bool locked =
+                await _paymentInitiationLock.TryAcquireAsync(
+                    command.BookingId,
+                    cancellationToken);
 
-            if (!bookingLocked)
+            if (!locked)
             {
-                return await RollbackFailureAsync(
-                    transaction,
-                    InitiatePaymentErrors.BookingNotFound(command.BookingId),
+                throw new InvalidOperationException("The reserved booking could not be locked.");
+            }
+
+            DomainBooking booking = await _bookingRepository.GetByIdAsync(
+                    command.BookingId,
+                    cancellationToken) ??
+                throw new InvalidOperationException("The reserved booking could not be found.");
+
+            Payment payment =
+                await _paymentRepository.GetByBookingIdAsync(
+                    command.BookingId,
+                    cancellationToken) ??
+                throw new InvalidOperationException("The reserved payment could not be found.");
+
+            PaymentAttempt? existingAttempt = FindAttempt(payment, operationKey);
+
+            if (existingAttempt is not null)
+            {
+                // A concurrent request might have completed
+                // the same provider operation first.
+                return await ReconcileExistingAsync(
+                    completion,
+                    booking,
+                    payment,
+                    existingAttempt,
+                    gatewayResult.Value,
                     cancellationToken);
             }
 
-            DomainBooking? booking = await _bookingRepository.GetByIdAsync(command.BookingId, cancellationToken);
-
-            if (booking is null)
+            if (!string.Equals(
+                payment.PendingInitiationKey,
+                operationKey,
+                StringComparison.Ordinal))
             {
-                return await RollbackFailureAsync(transaction, InitiatePaymentErrors
-                        .BookingNotFound(command.BookingId), cancellationToken);
-            }
-
-            string operationKey = CreateOperationKey(booking.Id, incomingIdempotencyKey);
-
-            Payment? payment = await _paymentRepository.GetByBookingIdAsync(booking.Id, cancellationToken);
-
-            if (payment is not null)
-            {
-                PaymentAttempt? existingAttempt = payment.Attempts
-                    .FirstOrDefault(attempt =>
-                        string.Equals(attempt.IdempotencyKey, operationKey, StringComparison.Ordinal));
-
-                if (existingAttempt is not null)
-                {
-                    if (_clock.UtcNow >= existingAttempt.CreatedAtUtc.Add(SessionRecoveryWindow))
-                    {
-                        return await RollbackFailureAsync(
-                            transaction,
-                            InitiatePaymentErrors.SessionRecoveryWindowExpired,
-                            cancellationToken);
-                    }
-
-                    Result<CreatePaymentAttemptResponse> existingSessionResult = await _paymentGateway.CreatePaymentAttemptAsync(
-                            new CreatePaymentAttemptRequest(booking.Id, payment.Amount, operationKey),
-                            cancellationToken);
-
-                    if (existingSessionResult.IsFailure)
-                    {
-                        return await RollbackFailureAsync(
-                            transaction,
-                            existingSessionResult.Error,
-                            cancellationToken);
-                    }
-
-                    CreatePaymentAttemptResponse existingSession = existingSessionResult.Value;
-
-                    if (!string.Equals(
-                        existingAttempt.ExternalReference,
-                        existingSession.ExternalReference,
-                        StringComparison.Ordinal))
-                    {
-                        throw new InvalidOperationException(
-                            "The payment provider returned a different external reference for an " +
-                            "existing idempotent payment attempt.");
-                    }
-
-                    DateTimeOffset observedAtUtc = _clock.UtcNow;
-                    PaymentStatus paymentStatusBefore = payment.Status;
-                    PaymentAttemptStatus attemptStatusBefore = existingAttempt.Status;
-                    BookingStatus bookingStatusBefore = booking.Status;
-
-                    Result existingAttemptReconciliationResult = PaymentReconciler
-                        .Reconcile(
-                            payment,
-                            existingAttempt,
-                            booking,
-                            existingSession.Status,
-                            observedAtUtc);
-
-                    if (existingAttemptReconciliationResult.IsFailure)
-                    {
-                        return await RollbackFailureAsync(
-                            transaction,
-                            existingAttemptReconciliationResult.Error,
-                            cancellationToken);
-                    }
-
-                    bool reconciliationChangedState =
-                        payment.Status != paymentStatusBefore ||
-                        existingAttempt.Status != attemptStatusBefore ||
-                        booking.Status != bookingStatusBefore;
-
-                    if (reconciliationChangedState)
-                    {
-                        await _unitOfWork.SaveChangesAsync(cancellationToken);
-                    }
-
-                    await transaction.CommitAsync(cancellationToken);
-
-                    BookingMetrics.RecordPaymentTransition(paymentStatusBefore, payment.Status);
-
-                    return Result<InitiatePaymentResponse>
-                        .Success(ToResponse(payment, existingAttempt, existingSession.ClientSecret));
-                }
-
-                if (payment.Attempts.Count == 0)
-                {
-                    return await RollbackFailureAsync(
-                        transaction,
-                        InitiatePaymentErrors.PaymentOutcomeUncertain,
-                        cancellationToken);
-                }
+                return await RollbackFailureAsync(
+                    completion,
+                    InitiatePaymentErrors.PaymentOutcomeUncertain,
+                    cancellationToken);
             }
 
             if (booking.Status != BookingStatus.PendingPayment)
             {
                 return await RollbackFailureAsync(
-                    transaction,
-                    InitiatePaymentErrors.BookingNotPendingPayment(booking.Status),
+                    completion,
+                    InitiatePaymentErrors.BookingNotPendingPayment(
+                        booking.Status),
                     cancellationToken);
             }
 
-            if (payment is not null)
-            {
-                if (payment.Status == PaymentStatus.Succeeded)
-                {
-                    return await RollbackFailureAsync(
-                        transaction,
-                        InitiatePaymentErrors.PaymentAlreadySucceeded,
-                        cancellationToken);
-                }
-
-                bool hasPendingAttempt = payment.Attempts.Any(attempt =>
-                        attempt.Status ==
-                        PaymentAttemptStatus.Pending);
-
-                if (hasPendingAttempt)
-                {
-                    return await RollbackFailureAsync(
-                        transaction,
-                        PaymentErrors.ActiveAttemptAlreadyExists,
-                        cancellationToken);
-                }
-            }
-            else
-            {
-                PriceSnapshot? priceSnapshot = booking.PriceSnapshot;
-
-                if (priceSnapshot is null)
-                {
-                    return await RollbackFailureAsync(
-                        transaction,
-                        InitiatePaymentErrors.PriceSnapshotMissing(booking.Id),
-                        cancellationToken);
-                }
-
-                Result<Payment> paymentResult = Payment.Create(
-                    booking.Id,
-                    priceSnapshot.TotalPrice,
-                    _clock.UtcNow);
-
-                if (paymentResult.IsFailure)
-                {
-                    return await RollbackFailureAsync(
-                        transaction,
-                        paymentResult.Error,
-                        cancellationToken);
-                }
-
-                payment = paymentResult.Value;
-
-                _paymentRepository.Add(payment);
-
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-            }
-
-            Result<CreatePaymentAttemptResponse> gatewayResult = await _paymentGateway.CreatePaymentAttemptAsync(
-                new CreatePaymentAttemptRequest(
-                    booking.Id,
-                    payment.Amount,
-                    operationKey),
-                cancellationToken);
-
-            if (gatewayResult.IsFailure)
-            {
-                await transaction.CommitAsync(cancellationToken);
-
-                return Result<InitiatePaymentResponse>.Failure(gatewayResult.Error);
-            }
-
-            CreatePaymentAttemptResponse gatewayResponse = gatewayResult.Value;
-            DateTimeOffset gatewayObservedAtUtc = _clock.UtcNow;
+            DateTimeOffset observedAt = _clock.UtcNow;
 
             Result<PaymentAttempt> attemptResult = payment.AddAttempt(
-                operationKey,
-                gatewayResponse.ExternalReference,
-                gatewayObservedAtUtc);
+                    operationKey,
+                    gatewayResult.Value.ExternalReference,
+                    observedAt);
 
             if (attemptResult.IsFailure)
             {
-                await transaction.CommitAsync(cancellationToken);
-
-                return Result<InitiatePaymentResponse>.Failure(attemptResult.Error);
-            }
-
-            PaymentAttempt attempt = attemptResult.Value;
-            PaymentStatus newAttemptPaymentStatusBefore = payment.Status;
-            Result newAttemptReconciliationResult = PaymentReconciler
-                .Reconcile(
-                    payment,
-                    attempt,
-                    booking,
-                    gatewayResponse.Status,
-                    gatewayObservedAtUtc);
-
-            if (newAttemptReconciliationResult.IsFailure)
-            {
                 return await RollbackFailureAsync(
-                    transaction,
-                    newAttemptReconciliationResult.Error,
+                    completion,
+                    attemptResult.Error,
                     cancellationToken);
             }
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            PaymentAttempt attempt = attemptResult.Value;
 
-            BookingMetrics.RecordPaymentTransition(newAttemptPaymentStatusBefore, payment.Status);
+            PaymentStatus previousStatus = payment.Status;
+
+            Result reconciliationResult = PaymentReconciler.Reconcile(
+                    payment,
+                    attempt,
+                    booking,
+                    gatewayResult.Value.Status,
+                    observedAt);
+
+            if (reconciliationResult.IsFailure)
+            {
+                return await RollbackFailureAsync(
+                    completion,
+                    reconciliationResult.Error,
+                    cancellationToken);
+            }
+
+            // Clear only after the real external reference
+            // is attached to a valid PaymentAttempt.
+            payment.CompleteInitiation(operationKey);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await completion.CommitAsync(cancellationToken);
+
+            BookingMetrics.RecordPaymentTransition(
+                previousStatus,
+                payment.Status);
 
             return Result<InitiatePaymentResponse>.Success(
-                ToResponse(payment, attempt, gatewayResponse.ClientSecret));
+                ToResponse(
+                    payment,
+                    attempt,
+                    gatewayResult.Value.ClientSecret));
         }
         catch
         {
-            await transaction.RollbackAsync(CancellationToken.None);
-
+            await completion.RollbackAsync(CancellationToken.None);
             throw;
         }
     }
 
-    private static string CreateOperationKey(Guid bookingId, string incomingIdempotencyKey)
+    private async Task<Result<InitiatePaymentResponse>>
+        ReconcileExistingAsync(
+            ITransaction transaction,
+            DomainBooking booking,
+            Payment payment,
+            PaymentAttempt attempt,
+            CreatePaymentAttemptResponse providerResponse,
+            CancellationToken cancellationToken)
+    {
+        // M20.1 — an idempotency reference mismatch is
+        // an unexpected consistency violation, not a Result.
+        if (!string.Equals(
+            attempt.ExternalReference,
+            providerResponse.ExternalReference,
+            StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The provider returned a different reference " +
+                "for an existing payment initiation.");
+        }
+
+        PaymentStatus previousPaymentStatus = payment.Status;
+        PaymentAttemptStatus previousAttemptStatus = attempt.Status;
+        BookingStatus previousBookingStatus = booking.Status;
+
+        Result reconciliationResult = PaymentReconciler.Reconcile(
+            payment,
+            attempt,
+            booking,
+            providerResponse.Status,
+            _clock.UtcNow);
+
+        if (reconciliationResult.IsFailure)
+        {
+            return await RollbackFailureAsync(
+                transaction,
+                reconciliationResult.Error,
+                cancellationToken);
+        }
+
+        if (payment.Status != previousPaymentStatus ||
+            attempt.Status != previousAttemptStatus ||
+            booking.Status != previousBookingStatus)
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+
+        BookingMetrics.RecordPaymentTransition(
+            previousPaymentStatus,
+            payment.Status);
+
+        return Result<InitiatePaymentResponse>.Success(
+            ToResponse(
+                payment,
+                attempt,
+                providerResponse.ClientSecret));
+    }
+
+    private bool HasRecoveryWindowExpired(
+        DateTimeOffset createdAtUtc)
+    {
+        return _clock.UtcNow >=
+            createdAtUtc.Add(RecoveryWindow);
+    }
+
+    private static PaymentAttempt? FindAttempt(
+        Payment payment,
+        string operationKey)
+    {
+        return payment.Attempts.FirstOrDefault(
+            attempt => string.Equals(
+                attempt.IdempotencyKey,
+                operationKey,
+                StringComparison.Ordinal));
+    }
+
+    private static string CreateOperationKey(
+        Guid bookingId,
+        string incomingIdempotencyKey)
     {
         string value = $"{bookingId:N}:{incomingIdempotencyKey}";
+
         byte[] bytes = Encoding.UTF8.GetBytes(value);
         byte[] hash = SHA256.HashData(bytes);
 
@@ -325,7 +500,8 @@ public sealed class InitiatePaymentCommandHandler
             clientSecret);
     }
 
-    private static async Task<Result<InitiatePaymentResponse>> RollbackFailureAsync(
+    private static async Task<Result<InitiatePaymentResponse>>
+        RollbackFailureAsync(
             ITransaction transaction,
             Error error,
             CancellationToken cancellationToken)
