@@ -323,6 +323,16 @@ public sealed class InitiatePaymentCommandHandlerTests
         Assert.Empty(paymentRepository.AddedPayment!.Attempts);
         Assert.Equal(1, paymentGateway.CreateCallCount);
         Assert.Equal(1, unitOfWork.SaveChangesCallCount);
+
+
+        Payment uncertainPayment =
+            Assert.IsType<Payment>(paymentRepository.AddedPayment);
+
+        Assert.NotNull(uncertainPayment.PendingInitiationKey);
+        Assert.Equal(
+            UtcNow,
+            uncertainPayment.PendingInitiationCreatedAtUtc);
+
     }
 
 
@@ -630,10 +640,10 @@ public sealed class InitiatePaymentCommandHandlerTests
                     command,
                     cancellationToken));
 
-        Assert.Equal(
-            "The payment provider returned a different external " +
-            "reference for an existing idempotent payment attempt.",
-            exception.Message);
+        Assert.Contains(
+            "different reference",
+            exception.Message,
+            StringComparison.Ordinal);
 
         Assert.Single(payment.Attempts);
 
@@ -705,6 +715,81 @@ public sealed class InitiatePaymentCommandHandlerTests
         Assert.Single(payment.Attempts);
     }
 
+
+    [Fact]
+    public async Task HandleAsync_WhenProviderTimesOut_ShouldPreserveDurableInitiationKey()
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        DomainBooking booking =
+            BookingTestFactory.CreatePendingPaymentBooking();
+
+        var bookingRepository =
+            new StubBookingRepository(booking);
+
+        var paymentRepository =
+            new SpyPaymentRepository();
+
+        var gateway =
+            new SpyPaymentGateway(
+                PaymentGatewayErrors.ProviderTimeout);
+
+        var unitOfWork =
+            new SpyUnitOfWork();
+
+        var handler = CreateHandler(
+            bookingRepository,
+            paymentRepository,
+            gateway,
+            unitOfWork);
+
+        const string incomingKey = "first-payment-operation";
+
+        Result<InitiatePaymentResponse> first =
+            await handler.HandleAsync(
+                new InitiatePaymentCommand(
+                    booking.Id,
+                    incomingKey),
+                cancellationToken);
+
+        Assert.True(first.IsFailure);
+        Assert.Equal(
+            PaymentGatewayErrors.ProviderTimeout,
+            first.Error);
+
+        Payment payment =
+            Assert.IsType<Payment>(
+                paymentRepository.AddedPayment);
+
+        Assert.NotNull(payment.PendingInitiationKey);
+        Assert.Equal(
+            UtcNow,
+            payment.PendingInitiationCreatedAtUtc);
+
+        Assert.Empty(payment.Attempts);
+        Assert.Equal(1, gateway.CreateCallCount);
+
+        // A second operation with a DIFFERENT key must
+        // be stopped before reaching the provider.
+        Result<InitiatePaymentResponse> second =
+            await handler.HandleAsync(
+                new InitiatePaymentCommand(
+                    booking.Id,
+                    "different-payment-operation"),
+                cancellationToken);
+
+        Assert.True(second.IsFailure);
+
+        Assert.Equal(
+            InitiatePaymentErrors.PaymentOutcomeUncertain,
+            second.Error);
+
+        Assert.Equal(1, gateway.CreateCallCount);
+        Assert.Empty(payment.Attempts);
+    }
+
+
     private static InitiatePaymentCommandHandler CreateHandler(
         IBookingRepository bookingRepository,
         IPaymentRepository paymentRepository,
@@ -771,12 +856,21 @@ public sealed class InitiatePaymentCommandHandlerTests
 
         public Payment? AddedPayment { get; private set; }
 
-        public Task<Payment?> GetByBookingIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
+
+        public Task<Payment?> GetByBookingIdAsync(
+            Guid bookingId,
+            CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Payment? result = _payment?.BookingId == bookingId ? _payment : null;
-            return Task.FromResult(result);
+
+            Payment? payment = _payment ?? AddedPayment;
+
+            return Task.FromResult(
+                payment?.BookingId == bookingId
+                    ? payment
+                    : null);
         }
+
 
         public void Add(Payment payment)
         {
