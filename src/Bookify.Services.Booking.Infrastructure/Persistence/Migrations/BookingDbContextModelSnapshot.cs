@@ -139,6 +139,15 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
 
+                    b.Property<DateTimeOffset?>("PendingInitiationCreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pending_initiation_created_at_utc");
+
+                    b.Property<string>("PendingInitiationKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("pending_initiation_key");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -159,6 +168,8 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_payments_amount", "amount > 0");
 
                             t.HasCheckConstraint("ck_payments_completion_consistency", "(status IN ('Succeeded', 'Cancelled') AND completed_at_utc IS NOT NULL) OR (status IN ('Pending', 'Failed') AND completed_at_utc IS NULL)");
+
+                            t.HasCheckConstraint("ck_payments_initiation_reservation_consistency", "(pending_initiation_key IS NULL AND pending_initiation_created_at_utc IS NULL) or(pending_initiation_key IS NOT NULL AND pending_initiation_created_at_utc IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_payments_status", "status IN ('Pending', 'Succeeded', 'Failed', 'Cancelled')");
                         });
