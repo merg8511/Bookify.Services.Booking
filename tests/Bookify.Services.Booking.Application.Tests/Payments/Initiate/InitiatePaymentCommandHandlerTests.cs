@@ -325,6 +325,175 @@ public sealed class InitiatePaymentCommandHandlerTests
         Assert.Equal(1, unitOfWork.SaveChangesCallCount);
     }
 
+
+    [Theory]
+    [InlineData("original-operation")]
+    [InlineData("different-operation")]
+    public async Task HandleAsync_WhenExistingPaymentHasNoAttempts_ShouldRejectNewInitiation(
+        string incomingKey)
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        DomainBooking booking =
+            BookingTestFactory.CreatePendingPaymentBooking();
+
+        Payment payment = CreatePayment(booking);
+
+        Assert.Empty(payment.Attempts);
+
+        var bookingRepository =
+            new StubBookingRepository(booking);
+
+        var paymentRepository =
+            new SpyPaymentRepository(payment);
+
+        var paymentGateway =
+            new SpyPaymentGateway(
+                new CreatePaymentAttemptResponse(
+                    "pi_unexpected_second_intent",
+                    PaymentGatewayStatus.Pending,
+                    "pi_unexpected_second_secret"));
+
+        var unitOfWork = new SpyUnitOfWork();
+
+        InitiatePaymentCommandHandler handler =
+            CreateHandler(
+                bookingRepository,
+                paymentRepository,
+                paymentGateway,
+                unitOfWork);
+
+        var command = new InitiatePaymentCommand(
+            booking.Id,
+            incomingKey);
+
+        // Act
+        Result<InitiatePaymentResponse> result =
+            await handler.HandleAsync(
+                command,
+                cancellationToken);
+
+        // Assert
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            InitiatePaymentErrors.PaymentOutcomeUncertain,
+            result.Error);
+
+        Assert.Equal(
+            0,
+            paymentGateway.CreateCallCount);
+
+        Assert.Equal(
+            0,
+            unitOfWork.SaveChangesCallCount);
+
+        Assert.Empty(payment.Attempts);
+
+        Assert.Equal(
+            PaymentStatus.Pending,
+            payment.Status);
+
+        Assert.Equal(
+            BookingStatus.PendingPayment,
+            booking.Status);
+    }
+
+
+    [Fact]
+    public async Task HandleAsync_WhenExistingSessionIsOlderThanRecoveryWindow_ShouldNotCallGateway()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        DomainBooking booking =
+            BookingTestFactory.CreatePendingPaymentBooking();
+
+        Payment payment =
+            BookingTestFactory.CreatePayment(
+                booking,
+                amount:
+                    booking.PriceSnapshot!.TotalPrice.Amount,
+                currency:
+                    booking.PriceSnapshot.TotalPrice.Currency,
+                createdAtUtc:
+                    UtcNow.AddDays(-2));
+
+        const string incomingKey = "old-session-operation";
+
+        string operationKey =
+            CreateExpectedOperationKey(
+                booking.Id,
+                incomingKey);
+
+        Result<PaymentAttempt> attemptResult =
+            payment.AddAttempt(
+                operationKey,
+                "pi_existing_old",
+                UtcNow.AddHours(-24));
+
+        Assert.True(attemptResult.IsSuccess);
+
+        var bookingRepository =
+            new StubBookingRepository(booking);
+
+        var paymentRepository =
+            new SpyPaymentRepository(payment);
+
+        var paymentGateway =
+            new SpyPaymentGateway(
+                new CreatePaymentAttemptResponse(
+                    "pi_unexpected_new",
+                    PaymentGatewayStatus.Pending,
+                    "pi_unexpected_secret"));
+
+        var unitOfWork = new SpyUnitOfWork();
+
+        InitiatePaymentCommandHandler handler =
+            CreateHandler(
+                bookingRepository,
+                paymentRepository,
+                paymentGateway,
+                unitOfWork);
+
+        var command = new InitiatePaymentCommand(
+            booking.Id,
+            incomingKey);
+
+        // Act
+        Result<InitiatePaymentResponse> result =
+            await handler.HandleAsync(
+                command,
+                cancellationToken);
+
+        // Assert
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            InitiatePaymentErrors.SessionRecoveryWindowExpired,
+            result.Error);
+
+        Assert.Equal(
+            0,
+            paymentGateway.CreateCallCount);
+
+        Assert.Equal(
+            0,
+            unitOfWork.SaveChangesCallCount);
+
+        PaymentAttempt existingAttempt =
+            Assert.Single(payment.Attempts);
+
+        Assert.Equal(
+            "pi_existing_old",
+            existingAttempt.ExternalReference);
+    }
+
+
+
     [Fact]
     public async Task HandleAsync_WithSameIdempotencyKey_ShouldReturnExistingAttemptAndRecoverPaymentSession()
     {

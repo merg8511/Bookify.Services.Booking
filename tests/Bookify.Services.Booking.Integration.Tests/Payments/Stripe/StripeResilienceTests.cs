@@ -215,6 +215,138 @@ public sealed class StripeResilienceTests
             service.CreateKeys[1]);
     }
 
+
+    [Fact]
+    public async Task Create_WhenAllTransientAttemptsFail_ShouldReturnProviderUnavailable()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        var service = new StubPaymentIntentService();
+
+        service.CreateFailures.Enqueue(
+            CreateStripeException(
+                HttpStatusCode.ServiceUnavailable,
+                "api_error"));
+
+        service.CreateFailures.Enqueue(
+            CreateStripeException(
+                HttpStatusCode.ServiceUnavailable,
+                "api_error"));
+
+        StripePaymentGateway gateway =
+            CreateGateway(service);
+
+        // Act
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest("operation-exhausted"),
+                cancellationToken);
+
+        // Assert
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            PaymentGatewayErrors.ProviderUnavailable,
+            result.Error);
+
+        // Initial call + one retry, never an unlimited loop.
+        Assert.Equal(
+            2,
+            service.CreateInvocationCount);
+
+        Assert.Equal(
+            2,
+            service.CreateKeys.Count);
+
+        Assert.Equal(
+            service.CreateKeys[0],
+            service.CreateKeys[1]);
+
+        Assert.Same(
+            service.CreateOptions[0],
+            service.CreateOptions[1]);
+    }
+
+
+    [Fact]
+    public async Task Create_WhenProviderTimesOutTwice_ShouldReturnProviderTimeout()
+    {
+        // Arrange
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        var service = new StubPaymentIntentService();
+
+        service.CreateFailures.Enqueue(
+            new TaskCanceledException(
+                "Simulated provider timeout."));
+
+        service.CreateFailures.Enqueue(
+            new TaskCanceledException(
+                "Simulated provider timeout."));
+
+        StripePaymentGateway gateway =
+            CreateGateway(service);
+
+        // Act
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest("operation-timeout"),
+                cancellationToken);
+
+        // Assert
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            PaymentGatewayErrors.ProviderTimeout,
+            result.Error);
+
+        Assert.Equal(
+            2,
+            service.CreateInvocationCount);
+
+        Assert.Equal(
+            service.CreateKeys[0],
+            service.CreateKeys[1]);
+
+        Assert.Same(
+            service.CreateOptions[0],
+            service.CreateOptions[1]);
+    }
+
+
+    [Fact]
+    public async Task Create_WhenCallerCancels_ShouldNotCallProviderOrRetry()
+    {
+        // Arrange
+        using var cancellationSource =
+            new CancellationTokenSource();
+
+        cancellationSource.Cancel();
+
+        var service = new StubPaymentIntentService();
+
+        StripePaymentGateway gateway =
+            CreateGateway(service);
+
+        // Act
+        Func<Task> action = async () =>
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest("operation-cancelled"),
+                cancellationSource.Token);
+
+        // Assert
+        await Assert.ThrowsAnyAsync<
+            OperationCanceledException>(action);
+
+        Assert.Equal(
+            0,
+            service.CreateInvocationCount);
+    }
+
+
     private static StripePaymentGateway CreateGateway(
         StubPaymentIntentService service)
     {
