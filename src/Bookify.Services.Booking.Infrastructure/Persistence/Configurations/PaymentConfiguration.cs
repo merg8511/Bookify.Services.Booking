@@ -11,23 +11,33 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.ToTable("payments",
-            tableBuilder =>
-            {
-                tableBuilder.HasCheckConstraint(
-                    "ck_payments_status",
-                    "status IN ('Pending', 'Succeeded', 'Failed', 'Cancelled')");
+        builder
+            .ToTable("payments",
+                tableBuilder =>
+                {
+                    tableBuilder
+                        .HasCheckConstraint(
+                            "ck_payments_status",
+                            "status IN ('Pending', 'Succeeded', 'Failed', 'Cancelled')");
 
-                tableBuilder.HasCheckConstraint(
-                    "ck_payments_amount", "amount > 0");
+                    tableBuilder
+                        .HasCheckConstraint(
+                            "ck_payments_amount", "amount > 0");
 
-                tableBuilder.HasCheckConstraint(
-                    "ck_payments_completion_consistency",
-                    "(status IN ('Succeeded', 'Cancelled') " +
-                    "AND completed_at_utc IS NOT NULL) OR " +
-                    "(status IN ('Pending', 'Failed') " +
-                    "AND completed_at_utc IS NULL)");
-            });
+                    tableBuilder
+                        .HasCheckConstraint(
+                            "ck_payments_completion_consistency",
+                            "(status IN ('Succeeded', 'Cancelled') " +
+                            "AND completed_at_utc IS NOT NULL) OR " +
+                            "(status IN ('Pending', 'Failed') " +
+                            "AND completed_at_utc IS NULL)");
+
+                    tableBuilder
+                        .HasCheckConstraint(
+                            "ck_payments_initiation_reservation_consistency",
+                            "(pending_initiation_key IS NULL AND pending_initiation_created_at_utc IS NULL) or" +
+                            "(pending_initiation_key IS NOT NULL AND pending_initiation_created_at_utc IS NOT NULL)");
+                });
 
         builder
             .HasKey(payment => payment.Id);
@@ -62,6 +72,16 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder
             .Property(payment => payment.CompletedAtUtc)
             .HasColumnName("completed_at_utc");
+
+        builder
+            .Property(payment => payment.PendingInitiationKey)
+            .HasColumnName("pending_initiation_key")
+            .HasMaxLength(128);
+
+        builder
+            .Property(payment => payment.PendingInitiationCreatedAtUtc)
+            .HasColumnName("pending_initiation_created_at_utc")
+            .HasColumnType("timestamp with time zone");
 
         builder
             .OwnsOne(payment => payment.Amount,

@@ -70,10 +70,4 @@ public static class PaymentGatewayErrors
         Error.Failure(
             "Payments.Gateway.ClientSecretMissing",
             "The payment provider did not return a client secret for the payment session.");
-
-    public static readonly Error IdempotencyResultMismatch =
-        Error.Failure(
-            "Payments.Gateway.IdempotencyResultMismatch",
-            "The payment provider returned a different external reference " +
-            "for the same idempotency payment operation.");
 }

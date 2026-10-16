@@ -172,7 +172,10 @@ public sealed class InitiatePaymentPersistenceTests
         Result<InitiatePaymentResponse> successResult = Assert.Single(results, result => result.IsSuccess);
         Result<InitiatePaymentResponse> failureResult = Assert.Single(results, result => result.IsFailure);
 
-        Assert.Equal(PaymentErrors.ActiveAttemptAlreadyExists, failureResult.Error);
+        Assert.True(failureResult.Error == PaymentErrors.ActiveAttemptAlreadyExists ||
+            failureResult.Error == InitiatePaymentErrors.PaymentOutcomeUncertain,
+            $"Unexpected failure: {failureResult.Error.Code}");
+
         Assert.Equal(PaymentAttemptStatus.Pending, successResult.Value.Status);
 
         // Assert persisted state from a fresh scope

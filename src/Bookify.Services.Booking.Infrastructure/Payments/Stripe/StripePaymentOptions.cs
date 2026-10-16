@@ -6,4 +6,7 @@ internal sealed class StripePaymentOptions
     public string SecretKey { get; set; } = string.Empty;
     public string WebhookSecret { get; set; } = string.Empty;
     public long WebhookToleranceSeconds { get; set; } = 300;
+    public int HttpTimeoutSeconds { get; set; } = 20;
+    public int MaxTransientRetries { get; set; } = 1;
+    public int RetryBaseDelayMilliseconds { get; set; } = 250;
 }

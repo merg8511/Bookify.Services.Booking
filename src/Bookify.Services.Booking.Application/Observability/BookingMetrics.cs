@@ -57,6 +57,13 @@ public static class BookingMetrics
             unit: "{transition}",
             description: "Commited payment status transitions to Succeeded or Failed.");
 
+    private static readonly Counter<long> OutboxTransitions = Meter
+        .CreateCounter<long>(
+            "bookify.outbox.transitions",
+            unit: "{transition}",
+            description: "Durable Outbox retry, deferral and dead-letter transitions.");
+
+
     public static void RecordBookingCreated()
     {
         BookingsCreated.Add(1);
@@ -166,4 +173,20 @@ public static class BookingMetrics
             1,
             new KeyValuePair<string, object?>("payment.status", outcome));
     }
+
+    public static void RecordOutboxTransition(string transition)
+    {
+        if (transition is not (
+            "retry_scheduled" or
+            "dead_lettered" or
+            "deferred"))
+        {
+            throw new ArgumentOutOfRangeException(nameof(transition), "Unsupported Outbox transition.");
+        }
+
+        OutboxTransitions.Add(
+            1,
+            new KeyValuePair<string, object?>("outbox.transition", transition));
+    }
+
 }

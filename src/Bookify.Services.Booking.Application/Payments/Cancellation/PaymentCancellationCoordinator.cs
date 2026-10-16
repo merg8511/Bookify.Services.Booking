@@ -32,6 +32,13 @@ public sealed class PaymentCancellationCoordinator
             throw new InvalidOperationException("The payment does not belong to the supplied booking.");
         }
 
+        if (payment.PendingInitiationKey is not null)
+        {
+            return Result<PaymentCancellationOutcome>.Failure(
+                PaymentCancellationErrors.PaymentStateUncertain(
+                    payment.Id));
+        }
+
         PaymentAttempt? pendingAttempt = payment
             .Attempts
                 .SingleOrDefault(

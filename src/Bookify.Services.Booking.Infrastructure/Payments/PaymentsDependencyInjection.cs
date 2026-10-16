@@ -43,6 +43,15 @@ public static class PaymentsDependencyInjection
                 options.WebhookToleranceSeconds > 0,
                 "Payments:Stripe:WebhookToleranceSeconds must be greater than zero.")
             .Validate(options =>
+                options.HttpTimeoutSeconds is >= 1 and <= 60,
+                "Payments:Stripe:HttpTimeoutSeconds must be between 1 and 60.")
+            .Validate(options =>
+                options.MaxTransientRetries is >= 0 and <= 2,
+                "Payments:Stripe:MaxTransientRetries must be between 0 and 2.")
+            .Validate(options =>
+                options.RetryBaseDelayMilliseconds is >= 1 and <= 1000,
+                "Payments:Stripe:RetryBaseDelayMilliseconds must be between 1 and 1000.")
+            .Validate(options =>
                 provider != PaymentProvider.Stripe || !string.IsNullOrWhiteSpace(options.SecretKey),
                 "Payments:Stripe:SecretKey is required when Stripe is the configured provider.")
             .Validate(options =>
@@ -85,25 +94,70 @@ public static class PaymentsDependencyInjection
         return services;
     }
 
-    private static IServiceCollection AddStripePaymentGateway(IServiceCollection services)
+    private static IServiceCollection AddStripePaymentGateway(
+    IServiceCollection services)
     {
-        services.AddSingleton<IStripeClient>(
+        services.AddSingleton<StripeClientTransport>(serviceProvider =>
+            {
+                StripePaymentOptions options = serviceProvider.GetRequiredService<
+                            IOptions<StripePaymentOptions>>().Value;
+
+                return new StripeClientTransport(options.SecretKey.Trim(), TimeSpan.FromSeconds(options.HttpTimeoutSeconds));
+            });
+
+        services.AddSingleton<IStripeClient>(serviceProvider => serviceProvider
+            .GetRequiredService<StripeClientTransport>().Client);
+
+        services.AddSingleton<PaymentIntentService>();
+
+        services.AddSingleton<StripePaymentGateway>(
             serviceProvider =>
             {
                 StripePaymentOptions options = serviceProvider
                     .GetRequiredService<IOptions<StripePaymentOptions>>()
                     .Value;
 
-                return new StripeClient(options.SecretKey.Trim());
+                return new StripePaymentGateway(
+                    serviceProvider.GetRequiredService<PaymentIntentService>(),
+                    options.MaxTransientRetries,
+                    options.RetryBaseDelayMilliseconds);
             });
 
-        services.AddSingleton<PaymentIntentService>();
-
-        services.AddSingleton<StripePaymentGateway>();
-
-        services.AddSingleton<IPaymentGateway>(
-            serviceProvider => serviceProvider.GetRequiredService<StripePaymentGateway>());
+        services.AddSingleton<IPaymentGateway>(serviceProvider => serviceProvider.GetRequiredService<StripePaymentGateway>());
 
         return services;
     }
+
+    private sealed class StripeClientTransport : IDisposable
+    {
+        private readonly HttpClient _httpCliente;
+        public IStripeClient Client { get; }
+
+        public StripeClientTransport(string secretKey, TimeSpan timeout)
+        {
+            var handler = new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            };
+
+            _httpCliente = new HttpClient(handler)
+            {
+                Timeout = timeout
+            };
+
+            var stripeHttpClient = new SystemNetHttpClient(
+                httpClient: _httpCliente,
+                maxNetworkRetries: 0);
+
+            Client = new StripeClient(
+                apiKey: secretKey,
+                httpClient: stripeHttpClient);
+        }
+        public void Dispose()
+        {
+            _httpCliente.Dispose();
+        }
+    }
 }
+
+

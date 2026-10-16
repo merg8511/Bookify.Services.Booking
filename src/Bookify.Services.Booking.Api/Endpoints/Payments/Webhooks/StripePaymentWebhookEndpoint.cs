@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
+using Bookify.Services.Booking.Api.Timeouts;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Payments.Webhooks.Stripe;
 using Bookify.Services.Booking.Domain.Shared;
@@ -12,6 +13,7 @@ namespace Bookify.Services.Booking.Api.Endpoints.Payments.Webhooks;
 internal static class StripePaymentWebhookEndpoint
 {
     private const string StripeSignatureHeaderName = "Stripe-Signature";
+
     public static void Map(RouteGroupBuilder paymentsGroup)
     {
         paymentsGroup
@@ -22,8 +24,11 @@ internal static class StripePaymentWebhookEndpoint
             .RequireWebhookRateLimit()
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status500InternalServerError);
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout)
+            .WithRequestTimeout(BookifyRequestTimeoutPolicies.StripeWebhook);
     }
+
 
     private static async Task<Results<Ok, ProblemHttpResult>> HandleAsync(
         HttpContext httpContext,

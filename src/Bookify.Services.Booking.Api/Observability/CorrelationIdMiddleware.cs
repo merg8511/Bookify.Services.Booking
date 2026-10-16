@@ -4,6 +4,7 @@ namespace Bookify.Services.Booking.Api.Observability;
 
 internal sealed class CorrelationIdMiddleware
 {
+    internal static readonly object HttpContextItemKey = new();
     public const string HeaderName = "X-Correlation-ID";
     private const int MaximumLength = 64;
     private readonly RequestDelegate _next;
@@ -23,12 +24,19 @@ internal sealed class CorrelationIdMiddleware
     public async Task InvokeAsync(HttpContext httpContext)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
+
         string correlationId = ResolveCorrelationId(httpContext.Request.Headers);
 
-        // Set the response header before invoking downstream middleware.
-        // This also covers early responses such as rate limiting,
-        // authorization failures and CORS preflight.
+        httpContext.Items[HttpContextItemKey] = correlationId;
         httpContext.Response.Headers[HeaderName] = correlationId;
+
+        httpContext.Response.OnStarting(
+            () =>
+            {
+                httpContext.Response.Headers[HeaderName] = correlationId;
+
+                return Task.CompletedTask;
+            });
 
         using (_logger.BeginScope(new Dictionary<string, object>
         {

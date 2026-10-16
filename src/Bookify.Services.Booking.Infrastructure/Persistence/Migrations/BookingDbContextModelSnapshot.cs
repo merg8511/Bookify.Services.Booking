@@ -139,6 +139,15 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
 
+                    b.Property<DateTimeOffset?>("PendingInitiationCreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pending_initiation_created_at_utc");
+
+                    b.Property<string>("PendingInitiationKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("pending_initiation_key");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -159,6 +168,8 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_payments_amount", "amount > 0");
 
                             t.HasCheckConstraint("ck_payments_completion_consistency", "(status IN ('Succeeded', 'Cancelled') AND completed_at_utc IS NOT NULL) OR (status IN ('Pending', 'Failed') AND completed_at_utc IS NULL)");
+
+                            t.HasCheckConstraint("ck_payments_initiation_reservation_consistency", "(pending_initiation_key IS NULL AND pending_initiation_created_at_utc IS NULL) or(pending_initiation_key IS NOT NULL AND pending_initiation_created_at_utc IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_payments_status", "status IN ('Pending', 'Succeeded', 'Failed', 'Cancelled')");
                         });
@@ -426,6 +437,12 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempt_count");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
@@ -435,6 +452,19 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("event_type");
+
+                    b.Property<DateTimeOffset?>("FailedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("failed_at_utc");
+
+                    b.Property<string>("LastFailureCode")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("last_failure_code");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at_utc");
 
                     b.Property<string>("Payload")
                         .IsRequired()
@@ -450,7 +480,11 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CreatedAtUtc", "Id")
                         .HasDatabaseName("ix_outbox_messages_pending_created_at_utc")
-                        .HasFilter("processed_at_utc IS NULL");
+                        .HasFilter("processed_at_utc IS NULL AND failed_at_utc IS NULL");
+
+                    b.HasIndex("NextAttemptAtUtc", "CreatedAtUtc", "Id")
+                        .HasDatabaseName("ix_outbox_message_due")
+                        .HasFilter("processed_at_utc IS NULL AND failed_at_utc IS NULL");
 
                     b.ToTable("outbox_messages", (string)null);
                 });

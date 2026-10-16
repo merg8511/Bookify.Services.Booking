@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Application.Observability;
 
 namespace Bookify.Services.Booking.Application.Tests.Observability;
 
+[Collection(BookingMetricsTestCollection.Name)]
 public sealed class BookingMetricsTests
 {
     [Fact]

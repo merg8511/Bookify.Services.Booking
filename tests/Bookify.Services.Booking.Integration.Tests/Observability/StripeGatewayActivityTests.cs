@@ -71,7 +71,10 @@ public sealed class StripeGatewayActivityTests
 
         Activity child = Assert.Single(
             activities,
-            activity => activity.OperationName == expectedSpanName);
+            activity =>
+                activity.OperationName == expectedSpanName &&
+                activity.TraceId == parent.TraceId &&
+                activity.ParentSpanId == parent.SpanId);
 
         Assert.Equal(ActivityKind.Client, child.Kind);
         Assert.Equal(parent.TraceId, child.TraceId);

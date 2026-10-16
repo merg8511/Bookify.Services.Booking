@@ -1,6 +1,7 @@
 using Bookify.Services.Booking.Application.Abstractions.Payments;
 using Bookify.Services.Booking.Domain.Shared;
 using Bookify.Services.Booking.Infrastructure.Observability;
+using Stripe;
 using System.Diagnostics;
 using StripeException = global::Stripe.StripeException;
 using StripePaymentIntent = global::Stripe.PaymentIntent;
@@ -14,11 +15,29 @@ namespace Bookify.Services.Booking.Infrastructure.Payments.Stripe;
 public sealed class StripePaymentGateway : IPaymentGateway
 {
     private readonly StripePaymentIntentService _paymentIntentService;
+    private readonly int _maxTransientRetries;
+    private readonly int _retryBaseDelayMilliseconds;
 
-    public StripePaymentGateway(StripePaymentIntentService paymentIntentService)
+    public StripePaymentGateway(
+        StripePaymentIntentService paymentIntentService,
+        int maxTransientRetries = 1,
+        int retryBaseDelayMilliseconds = 250)
     {
         _paymentIntentService = paymentIntentService ??
             throw new ArgumentNullException(nameof(paymentIntentService));
+
+        if (maxTransientRetries is < 0 or > 2)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxTransientRetries));
+        }
+
+        if (retryBaseDelayMilliseconds is < 1 or > 1000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(retryBaseDelayMilliseconds));
+        }
+
+        _maxTransientRetries = maxTransientRetries;
+        _retryBaseDelayMilliseconds = retryBaseDelayMilliseconds;
     }
 
     public async Task<Result<CreatePaymentAttemptResponse>> CreatePaymentAttemptAsync(
@@ -48,8 +67,7 @@ public sealed class StripePaymentGateway : IPaymentGateway
 
         if (amountResult.IsFailure)
         {
-            return Result<CreatePaymentAttemptResponse>
-                .Failure(amountResult.Error);
+            return Result<CreatePaymentAttemptResponse>.Failure(amountResult.Error);
         }
 
         var options = new StripePaymentIntentCreateOptions
@@ -73,8 +91,8 @@ public sealed class StripePaymentGateway : IPaymentGateway
 
         try
         {
-            StripePaymentIntent paymentIntent = await _paymentIntentService
-                .CreateAsync(options, requestOptions, cancellationToken);
+            StripePaymentIntent paymentIntent = await ExecuteSafeRetriesAsync(token => _paymentIntentService.CreateAsync(
+                options, requestOptions, token), activity, cancellationToken);
 
             return MapCreatedPaymentIntent(paymentIntent);
         }
@@ -82,15 +100,19 @@ public sealed class StripePaymentGateway : IPaymentGateway
         {
             activity?.SetStatus(ActivityStatusCode.Error, "Provider timeout");
 
-            return Result<CreatePaymentAttemptResponse>
-                .Failure(PaymentGatewayErrors.ProviderTimeout);
+            return Result<CreatePaymentAttemptResponse>.Failure(PaymentGatewayErrors.ProviderTimeout);
+        }
+        catch (HttpRequestException)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, "Provider unavailable");
+
+            return Result<CreatePaymentAttemptResponse>.Failure(PaymentGatewayErrors.ProviderUnavailable);
         }
         catch (StripeException exception)
         {
             activity?.SetStatus(ActivityStatusCode.Error, "Stripe request failed");
 
-            return Result<CreatePaymentAttemptResponse>
-                .Failure(MapStripeException(exception));
+            return Result<CreatePaymentAttemptResponse>.Failure(MapStripeException(exception));
         }
     }
 
@@ -117,10 +139,12 @@ public sealed class StripePaymentGateway : IPaymentGateway
 
         try
         {
-            StripePaymentIntent paymentIntent = await _paymentIntentService
-                .GetAsync(
+            StripePaymentIntent paymentIntent = await ExecuteSafeRetriesAsync(
+                token => _paymentIntentService.GetAsync(
                     normalizedExternalReference,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: token),
+                activity,
+                cancellationToken);
 
             return MapPaymentIntent(paymentIntent);
         }
@@ -128,15 +152,19 @@ public sealed class StripePaymentGateway : IPaymentGateway
         {
             activity?.SetStatus(ActivityStatusCode.Error, "Provider timeout");
 
-            return Result<PaymentGatewayResponse>
-                .Failure(PaymentGatewayErrors.ProviderTimeout);
+            return Result<PaymentGatewayResponse>.Failure(PaymentGatewayErrors.ProviderTimeout);
+        }
+        catch (HttpRequestException)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, "Provider unavailable");
+
+            return Result<PaymentGatewayResponse>.Failure(PaymentGatewayErrors.ProviderUnavailable);
         }
         catch (StripeException exception)
         {
             activity?.SetStatus(ActivityStatusCode.Error, "Stripe request failed");
 
-            return Result<PaymentGatewayResponse>
-                .Failure(MapStripeException(exception, normalizedExternalReference));
+            return Result<PaymentGatewayResponse>.Failure(MapStripeException(exception, normalizedExternalReference));
         }
     }
 
@@ -157,14 +185,15 @@ public sealed class StripePaymentGateway : IPaymentGateway
 
         if (string.IsNullOrWhiteSpace(normalizedExternalReference))
         {
-            return Result<PaymentGatewayResponse>
-                .Failure(PaymentGatewayErrors.ExternalReferenceRequired);
+            return Result<PaymentGatewayResponse>.Failure(PaymentGatewayErrors.ExternalReferenceRequired);
         }
 
         try
         {
-            StripePaymentIntent currentPaymentIntent = await _paymentIntentService
-                    .GetAsync(normalizedExternalReference, cancellationToken: cancellationToken);
+            StripePaymentIntent currentPaymentIntent = await ExecuteSafeRetriesAsync(
+                token => _paymentIntentService.GetAsync(normalizedExternalReference, cancellationToken: token),
+                activity,
+                cancellationToken);
 
             Result<PaymentGatewayResponse> currentResult = MapPaymentIntent(currentPaymentIntent);
 
@@ -186,8 +215,8 @@ public sealed class StripePaymentGateway : IPaymentGateway
                     .Failure(PaymentGatewayErrors.CannotCancel(normalizedExternalReference, currentStatus));
             }
 
-            StripePaymentIntent cancelledPaymentIntent =
-                await _paymentIntentService.CancelAsync(normalizedExternalReference, cancellationToken: cancellationToken);
+            StripePaymentIntent cancelledPaymentIntent = await _paymentIntentService
+                .CancelAsync(normalizedExternalReference, cancellationToken: cancellationToken);
 
             return MapPaymentIntent(cancelledPaymentIntent);
         }
@@ -195,15 +224,114 @@ public sealed class StripePaymentGateway : IPaymentGateway
         {
             activity?.SetStatus(ActivityStatusCode.Error, "Provider timeout");
 
-            return Result<PaymentGatewayResponse>
-                .Failure(PaymentGatewayErrors.ProviderTimeout);
+            return Result<PaymentGatewayResponse>.Failure(PaymentGatewayErrors.ProviderTimeout);
+        }
+        catch (HttpRequestException)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, "Provider unavailable");
+
+            return Result<PaymentGatewayResponse>.Failure(PaymentGatewayErrors.ProviderUnavailable);
         }
         catch (StripeException exception)
         {
             activity?.SetStatus(ActivityStatusCode.Error, "Stripe request failed");
-            return Result<PaymentGatewayResponse>
-                .Failure(MapStripeException(exception, normalizedExternalReference));
+
+            return Result<PaymentGatewayResponse>.Failure(MapStripeException(exception, normalizedExternalReference));
         }
+    }
+
+    private async Task<T> ExecuteSafeRetriesAsync<T>(
+        Func<CancellationToken, Task<T>> operation,
+        Activity? activity,
+        CancellationToken cancellationToken)
+    {
+        int retries = 0;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                T response = await operation(cancellationToken);
+
+                activity?.SetTag("bookify.stripe.retry_count", retries);
+
+                return response;
+            }
+            catch (StripeException exception)
+                when (CanRetry(retries, cancellationToken) && IsTransientStripeException(exception))
+            {
+                // Explicitly classified transient provider error.
+            }
+            catch (HttpRequestException)
+                when (CanRetry(retries, cancellationToken))
+            {
+                // Transient transport failure.
+            }
+            catch (OperationCanceledException)
+                when (!cancellationToken.IsCancellationRequested && CanRetry(retries, cancellationToken))
+            {
+                // Transport timeout, not caller cancellation.
+            }
+
+            retries++;
+
+            activity?.SetTag("bookify.stripe.retry_count", retries);
+
+            await Task.Delay(CalculateBackoff(retries), cancellationToken);
+        }
+    }
+
+    private bool CanRetry(int completedRetries, CancellationToken cancellationToken)
+    {
+        return !cancellationToken.IsCancellationRequested && completedRetries < _maxTransientRetries;
+    }
+
+    private static bool IsTransientStripeException(StripeException exception)
+    {
+        int statusCode = (int)exception.HttpStatusCode;
+
+        // Never retry functional errors.
+        bool potentiallyTransient = statusCode is 0 or 408 or 409 or >= 500 and <= 599;
+
+        if (statusCode == 429)
+        {
+            potentiallyTransient = string.Equals(exception.StripeError?.Code, "lock_timeout", StringComparison.Ordinal);
+        }
+
+        if (!potentiallyTransient)
+        {
+            return false;
+        }
+
+        var headers = exception.StripeResponse?.Headers;
+
+        if (headers is not null && headers.Contains("Stripe-Should-Retry"))
+        {
+            string? decision = headers.GetValues("Stripe-Should-Retry").FirstOrDefault();
+
+            if (string.Equals(decision, "false", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.Equals(decision, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return statusCode is 0 or 408 or 409 or 429 or >= 500 and <= 599;
+            }
+        }
+
+        return potentiallyTransient;
+    }
+
+    private TimeSpan CalculateBackoff(int retryNumber)
+    {
+        double exponentialDelay = _retryBaseDelayMilliseconds * Math.Pow(2, retryNumber - 1);
+        double boundedDelay = Math.Min(exponentialDelay, 2000);
+        double jitter = 0.75 + Random.Shared.NextDouble() * 0.25;
+
+        return TimeSpan.FromMicroseconds(Math.Max(1, boundedDelay * jitter));
     }
 
     private static Result<CreatePaymentAttemptResponse> MapCreatedPaymentIntent(StripePaymentIntent paymentIntent)

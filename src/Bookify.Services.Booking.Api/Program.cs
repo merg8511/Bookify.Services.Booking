@@ -1,10 +1,12 @@
 using Bookify.Services.Booking.Api.BackgroundJobs;
 using Bookify.Services.Booking.Api.Endpoints;
+using Bookify.Services.Booking.Api.ExceptionHandling;
 using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Api.Observability;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Api.Security.Http;
+using Bookify.Services.Booking.Api.Timeouts;
 using Bookify.Services.Booking.Application;
 using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Infrastructure;
@@ -18,6 +20,18 @@ var builder = WebApplication.CreateBuilder(args);
 // ==========================================
 builder.Services.AddBookifySerilog(builder.Configuration);
 builder.Services.AddBookifyOpenTelemetry(builder.Configuration);
+
+// ==========================================
+// Global Exception Handling
+// ==========================================
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+// ==========================================
+// HTTP Request Timeouts
+// ==========================================
+builder.Services.AddBookifyRequestTimeouts(builder.Configuration);
+
 
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -67,6 +81,7 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseExceptionHandler();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
 if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
@@ -80,6 +95,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 }
 
 app.UseRouting();
+app.UseRequestTimeouts();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors(BookifyCorsPolicies.TrustedFrontends);
 app.UseAuthentication();
