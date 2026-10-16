@@ -334,6 +334,78 @@ public sealed class PaymentCancellationCoordinatorTests
         Assert.Equal(0, gateway.CancelCallCount);
     }
 
+
+    [Theory]
+    [InlineData(PaymentGatewayStatus.Failed)]
+    [InlineData(PaymentGatewayStatus.Cancelled)]
+    public async Task EnsurePaymentCannotSucceedAsync_WithReservedInitiation_ShouldNotAllowCancellation(
+        PaymentGatewayStatus previousStatus)
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+
+        DomainBooking booking =
+            BookingTestFactory.CreatePendingPaymentBooking();
+
+        (Payment payment, PaymentAttempt previousAttempt) =
+            CreatePendingPayment(
+                booking,
+                "pi_previous_attempt");
+
+        Result transition = previousStatus switch
+        {
+            PaymentGatewayStatus.Failed =>
+                payment.MarkAttemptAsFailed(
+                    previousAttempt.ExternalReference,
+                    UtcNow),
+
+            PaymentGatewayStatus.Cancelled =>
+                payment.CancelAttempt(
+                    previousAttempt.ExternalReference,
+                    UtcNow),
+
+            _ => throw new InvalidOperationException()
+        };
+
+        Assert.True(transition.IsSuccess);
+
+        payment.ReserveInitiation(
+            "bookify-payment-reserved-operation",
+            UtcNow.AddMinutes(1));
+
+        var gateway = new SpyPaymentGateway();
+
+        var coordinator = CreateCoordinator(gateway);
+
+        Result<PaymentCancellationOutcome> result =
+            await coordinator.EnsurePaymentCannotSucceedAsync(
+                payment,
+                booking,
+                cancellationToken);
+
+        Assert.True(result.IsFailure);
+
+        Assert.Equal(
+            PaymentCancellationErrors.PaymentStateUncertain(
+                payment.Id),
+            result.Error);
+
+        Assert.Equal(
+            0,
+            gateway.GetCallCount);
+
+        Assert.Equal(
+            0,
+            gateway.CancelCallCount);
+
+        Assert.Equal(
+            BookingStatus.PendingPayment,
+            booking.Status);
+
+        Assert.NotNull(payment.PendingInitiationKey);
+    }
+
+
     private static PaymentCancellationCoordinator CreateCoordinator(IPaymentGateway paymentGateway)
     {
         return new PaymentCancellationCoordinator(paymentGateway, new StubClock(UtcNow));
