@@ -35,6 +35,8 @@ public sealed class Payment
     public DateTimeOffset UpdatedAtUtc { get; private set; }
     public DateTimeOffset? CompletedAtUtc { get; private set; }
     public IReadOnlyCollection<PaymentAttempt> Attempts => _attempts.AsReadOnly();
+    public string? PendingInitiationKey { get; private set; }
+    public DateTimeOffset? PendingInitiationCreatedAtUtc { get; private set; }
 
     public static Result<Payment> Create(
         Guid bookingId,
@@ -63,6 +65,59 @@ public sealed class Payment
                 createdAtUtc));
     }
 
+    public void ReserveInitiation(string operationKey, DateTimeOffset reservedAtUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(operationKey);
+
+        if (PendingInitiationKey is not null)
+        {
+            throw new InvalidOperationException(
+                "This payment already has an unresolved initiation.");
+        }
+
+        if (Status == PaymentStatus.Succeeded)
+        {
+            throw new InvalidOperationException(
+                "A succeeded payment cannot initiate another attempt.");
+        }
+
+        if (_attempts.Any(attempt => attempt.Status == PaymentAttemptStatus.Pending))
+        {
+            throw new InvalidOperationException(
+                "A pending payment attempt already exists.");
+        }
+
+        PendingInitiationKey = operationKey;
+        PendingInitiationCreatedAtUtc = reservedAtUtc.ToUniversalTime();
+    }
+
+
+    public void CompleteInitiation(string operationKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(operationKey);
+
+        if (!string.Equals(PendingInitiationKey, operationKey, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The payment initiation reservation does not match.");
+        }
+
+        bool attemptWasRecorded = _attempts.Any(
+            attempt => string.Equals(
+                attempt.IdempotencyKey,
+                operationKey,
+                StringComparison.Ordinal));
+
+        if (!attemptWasRecorded)
+        {
+            throw new InvalidOperationException(
+                "A payment initiation cannot be completed " +
+                "without its recorded payment attempt.");
+        }
+
+        PendingInitiationKey = null;
+        PendingInitiationCreatedAtUtc = null;
+    }
+
     public Result<PaymentAttempt> AddAttempt(
         string idempotencyKey,
         string externalReference,
@@ -76,12 +131,9 @@ public sealed class Payment
 
         string normalizedIdempotencyKey = idempotencyKey?.Trim() ?? string.Empty;
 
-        bool idempotencyKeyExists = _attempts.Any(
-            attempt =>
-                string.Equals(
-                    attempt.IdempotencyKey,
-                    normalizedIdempotencyKey,
-                    StringComparison.Ordinal));
+        bool idempotencyKeyExists = _attempts
+            .Any(attempt =>
+                string.Equals(attempt.IdempotencyKey, normalizedIdempotencyKey, StringComparison.Ordinal));
 
         if (idempotencyKeyExists)
         {
@@ -89,10 +141,9 @@ public sealed class Payment
                 PaymentErrors.DuplicateIdempotencyKey(normalizedIdempotencyKey));
         }
 
-        if (_attempts.Any(
-            attempt =>
-                attempt.Status ==
-                PaymentAttemptStatus.Pending))
+        if (_attempts
+            .Any(attempt =>
+                attempt.Status == PaymentAttemptStatus.Pending))
         {
             return Result<PaymentAttempt>.Failure(
                 PaymentErrors.ActiveAttemptAlreadyExists);
@@ -100,13 +151,9 @@ public sealed class Payment
 
         string normalizedExternalReference = externalReference?.Trim() ?? string.Empty;
 
-        bool externalReferenceExists =
-            _attempts.Any(
-                attempt =>
-                    string.Equals(
-                        attempt.ExternalReference,
-                        normalizedExternalReference,
-                        StringComparison.Ordinal));
+        bool externalReferenceExists = _attempts
+            .Any(attempt =>
+                    string.Equals(attempt.ExternalReference, normalizedExternalReference, StringComparison.Ordinal));
 
         if (externalReferenceExists)
         {
@@ -232,11 +279,8 @@ public sealed class Payment
     {
         string normalizedExternalReference = externalReference?.Trim() ?? string.Empty;
 
-        return _attempts.FirstOrDefault(
-            attempt =>
-                string.Equals(
-                    attempt.ExternalReference,
-                    normalizedExternalReference,
-                    StringComparison.Ordinal));
+        return _attempts
+            .FirstOrDefault(attempt =>
+                string.Equals(attempt.ExternalReference, normalizedExternalReference, StringComparison.Ordinal));
     }
 }
