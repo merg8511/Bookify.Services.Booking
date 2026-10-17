@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.10.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.9.0...v0.10.0) (2026-10-17)
+
+
+### Features
+
+* **background-jobs:** implement outbox notifications and distributed job processing ([#43](https://github.com/merg8511/Bookify.Services.Booking/issues/43)) ([7a7fafd](https://github.com/merg8511/Bookify.Services.Booking/commit/7a7fafd6da198855ec0dfe9ed4464c329e8c7f68))
+* **observability:** implement structured logging tracing and metrics ([#44](https://github.com/merg8511/Bookify.Services.Booking/issues/44)) ([b3cb7e5](https://github.com/merg8511/Bookify.Services.Booking/commit/b3cb7e5e2ad817e53cbdc0720488243e901009ac))
+* **observability:** implement structured logging tracing and metrics ([#45](https://github.com/merg8511/Bookify.Services.Booking/issues/45)) ([0be0e9e](https://github.com/merg8511/Bookify.Services.Booking/commit/0be0e9e44561640677c39bd7c1e59f8623dfa77b))
+* **resilience:** complete exception handling and infrastructure resilience ([#47](https://github.com/merg8511/Bookify.Services.Booking/issues/47)) ([4f1d8c2](https://github.com/merg8511/Bookify.Services.Booking/commit/4f1d8c280e8671c43c2aca53fd82e65f056ea579))
+* **security:** implement authentication authorization and ownership ([#41](https://github.com/merg8511/Bookify.Services.Booking/issues/41)) ([547c10e](https://github.com/merg8511/Bookify.Services.Booking/commit/547c10ef910e1dde0b8fbb42894440282ead9fb2))
+
+
+### Bug Fixes
+
+* **observability:** harden telemetry privacy and metric semantics ([#46](https://github.com/merg8511/Bookify.Services.Booking/issues/46)) ([b959007](https://github.com/merg8511/Bookify.Services.Booking/commit/b9590077317d6afcb216e2644bda95b3d0c5a17e))
+* **payments:** correct stripe retry backoff and retry guidance ([#48](https://github.com/merg8511/Bookify.Services.Booking/issues/48)) ([8404db6](https://github.com/merg8511/Bookify.Services.Booking/commit/8404db6d8197a548d128df7b67b41004918e6318))
+
 ## [0.9.0](https://github.com/merg8511/Bookify.Services.Booking/compare/v0.8.0...v0.9.0) (2026-09-28)
 
 
