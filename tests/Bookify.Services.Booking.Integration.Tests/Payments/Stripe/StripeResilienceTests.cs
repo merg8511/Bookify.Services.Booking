@@ -347,6 +347,44 @@ public sealed class StripeResilienceTests
     }
 
 
+    [Fact]
+    public async Task Create_WhenTransientError_ShouldApplyMillisecondsBackoff()
+    {
+        CancellationToken token =
+            TestContext.Current.CancellationToken;
+
+        var service = new StubPaymentIntentService();
+
+        service.CreateFailures.Enqueue(
+            CreateStripeException(
+                HttpStatusCode.ServiceUnavailable,
+                "api_error"));
+
+        var gateway = new StripePaymentGateway(
+            service,
+            maxTransientRetries: 1,
+            retryBaseDelayMilliseconds: 250);
+
+        var stopwatch =
+            System.Diagnostics.Stopwatch.StartNew();
+
+        Result<CreatePaymentAttemptResponse> result =
+            await gateway.CreatePaymentAttemptAsync(
+                CreateRequest("backoff-unit-test"),
+                token);
+
+        stopwatch.Stop();
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, service.CreateInvocationCount);
+
+        // Jitter is between 75% and 100%.
+        // Use a lower threshold to tolerate scheduling variance.
+        Assert.True(
+            stopwatch.Elapsed >= TimeSpan.FromMilliseconds(150),
+            $"Retry occurred too quickly: {stopwatch.Elapsed}.");
+    }
+
     private static StripePaymentGateway CreateGateway(
         StubPaymentIntentService service)
     {

@@ -288,21 +288,16 @@ public sealed class StripePaymentGateway : IPaymentGateway
         return !cancellationToken.IsCancellationRequested && completedRetries < _maxTransientRetries;
     }
 
+
     private static bool IsTransientStripeException(StripeException exception)
     {
         int statusCode = (int)exception.HttpStatusCode;
 
-        // Never retry functional errors.
         bool potentiallyTransient = statusCode is 0 or 408 or 409 or >= 500 and <= 599;
 
         if (statusCode == 429)
         {
             potentiallyTransient = string.Equals(exception.StripeError?.Code, "lock_timeout", StringComparison.Ordinal);
-        }
-
-        if (!potentiallyTransient)
-        {
-            return false;
         }
 
         var headers = exception.StripeResponse?.Headers;
@@ -325,13 +320,14 @@ public sealed class StripePaymentGateway : IPaymentGateway
         return potentiallyTransient;
     }
 
+
     private TimeSpan CalculateBackoff(int retryNumber)
     {
         double exponentialDelay = _retryBaseDelayMilliseconds * Math.Pow(2, retryNumber - 1);
         double boundedDelay = Math.Min(exponentialDelay, 2000);
         double jitter = 0.75 + Random.Shared.NextDouble() * 0.25;
 
-        return TimeSpan.FromMicroseconds(Math.Max(1, boundedDelay * jitter));
+        return TimeSpan.FromMilliseconds(Math.Max(1, boundedDelay * jitter));
     }
 
     private static Result<CreatePaymentAttemptResponse> MapCreatedPaymentIntent(StripePaymentIntent paymentIntent)
