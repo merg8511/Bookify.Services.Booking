@@ -203,6 +203,10 @@ public static class DependencyInjection
             DapperPropertyReadService>();
 
         services.AddScoped<
+            IPropertyOwnershipReadService,
+            DapperPropertyOwnershipReadService>();
+
+        services.AddScoped<
             IRentableUnitReadService,
             DapperRentableUnitReadService>();
 
