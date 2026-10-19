@@ -71,6 +71,31 @@ calendar APIs that do not exist yet are not introduced by module 17.5.
 
 Their implementation remains assigned to module 21.
 
+### Property management — Module 21.1
+
+- PUT /api/v1/properties/{propertyId}
+- PATCH /api/v1/properties/{propertyId}/status
+
+Both endpoints require authentication and the Owner or Admin role.
+
+Admin:
+- May manage any Property.
+
+Owner:
+- May only manage a Property whose OwnerSubjectId matches the authenticated subject.
+
+Customer and anonymous:
+- Cannot modify Properties.
+
+Property ownership is checked through a dedicated Dapper read service.
+The write handler reuses the PostgreSQL property row lock used by booking creation.
+
+Missing resources return 404 for authorized Admin requests.
+An Owner without access to the resource receives 403.
+
+Property deactivation does not delete existing bookings or units.
+
+
 ## System-only operations
 
 The following operations are not public HTTP endpoints:

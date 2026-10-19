@@ -9,6 +9,8 @@ internal static class EndpointNames
         internal const string List = "Properties.List";
         internal const string GetAvailability = "Properties.GetAvailability";
         internal const string GetUnits = "Properties.GetUnits";
+        internal const string Update = "Properties.Update";
+        internal const string SetStatus = "Properties.SetStatus";
     }
 
     internal static class Bookings
