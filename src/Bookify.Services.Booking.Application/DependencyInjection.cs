@@ -29,6 +29,8 @@ using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
+using Bookify.Services.Booking.Application.Properties.SetStatus;
+using Bookify.Services.Booking.Application.Properties.Update;
 using Bookify.Services.Booking.Application.RentableUnits.GetByProperty;
 using Bookify.Services.Booking.Application.RentableUnits.ReadModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +67,22 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<CreatePropertyCommand, Guid>,
             CreatePropertyCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<UpdatePropertyCommand>,
+            UpdatePropertyCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<UpdatePropertyCommand>,
+            UpdatePropertyCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<SetPropertyStatusCommand>,
+            SetPropertyStatusCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<SetPropertyStatusCommand>,
+            SetPropertyStatusCommandHandler>();
 
         services.AddScoped<
             IRequestValidator<GetPropertyByIdQuery>,
