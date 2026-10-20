@@ -8,6 +8,7 @@ namespace Bookify.Services.Booking.Domain.Properties;
 
 public sealed class RentableUnit
 {
+    private const int MaxNameLength = 200;
     private readonly List<PricingSeason> _pricingSeasons = [];
 
     private RentableUnit()
@@ -54,38 +55,32 @@ public sealed class RentableUnit
     {
         if (propertyId == Guid.Empty)
         {
-            return Result<RentableUnit>.Failure(
-                RentableUnitErrors.InvalidPropertyId);
+            return Result<RentableUnit>.Failure(RentableUnitErrors.InvalidPropertyId);
         }
 
         string? normalizedName = name?.Trim();
 
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        if (!IsValidName(normalizedName))
         {
-            return Result<RentableUnit>.Failure(
-                RentableUnitErrors.InvalidName);
+            return Result<RentableUnit>.Failure(RentableUnitErrors.InvalidName);
         }
 
         if (!Enum.IsDefined(type))
         {
-            return Result<RentableUnit>.Failure(
-                RentableUnitErrors.InvalidType);
+            return Result<RentableUnit>.Failure(RentableUnitErrors.InvalidType);
         }
 
-        Result capacityValidation = ValidateCapacity(
-            maximumCapacity,
-            maxBaseGuests);
+        Result capacityValidation = ValidateCapacity(maximumCapacity, maxBaseGuests);
 
         if (capacityValidation.IsFailure)
         {
-            return Result<RentableUnit>.Failure(
-                capacityValidation.Error);
+            return Result<RentableUnit>.Failure(capacityValidation.Error);
         }
 
         var rentableUnit = new RentableUnit(
             Guid.NewGuid(),
             propertyId,
-            normalizedName,
+            normalizedName!,
             type,
             maximumCapacity,
             maxBaseGuests);
@@ -97,30 +92,58 @@ public sealed class RentableUnit
     {
         string? normalizedName = name?.Trim();
 
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        if (!IsValidName(normalizedName))
         {
-            return Result.Failure(
-                RentableUnitErrors.InvalidName);
+            return Result.Failure(RentableUnitErrors.InvalidName);
         }
 
-        Name = normalizedName;
+        Name = normalizedName!;
 
         return Result.Success();
     }
 
-    public Result UpdateCapacity(
-        int maximumCapacity,
-        int maxBaseGuests)
+    public Result UpdateCapacity(int maximumCapacity, int maxBaseGuests)
     {
-        Result validationResult = ValidateCapacity(
-            maximumCapacity,
-            maxBaseGuests);
+        Result validationResult = ValidateCapacity(maximumCapacity, maxBaseGuests);
 
         if (validationResult.IsFailure)
         {
             return validationResult;
         }
 
+        MaximumCapacity = maximumCapacity;
+        MaxBaseGuests = maxBaseGuests;
+
+        return Result.Success();
+    }
+
+    public Result UpdateDetails(
+        string name,
+        RentableUnitType type,
+        int maximumCapacity,
+        int maxBaseGuests)
+    {
+        string? normalizedName = name?.Trim();
+
+        if (!IsValidName(normalizedName))
+        {
+            return Result.Failure(RentableUnitErrors.InvalidName);
+        }
+
+        if (!Enum.IsDefined(type))
+        {
+            return Result.Failure(RentableUnitErrors.InvalidType);
+        }
+
+        Result capacityValidation = ValidateCapacity(maximumCapacity, maxBaseGuests);
+
+        if (capacityValidation.IsFailure)
+        {
+            return capacityValidation;
+        }
+
+        Name = normalizedName!;
+        Type = type;
         MaximumCapacity = maximumCapacity;
         MaxBaseGuests = maxBaseGuests;
 
@@ -136,7 +159,6 @@ public sealed class RentableUnit
     public void AddPricingSeason(PricingSeason pricingSeason)
     {
         ArgumentNullException.ThrowIfNull(pricingSeason);
-
         _pricingSeasons.Add(pricingSeason);
     }
 
@@ -174,26 +196,28 @@ public sealed class RentableUnit
         return IsEntireProperty || other.IsEntireProperty;
     }
 
+    private static bool IsValidName(string? name)
+    {
+        return !string.IsNullOrWhiteSpace(name) && name.Length <= MaxNameLength;
+    }
+
     private static Result ValidateCapacity(
         int maximumCapacity,
         int maxBaseGuests)
     {
         if (maximumCapacity <= 0)
         {
-            return Result.Failure(
-                RentableUnitErrors.InvalidMaximumCapacity);
+            return Result.Failure(RentableUnitErrors.InvalidMaximumCapacity);
         }
 
         if (maxBaseGuests <= 0)
         {
-            return Result.Failure(
-                RentableUnitErrors.InvalidMaxBaseGuests);
+            return Result.Failure(RentableUnitErrors.InvalidMaxBaseGuests);
         }
 
         if (maxBaseGuests > maximumCapacity)
         {
-            return Result.Failure(
-                RentableUnitErrors.BaseGuestsExceedCapacity);
+            return Result.Failure(RentableUnitErrors.BaseGuestsExceedCapacity);
         }
 
         return Result.Success();

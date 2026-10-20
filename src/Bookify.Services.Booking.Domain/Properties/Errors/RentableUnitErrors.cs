@@ -10,11 +10,11 @@ public static class RentableUnitErrors
 
     public static readonly Error InvalidName = Error.Validation(
         "RentableUnit.InvalidName",
-        "The rentable unit name cannot be empty.");
+        "The rentable unit name must contain between 1 and 200 characters.");
 
     public static readonly Error InvalidType = Error.Validation(
         "RentableUnit.InvalidType",
-        "The rentable unit type is invalid.");
+        "The rentable unit type must be Room or EntireProperty.");
 
     public static readonly Error InvalidMaximumCapacity = Error.Validation(
         "RentableUnit.InvalidMaximumCapacity",
