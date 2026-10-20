@@ -32,6 +32,11 @@ using Bookify.Services.Booking.Application.Properties.ReadModels;
 using Bookify.Services.Booking.Application.Properties.SetStatus;
 using Bookify.Services.Booking.Application.Properties.Update;
 using Bookify.Services.Booking.Application.RentableUnits.GetByProperty;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Create;
+using Bookify.Services.Booking.Application.RentableUnits.Management.GetAll;
+using Bookify.Services.Booking.Application.RentableUnits.Management.GetById;
+using Bookify.Services.Booking.Application.RentableUnits.Management.SetStatus;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Update;
 using Bookify.Services.Booking.Application.RentableUnits.ReadModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -110,6 +115,46 @@ public static class DependencyInjection
         services.AddScoped<
             IQueryHandler<GetPropertyUnitsQuery, IReadOnlyList<RentableUnitListItemReadModel>>,
             GetPropertyUnitsQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<CreateRentableUnitCommand>,
+            CreateRentableUnitCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<CreateRentableUnitCommand, Guid>,
+            CreateRentableUnitCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<UpdateRentableUnitCommand>,
+            UpdateRentableUnitCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<UpdateRentableUnitCommand>,
+            UpdateRentableUnitCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<SetRentableUnitStatusCommand>,
+            SetRentableUnitStatusCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<SetRentableUnitStatusCommand>,
+            SetRentableUnitStatusCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminRentableUnitsQuery>,
+            GetAdminRentableUnitsQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminRentableUnitsQuery, IReadOnlyList<RentableUnitDetailsReadModel>>,
+            GetAdminRentableUnitsQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminRentableUnitByIdQuery>,
+            GetAdminRentableUnitByIdQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminRentableUnitByIdQuery, RentableUnitDetailsReadModel>,
+            GetAdminRentableUnitByIdQueryHandler>();
 
         // ==========================================
         // Module: Bookings
