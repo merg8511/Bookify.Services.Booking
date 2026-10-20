@@ -28,4 +28,13 @@ internal static class EndpointNames
         internal const string StripeWebhook = "Payments.StripeWebhook";
         internal const string GetStatus = "Payments.GetStatus";
     }
+
+    internal static class AdminRentableUnits
+    {
+        internal const string Create = "AdminRentableUnits.Create";
+        internal const string List = "AdminRentableUnits.List";
+        internal const string GetById = "AdminRentableUnits.GetById";
+        internal const string Update = "AdminRentableUnits.Update";
+        internal const string SetStatus = "AdminRentableUnits.SetStatus";
+    }
 }
