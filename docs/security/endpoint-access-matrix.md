@@ -71,6 +71,40 @@ calendar APIs that do not exist yet are not introduced by module 17.5.
 
 Their implementation remains assigned to module 21.
 
+
+### Module 21.2 — RentableUnit management
+
+Administrative routes:
+
+- POST /api/v1/admin/properties/{propertyId}/units
+- GET /api/v1/admin/properties/{propertyId}/units
+- GET /api/v1/admin/properties/{propertyId}/units/{unitId}
+- PUT /api/v1/admin/properties/{propertyId}/units/{unitId}
+- PATCH /api/v1/admin/properties/{propertyId}/units/{unitId}/status
+
+Authorization:
+
+- Admin may manage units belonging to any property.
+- Owner may manage units only when Property.OwnerSubjectId matches the authenticated subject.
+- Customer and anonymous callers cannot access these endpoints.
+- Units are always scoped to the property in the route.
+
+The administrative read includes active and inactive units.
+
+The public GET /api/v1/properties/{propertyId}/units remains unchanged.
+
+Business constraints:
+
+- Unit type cannot change when bookings reference the unit.
+- Maximum capacity cannot be reduced below the guest count of an existing booking.
+- Deactivation does not cancel or delete existing bookings.
+- Hard delete is not exposed.
+- Pricing administration belongs to module 21.3.
+- Season administration belongs to module 21.4.
+
+Writes reuse the existing PostgreSQL property row lock.
+
+
 ### Property management — Module 21.1
 
 - PUT /api/v1/properties/{propertyId}
