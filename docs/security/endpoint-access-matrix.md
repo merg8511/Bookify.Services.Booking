@@ -105,6 +105,45 @@ Business constraints:
 Writes reuse the existing PostgreSQL property row lock.
 
 
+### Module 21.3 — RentableUnit Pricing
+
+Administrative routes:
+
+- GET /api/v1/admin/properties/{propertyId}/units/{unitId}/pricing
+- PUT /api/v1/admin/properties/{propertyId}/units/{unitId}/pricing
+
+Authorization:
+
+- Admin may access pricing for any property.
+- Owner may access pricing only for owned properties.
+- Customer and anonymous callers are not authorized.
+- The rentable unit must belong to the property in the route.
+
+Pricing configuration:
+
+- Regular nightly rate.
+- Weekend nightly rate.
+- Extra guest nightly rate.
+- One currency shared by all three rates.
+- All amounts use Money domain validation.
+- Amounts must fit PostgreSQL numeric(18,3).
+
+PUT configures or replaces the complete pricing configuration.
+
+GET returns IsConfigured=false and null amounts when the unit
+exists but has no pricing configuration.
+
+Existing pricing seasons must remain currency-compatible.
+
+Existing Booking price snapshots are not recalculated when
+administrative pricing changes.
+
+Pricing season management belongs to module 21.4.
+
+Comprehensive security and integration tests belong to module 21.9.
+
+
+
 ### Property management — Module 21.1
 
 - PUT /api/v1/properties/{propertyId}
