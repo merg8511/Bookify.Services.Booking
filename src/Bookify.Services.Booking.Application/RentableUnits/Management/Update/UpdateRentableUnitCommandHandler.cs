@@ -71,7 +71,7 @@ public sealed class UpdateRentableUnitCommandHandler : ICommandHandler<UpdateRen
         RentableUnitType originalType = unit.Type;
         int originalCapacity = unit.MaximumCapacity;
 
-        if(originalType != typeResult.Value)
+        if (originalType != typeResult.Value)
         {
             bool hasBookings = await _unitReadService.HasAnyBookingsAsync(unit.Id, cancellationToken);
 
@@ -81,11 +81,11 @@ public sealed class UpdateRentableUnitCommandHandler : ICommandHandler<UpdateRen
             }
         }
 
-        if(command.MaximumCapacity < originalCapacity)
+        if (command.MaximumCapacity < originalCapacity)
         {
             int maximumBookedGuests = await _unitReadService.GetMaximumBookedGuestCountAsync(unit.Id, cancellationToken);
 
-            if(command.MaximumCapacity < maximumBookedGuests)
+            if (command.MaximumCapacity < maximumBookedGuests)
             {
                 return Result.Failure(RentableUnitManagementErrors.CapacityBelowBookedGuestCount);
             }
@@ -101,7 +101,7 @@ public sealed class UpdateRentableUnitCommandHandler : ICommandHandler<UpdateRen
         {
             return updateResult;
         }
-        
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
