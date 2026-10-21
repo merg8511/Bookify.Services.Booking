@@ -35,6 +35,8 @@ using Bookify.Services.Booking.Application.RentableUnits.GetByProperty;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Create;
 using Bookify.Services.Booking.Application.RentableUnits.Management.GetAll;
 using Bookify.Services.Booking.Application.RentableUnits.Management.GetById;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing.Configure;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing.Get;
 using Bookify.Services.Booking.Application.RentableUnits.Management.SetStatus;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Update;
 using Bookify.Services.Booking.Application.RentableUnits.ReadModels;
@@ -155,6 +157,25 @@ public static class DependencyInjection
         services.AddScoped<
             IQueryHandler<GetAdminRentableUnitByIdQuery, RentableUnitDetailsReadModel>,
             GetAdminRentableUnitByIdQueryHandler>();
+
+        // ==========================================
+        // Module: Administrative Pricing
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<ConfigureRentableUnitPricingCommand>,
+            ConfigureRentableUnitPricingCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<ConfigureRentableUnitPricingCommand>,
+            ConfigureRentableUnitPricingCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminRentableUnitPricingQuery>,
+            GetAdminRentableUnitPricingQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminRentableUnitPricingQuery, AdminRentableUnitPricingReadModel>,
+            GetAdminRentableUnitPricingQueryHandler>();
 
         // ==========================================
         // Module: Bookings
