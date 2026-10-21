@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Api.Endpoints.Administrative.RentableUnits.Pricing;
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
@@ -87,6 +88,8 @@ internal static class AdminRentableUnitsEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        AdminRentableUnitPricingEndpoints.Map(unitsGroup);
     }
 
     private static async Task<Results<CreatedAtRoute<CreateRentableUnitResponse>, ProblemHttpResult>> CreateAsync(

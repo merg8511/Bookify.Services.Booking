@@ -36,5 +36,7 @@ internal static class EndpointNames
         internal const string GetById = "AdminRentableUnits.GetById";
         internal const string Update = "AdminRentableUnits.Update";
         internal const string SetStatus = "AdminRentableUnits.SetStatus";
+        internal const string GetPricing = "AdminRentableUnits.GetPricing";
+        internal const string ConfigurePricing = "AdminRentableUnits.ConfigurePricing";
     }
 }
