@@ -14,6 +14,7 @@ using Bookify.Services.Booking.Application.Payments;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing;
 using Bookify.Services.Booking.Infrastructure.Bookings;
 using Bookify.Services.Booking.Infrastructure.Notifications;
 using Bookify.Services.Booking.Infrastructure.Payments;
@@ -139,8 +140,8 @@ public static class DependencyInjection
         // ==========================================
         // Transactions & Unit of Work
         // ==========================================
-        services.AddScoped<IUnitOfWork>(serviceProvider =>
-                serviceProvider.GetRequiredService<BookingDbContext>());
+        services.AddScoped<
+            IUnitOfWork>(serviceProvider => serviceProvider.GetRequiredService<BookingDbContext>());
 
         services.AddScoped<
             ITransactionManager,
@@ -209,6 +210,10 @@ public static class DependencyInjection
         services.AddScoped<
             IRentableUnitReadService,
             DapperRentableUnitReadService>();
+
+        services.AddScoped<
+            IRentableUnitPricingReadService,
+            DapperRentableUnitPricingReadService>();
 
         services.AddScoped<
             IBookingReadService,
