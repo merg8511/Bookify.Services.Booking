@@ -38,5 +38,10 @@ internal static class EndpointNames
         internal const string SetStatus = "AdminRentableUnits.SetStatus";
         internal const string GetPricing = "AdminRentableUnits.GetPricing";
         internal const string ConfigurePricing = "AdminRentableUnits.ConfigurePricing";
+        internal const string CreateSeason = "AdminRentableUnits.CreateSeason";
+        internal const string ListSeason = "AdminRentableUnits.ListSeason";
+        internal const string GetSeasonById = "AdminRentableUnits.GetSeasonById";
+        internal const string UpdateSeason = "AdminRentableUnits.UpdateSeason";
+        internal const string SetSeasonStatus = "AdminRentableUnits.SetSeasonStatus";
     }
 }
