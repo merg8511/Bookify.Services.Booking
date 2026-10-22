@@ -37,6 +37,12 @@ using Bookify.Services.Booking.Application.RentableUnits.Management.GetAll;
 using Bookify.Services.Booking.Application.RentableUnits.Management.GetById;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing.Configure;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing.Get;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.Create;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.GetAll;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.GetById;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.SetStatus;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.Update;
 using Bookify.Services.Booking.Application.RentableUnits.Management.SetStatus;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Update;
 using Bookify.Services.Booking.Application.RentableUnits.ReadModels;
@@ -176,6 +182,49 @@ public static class DependencyInjection
         services.AddScoped<
             IQueryHandler<GetAdminRentableUnitPricingQuery, AdminRentableUnitPricingReadModel>,
             GetAdminRentableUnitPricingQueryHandler>();
+
+        // ==========================================
+        // Module: Administrative Pricing Seasons
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<CreatePricingSeasonCommand>,
+            CreatePricingSeasonCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<CreatePricingSeasonCommand, int>,
+            CreatePricingSeasonCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<UpdatePricingSeasonCommand>,
+            UpdatePricingSeasonCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<UpdatePricingSeasonCommand>,
+            UpdatePricingSeasonCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<SetPricingSeasonStatusCommand>,
+            SetPricingSeasonStatusCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<SetPricingSeasonStatusCommand>,
+            SetPricingSeasonStatusCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetPricingSeasonsQuery>,
+            GetPricingSeasonsQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetPricingSeasonsQuery, IReadOnlyList<PricingSeasonReadModel>>,
+            GetPricingSeasonsQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetPricingSeasonByIdQuery>,
+            GetPricingSeasonByIdQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetPricingSeasonByIdQuery, PricingSeasonReadModel>,
+            GetPricingSeasonByIdQueryHandler>();
 
         // ==========================================
         // Module: Bookings
