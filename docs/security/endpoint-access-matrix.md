@@ -142,7 +142,41 @@ Pricing season management belongs to module 21.4.
 
 Comprehensive security and integration tests belong to module 21.9.
 
+### Module 21.4 — Pricing Seasons
 
+
+Administrative routes:
+- POST /api/v1/admin/properties/{propertyId}/units/{unitId}/seasons
+- GET /api/v1/admin/properties/{propertyId}/units/{unitId}/seasons
+- GET /api/v1/admin/properties/{propertyId}/units/{unitId}/seasons/{seasonId}
+- PUT /api/v1/admin/properties/{propertyId}/units/{unitId}/seasons/{seasonId}
+- PATCH /api/v1/admin/properties/{propertyId}/units/{unitId}/seasons/{seasonId}/status
+
+Authorization:
+- Admin may manage pricing seasons for any property.
+- Owner may only manage seasons belonging to owned properties.
+- Customer and anonymous callers cannot manage pricing seasons.
+- Units and seasons are scoped to the identifiers in the route.
+
+Business rules:
+- A rentable unit must have base Pricing configured.
+- Season currency must match the base Pricing currency.
+- Date ranges use [StartDate, EndDate).
+- EndDate must be greater than StartDate.
+- Priority must be non-negative.
+- Active overlapping seasons with different priorities are allowed.
+- Active overlapping seasons with equal priorities are rejected.
+- The highest applicable priority determines the nightly rate.
+- Inactive seasons do not affect availability quotes or new bookings.
+- Deactivation is reversible and does not delete historical data.
+- Existing Booking price snapshots remain unchanged.
+
+Persistence:
+- PricingSeason uses the existing integer database identifier.
+- IsActive is persisted in rentable_unit_pricing_seasons.
+- Existing seasons are active after the migration.
+
+Full security and integration coverage belongs to module 21.9.
 
 ### Property management — Module 21.1
 
