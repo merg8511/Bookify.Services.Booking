@@ -11,8 +11,8 @@ internal sealed class RentableUnitConfiguration
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.ToTable("rentable_units",
-            tableBuilder =>
+        builder
+            .ToTable("rentable_units", tableBuilder =>
             {
                 tableBuilder.HasCheckConstraint(
                     "ck_rentable_units_maximum_capacity",
@@ -27,262 +27,260 @@ internal sealed class RentableUnitConfiguration
                     "type IN ('EntireProperty', 'Room')");
             });
 
-        builder.HasKey(
-            rentableUnit => rentableUnit.Id)
-                .HasName("pk_rentable_units");
+        builder
+            .HasKey(rentableUnit => rentableUnit.Id)
+            .HasName("pk_rentable_units");
 
-        builder.Property(
-            rentableUnit => rentableUnit.Id)
-                .HasColumnName("id")
-                .HasColumnType("uuid")
-                .ValueGeneratedNever();
+        builder
+            .Property(rentableUnit => rentableUnit.Id)
+            .HasColumnName("id")
+            .HasColumnType("uuid")
+            .ValueGeneratedNever();
 
-        builder.Property(
-            rentableUnit => rentableUnit.PropertyId)
-                .HasColumnName("property_id")
-                .HasColumnType("uuid")
-                .IsRequired();
+        builder
+            .Property(rentableUnit => rentableUnit.PropertyId)
+            .HasColumnName("property_id")
+            .HasColumnType("uuid")
+            .IsRequired();
 
-        builder.Property(
-            rentableUnit => rentableUnit.Name)
-                .HasColumnName("name")
-                .HasMaxLength(200)
-                .IsRequired();
+        builder
+            .Property(rentableUnit => rentableUnit.Name)
+            .HasColumnName("name")
+            .HasMaxLength(200)
+            .IsRequired();
 
-        builder.Property(
-            rentableUnit => rentableUnit.Type)
-                .HasColumnName("type")
-                .HasConversion<string>()
-                .HasMaxLength(32)
-                .IsRequired();
+        builder
+            .Property(rentableUnit => rentableUnit.Type)
+            .HasColumnName("type")
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
 
-        builder.Property(
-            rentableUnit => rentableUnit.MaximumCapacity)
-                .HasColumnName("maximum_capacity")
-                .IsRequired();
+        builder
+            .Property(rentableUnit => rentableUnit.MaximumCapacity)
+            .HasColumnName("maximum_capacity")
+            .IsRequired();
 
-        builder.Property(
-            rentableUnit => rentableUnit.MaxBaseGuests)
-                .HasColumnName("max_base_guests")
-                .IsRequired();
+        builder
+            .Property(rentableUnit => rentableUnit.MaxBaseGuests)
+            .HasColumnName("max_base_guests")
+            .IsRequired();
 
-        builder.Property(
-            rentableUnit => rentableUnit.IsActive)
-                .HasColumnName("is_active")
-                .IsRequired();
+        builder
+            .Property(rentableUnit => rentableUnit.IsActive)
+            .HasColumnName("is_active")
+            .IsRequired();
 
-        builder.Ignore(
-            rentableUnit => rentableUnit.IsEntireProperty);
+        builder
+            .Ignore(rentableUnit => rentableUnit.IsEntireProperty);
 
-        builder.OwnsOne(
-            rentableUnit => rentableUnit.Pricing,
-            pricingBuilder =>
-            {
-                pricingBuilder.ToTable(
-                    "rentable_unit_pricing",
-                    tableBuilder =>
-                    {
-                        tableBuilder.HasCheckConstraint(
-                            "ck_rentable_unit_pricing_amounts",
-                            "regular_nightly_rate_amount >= 0 " +
-                            "AND weekend_nightly_rate_amount >= 0 " +
-                            "AND extra_guest_nightly_rate_amount >= 0");
+        builder
+            .OwnsOne(rentableUnit => rentableUnit.Pricing,
+                pricingBuilder =>
+                {
+                    pricingBuilder
+                        .ToTable("rentable_unit_pricing", tableBuilder =>
+                        {
+                            tableBuilder.HasCheckConstraint(
+                                "ck_rentable_unit_pricing_amounts",
+                                "regular_nightly_rate_amount >= 0 " +
+                                "AND weekend_nightly_rate_amount >= 0 " +
+                                "AND extra_guest_nightly_rate_amount >= 0");
 
-                        tableBuilder.HasCheckConstraint(
-                            "ck_rentable_unit_pricing_currencies",
-                            "regular_nightly_rate_currency = " +
-                            "weekend_nightly_rate_currency " +
-                            "AND regular_nightly_rate_currency = " +
-                            "extra_guest_nightly_rate_currency");
+                            tableBuilder.HasCheckConstraint(
+                                "ck_rentable_unit_pricing_currencies",
+                                "regular_nightly_rate_currency = " +
+                                "weekend_nightly_rate_currency " +
+                                "AND regular_nightly_rate_currency = " +
+                                "extra_guest_nightly_rate_currency");
 
-                        tableBuilder.HasCheckConstraint(
-                            "ck_rentable_unit_pricing_currency_format",
-                            "regular_nightly_rate_currency ~ '^[A-Z]{3}$' " +
-                            "AND weekend_nightly_rate_currency ~ '^[A-Z]{3}$' " +
-                            "AND extra_guest_nightly_rate_currency ~ '^[A-Z]{3}$'");
-                    });
+                            tableBuilder.HasCheckConstraint(
+                                "ck_rentable_unit_pricing_currency_format",
+                                "regular_nightly_rate_currency ~ '^[A-Z]{3}$' " +
+                                "AND weekend_nightly_rate_currency ~ '^[A-Z]{3}$' " +
+                                "AND extra_guest_nightly_rate_currency ~ '^[A-Z]{3}$'");
+                        });
 
-                pricingBuilder
-                    .Property<Guid>("RentableUnitId")
-                    .HasColumnName("rentable_unit_id")
-                    .HasColumnType("uuid");
+                    pricingBuilder
+                        .Property<Guid>("RentableUnitId")
+                        .HasColumnName("rentable_unit_id")
+                        .HasColumnType("uuid");
 
-                pricingBuilder
-                    .HasKey("RentableUnitId")
-                    .HasName("pk_rentable_unit_pricing");
+                    pricingBuilder
+                        .HasKey("RentableUnitId")
+                        .HasName("pk_rentable_unit_pricing");
 
-                pricingBuilder
-                    .WithOwner()
-                    .HasForeignKey("RentableUnitId");
+                    pricingBuilder
+                        .WithOwner()
+                        .HasForeignKey("RentableUnitId");
 
-                pricingBuilder.OwnsOne(
-                    pricing =>
-                        pricing.RegularNightlyRate,
-                    moneyBuilder =>
-                    {
-                        moneyBuilder
-                            .Property(money => money.Amount)
-                            .HasColumnName("regular_nightly_rate_amount")
-                            .HasPrecision(18, 3)
-                            .IsRequired();
+                    pricingBuilder
+                        .OwnsOne(pricing =>
+                            pricing.RegularNightlyRate, moneyBuilder =>
+                            {
+                                moneyBuilder
+                                    .Property(money => money.Amount)
+                                    .HasColumnName("regular_nightly_rate_amount")
+                                    .HasPrecision(18, 3)
+                                    .IsRequired();
 
-                        moneyBuilder
-                            .Property(money => money.Currency)
-                            .HasColumnName("regular_nightly_rate_currency")
-                            .HasMaxLength(3)
-                            .IsRequired();
-                    });
+                                moneyBuilder
+                                    .Property(money => money.Currency)
+                                    .HasColumnName("regular_nightly_rate_currency")
+                                    .HasMaxLength(3)
+                                    .IsRequired();
+                            });
 
-                pricingBuilder
-                    .Navigation(
-                        pricing => pricing.RegularNightlyRate)
-                    .IsRequired();
-
-                pricingBuilder.OwnsOne(
-                    pricing => pricing.WeekendNightlyRate,
-                    moneyBuilder =>
-                    {
-                        moneyBuilder
-                            .Property(money => money.Amount)
-                            .HasColumnName("weekend_nightly_rate_amount")
-                            .HasPrecision(18, 3)
-                            .IsRequired();
-
-                        moneyBuilder
-                            .Property(money => money.Currency)
-                            .HasColumnName("weekend_nightly_rate_currency")
-                            .HasMaxLength(3)
-                            .IsRequired();
-                    });
-
-                pricingBuilder.Navigation(
-                        pricing => pricing.WeekendNightlyRate)
-                    .IsRequired();
-
-                pricingBuilder.OwnsOne(
-                    pricing => pricing.ExtraGuestNightlyRate,
-                    moneyBuilder =>
-                    {
-                        moneyBuilder
-                            .Property(money => money.Amount)
-                            .HasColumnName("extra_guest_nightly_rate_amount")
-                            .HasPrecision(18, 3)
-                            .IsRequired();
-
-                        moneyBuilder
-                        .Property(money => money.Currency)
-                        .HasColumnName("extra_guest_nightly_rate_currency")
-                        .HasMaxLength(3)
+                    pricingBuilder
+                        .Navigation(pricing => pricing.RegularNightlyRate)
                         .IsRequired();
-                    });
 
-                pricingBuilder.Navigation(
-                        pricing => pricing.ExtraGuestNightlyRate)
-                    .IsRequired();
-            });
+                    pricingBuilder
+                        .OwnsOne(pricing => pricing.WeekendNightlyRate,
+                        moneyBuilder =>
+                        {
+                            moneyBuilder
+                                .Property(money => money.Amount)
+                                .HasColumnName("weekend_nightly_rate_amount")
+                                .HasPrecision(18, 3)
+                                .IsRequired();
 
-        builder.OwnsMany(
-            rentableUnit =>
-                rentableUnit.PricingSeasons,
-            seasonBuilder =>
-            {
-                seasonBuilder.ToTable(
-                    "rentable_unit_pricing_seasons",
-                    tableBuilder =>
-                    {
-                        tableBuilder.HasCheckConstraint(
-                            "ck_rentable_unit_pricing_seasons_date_range",
-                            "end_date > start_date");
+                            moneyBuilder
+                                .Property(money => money.Currency)
+                                .HasColumnName("weekend_nightly_rate_currency")
+                                .HasMaxLength(3)
+                                .IsRequired();
+                        });
 
-                        tableBuilder.HasCheckConstraint(
-                            "ck_rentable_unit_pricing_seasons_priority",
-                            "priority >= 0");
+                    pricingBuilder
+                        .Navigation(pricing => pricing.WeekendNightlyRate)
+                        .IsRequired();
 
-                        tableBuilder.HasCheckConstraint(
-                            "ck_rentable_unit_pricing_seasons_currency_format",
-                            "nightly_rate_currency ~ '^[A-Z]{3}$'");
-                    });
+                    pricingBuilder
+                        .OwnsOne(pricing => pricing.ExtraGuestNightlyRate,
+                            moneyBuilder =>
+                            {
+                                moneyBuilder
+                                    .Property(money => money.Amount)
+                                    .HasColumnName("extra_guest_nightly_rate_amount")
+                                    .HasPrecision(18, 3)
+                                    .IsRequired();
 
-                seasonBuilder.Property<Guid>("RentableUnitId")
-                    .HasColumnName("rentable_unit_id")
-                    .HasColumnType("uuid");
+                                moneyBuilder
+                                .Property(money => money.Currency)
+                                .HasColumnName("extra_guest_nightly_rate_currency")
+                                .HasMaxLength(3)
+                                .IsRequired();
+                            });
 
-                seasonBuilder.Property<int>("Id")
-                    .HasColumnName("id")
-                    .ValueGeneratedOnAdd();
+                    pricingBuilder
+                        .Navigation(pricing => pricing.ExtraGuestNightlyRate)
+                        .IsRequired();
+                });
 
-                seasonBuilder.HasKey(
-                        "RentableUnitId",
-                        "Id")
-                    .HasName("pk_rentable_unit_pricing_seasons");
+        builder
+            .OwnsMany(rentableUnit => rentableUnit.PricingSeasons,
+                seasonBuilder =>
+                {
+                    seasonBuilder
+                        .ToTable(
+                            "rentable_unit_pricing_seasons",
+                            tableBuilder =>
+                            {
+                                tableBuilder.HasCheckConstraint(
+                                    "ck_rentable_unit_pricing_seasons_date_range",
+                                    "end_date > start_date");
 
-                seasonBuilder
-                    .WithOwner()
-                    .HasForeignKey("RentableUnitId");
+                                tableBuilder.HasCheckConstraint(
+                                    "ck_rentable_unit_pricing_seasons_priority",
+                                    "priority >= 0");
 
-                seasonBuilder.Property(
-                        season => season.StartDate)
-                    .HasColumnName("start_date")
-                    .HasColumnType("date")
-                    .IsRequired();
+                                tableBuilder.HasCheckConstraint(
+                                    "ck_rentable_unit_pricing_seasons_currency_format",
+                                    "nightly_rate_currency ~ '^[A-Z]{3}$'");
+                            });
 
-                seasonBuilder.Property(
-                        season => season.EndDate)
-                    .HasColumnName("end_date")
-                    .HasColumnType("date")
-                    .IsRequired();
+                    seasonBuilder
+                        .Property<Guid>("RentableUnitId")
+                        .HasColumnName("rentable_unit_id")
+                        .HasColumnType("uuid");
 
-                seasonBuilder.Property(
-                        season => season.Priority)
-                    .HasColumnName("priority")
-                    .IsRequired();
+                    seasonBuilder
+                        .Property(season => season.Id)
+                        .HasColumnName("id")
+                        .ValueGeneratedOnAdd();
 
-                seasonBuilder.OwnsOne(
-                    season =>
-                        season.NightlyRate,
-                    moneyBuilder =>
-                    {
-                        moneyBuilder.Property(
-                                money => money.Amount)
-                            .HasColumnName(
-                                "nightly_rate_amount")
-                            .HasPrecision(18, 3)
-                            .IsRequired();
+                    seasonBuilder
+                        .HasKey("RentableUnitId", "Id")
+                        .HasName("pk_rentable_unit_pricing_seasons");
 
-                        moneyBuilder.Property(
-                                money => money.Currency)
-                            .HasColumnName(
-                                "nightly_rate_currency")
-                            .HasMaxLength(3)
-                            .IsRequired();
-                    });
+                    seasonBuilder
+                        .WithOwner()
+                        .HasForeignKey("RentableUnitId");
 
-                seasonBuilder.Navigation(
-                        season =>
-                            season.NightlyRate)
-                    .IsRequired();
-            });
+                    seasonBuilder
+                        .Property(season => season.StartDate)
+                        .HasColumnName("start_date")
+                        .HasColumnType("date")
+                        .IsRequired();
 
-        builder.Navigation(
-                rentableUnit =>
-                    rentableUnit.PricingSeasons)
+                    seasonBuilder
+                        .Property(season => season.EndDate)
+                        .HasColumnName("end_date")
+                        .HasColumnType("date")
+                        .IsRequired();
+
+                    seasonBuilder
+                        .Property(season => season.Priority)
+                        .HasColumnName("priority")
+                        .IsRequired();
+
+                    seasonBuilder
+                        .Property(season => season.IsActive)
+                        .HasColumnName("is_active")
+                        .HasDefaultValue(true)
+                        .IsRequired();
+
+                    seasonBuilder
+                        .OwnsOne(season => season.NightlyRate,
+                            moneyBuilder =>
+                            {
+                                moneyBuilder
+                                    .Property(money => money.Amount)
+                                    .HasColumnName("nightly_rate_amount")
+                                    .HasPrecision(18, 3)
+                                    .IsRequired();
+
+                                moneyBuilder
+                                    .Property(money => money.Currency)
+                                    .HasColumnName("nightly_rate_currency")
+                                    .HasMaxLength(3)
+                                    .IsRequired();
+                            });
+
+                    seasonBuilder
+                        .Navigation(season => season.NightlyRate)
+                        .IsRequired();
+                });
+
+        builder
+            .Navigation(rentableUnit => rentableUnit.PricingSeasons)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
-        builder.HasOne<Property>()
+        builder
+            .HasOne<Property>()
             .WithMany()
-            .HasForeignKey(
-                rentableUnit => rentableUnit.PropertyId)
+            .HasForeignKey(rentableUnit => rentableUnit.PropertyId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_rentable_units_properties_id");
 
-        builder.HasIndex(
-            rentableUnit =>
+        builder
+            .HasIndex(rentableUnit =>
                 new
                 {
                     rentableUnit.PropertyId,
                     rentableUnit.Type
                 })
-            .HasDatabaseName(
-                "ix_rentable_units_property_id_type");
+            .HasDatabaseName("ix_rentable_units_property_id_type");
     }
 }

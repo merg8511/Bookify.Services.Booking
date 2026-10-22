@@ -122,6 +122,7 @@ internal sealed class DapperAvailabilityReadService :
             season.priority AS "Priority"
         FROM rentable_unit_pricing_seasons AS season
         WHERE season.rentable_unit_id = ANY(@RentableUnitIds)
+            AND season.is_active = TRUE
             AND season.start_date < @RequestedCheckOutDate
             AND season.end_date > @RequestedCheckInDate
         ORDER BY

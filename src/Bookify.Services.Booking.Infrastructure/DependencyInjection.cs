@@ -15,6 +15,7 @@ using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons;
 using Bookify.Services.Booking.Infrastructure.Bookings;
 using Bookify.Services.Booking.Infrastructure.Notifications;
 using Bookify.Services.Booking.Infrastructure.Payments;
@@ -214,6 +215,10 @@ public static class DependencyInjection
         services.AddScoped<
             IRentableUnitPricingReadService,
             DapperRentableUnitPricingReadService>();
+
+        services.AddScoped<
+            IPricingSeasonReadService,
+            DapperPricingSeasonReadService>();
 
         services.AddScoped<
             IBookingReadService,
