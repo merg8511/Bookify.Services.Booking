@@ -20,7 +20,7 @@ public static class SeasonPricingPolicy
 
         foreach (PricingSeason season in seasons)
         {
-            if (!season.IsActive || season.ContainsNight(night))
+            if (!season.IsActive || !season.ContainsNight(night))
             {
                 continue;
             }
