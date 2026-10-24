@@ -6,6 +6,7 @@ using Bookify.Services.Booking.Application.Availability.ReadModels;
 using Bookify.Services.Booking.Application.BackgroundJobs.Completion;
 using Bookify.Services.Booking.Application.BackgroundJobs.Expiration;
 using Bookify.Services.Booking.Application.BackgroundJobs.Notifications;
+using Bookify.Services.Booking.Application.Bookings.Administrative.Calendar;
 using Bookify.Services.Booking.Application.Bookings.Administrative.GetById;
 using Bookify.Services.Booking.Application.Bookings.Administrative.GetPaged;
 using Bookify.Services.Booking.Application.Bookings.Administrative.ReadModels;
@@ -314,6 +315,14 @@ public static class DependencyInjection
         services.AddScoped<
             IQueryHandler<GetAdminBookingByIdQuery, BookingDetailsReadModel>,
             GetAdminBookingByIdQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminBookingCalendarQuery>,
+            GetAdminBookingCalendarQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminBookingCalendarQuery, IReadOnlyList<BookingCalendarItemReadModel>>,
+            GetAdminBookingCalendarQueryHandler>();
 
         // ==========================================
         // Module: Availability
