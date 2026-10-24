@@ -7,7 +7,7 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.BackgroundJobs;
 using Bookify.Services.Booking.Application.Bookings;
-using Bookify.Services.Booking.Application.Bookings.Administrative.ReadModels;
+using Bookify.Services.Booking.Application.Bookings.Administrative;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Notifications;
 using Bookify.Services.Booking.Application.Outbox;
