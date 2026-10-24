@@ -28,6 +28,7 @@ internal sealed class DapperBookingReadService : IBookingReadService
             ) AS "NumberOfNights",
 
             b.guest_count AS "GuestCount",
+            b.customer_subject_id AS "CustomerSubjectId",
 
             bgd.full_name AS "GuestFullName",
             bgd.email AS "GuestEmail",
