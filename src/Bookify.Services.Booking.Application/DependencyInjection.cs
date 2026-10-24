@@ -6,6 +6,9 @@ using Bookify.Services.Booking.Application.Availability.ReadModels;
 using Bookify.Services.Booking.Application.BackgroundJobs.Completion;
 using Bookify.Services.Booking.Application.BackgroundJobs.Expiration;
 using Bookify.Services.Booking.Application.BackgroundJobs.Notifications;
+using Bookify.Services.Booking.Application.Bookings.Administrative.GetById;
+using Bookify.Services.Booking.Application.Bookings.Administrative.GetPaged;
+using Bookify.Services.Booking.Application.Bookings.Administrative.ReadModels;
 using Bookify.Services.Booking.Application.Bookings.Approve;
 using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Application.Bookings.Complete;
@@ -292,6 +295,25 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<CancelBookingCommand>,
             CancelBookingCommandHandler>();
+
+        // ==========================================
+        // Module: Administrative Booking Reads
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<GetAdminBookingsQuery>,
+            GetAdminBookingsQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminBookingsQuery, PagedResult<AdminBookingListItemReadModel>>,
+            GetAdminBookingsQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminBookingByIdQuery>,
+            GetAdminBookingByIdQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminBookingByIdQuery, BookingDetailsReadModel>,
+            GetAdminBookingByIdQueryHandler>();
 
         // ==========================================
         // Module: Availability
