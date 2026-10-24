@@ -231,6 +231,76 @@ unchanged and retains its own authorization policy.
 
 Comprehensive tests belong to module 21.9.
 
+
+### Module 21.6 — Administrative Calendar API
+
+Administrative route:
+
+- GET /api/v1/admin/properties/{propertyId}/calendar
+
+Authorization:
+
+- Admin may consult any existing property's calendar.
+- Owner may consult calendars of owned properties only.
+- Customer and anonymous callers cannot access calendars.
+- Ownership is validated using propertyId from the route.
+
+Required query parameters:
+
+- rangeStart: inclusive date.
+- rangeEnd: exclusive date.
+
+Optional query parameters:
+
+- unitId: filter by rentable unit.
+- blocksInventory: filter by inventory-blocking status.
+
+Date validation:
+
+- Both dates are required.
+- RangeEnd must be greater than RangeStart.
+- Maximum requested range: 366 days.
+- Intervals use [RangeStart, RangeEnd).
+
+Response:
+
+- PropertyId
+- RangeStart
+- RangeEnd
+- Items
+
+Each calendar item includes:
+
+- BookingId
+- RentableUnitId
+- RentableUnitName
+- CheckInDate
+- CheckOutDate
+- GuestCount
+- Status
+- BlocksInventory
+
+The API reuses IBookingReadService.GetCalendarAsync.
+
+BlocksInventory uses the existing status classification:
+
+- PendingApproval: true
+- PendingPayment: true
+- Paid: true
+- Completed: true
+- Cancelled: false
+
+Inactive properties remain administratively readable.
+
+The calendar does not expose guest personal information.
+
+This endpoint is read-only. It does not create, update
+or cancel bookings.
+
+Comprehensive authorization, filtering and regression
+coverage belongs to module 21.9.
+
+
 ### Property management — Module 21.1
 
 - PUT /api/v1/properties/{propertyId}
