@@ -44,4 +44,10 @@ internal static class EndpointNames
         internal const string UpdateSeason = "AdminRentableUnits.UpdateSeason";
         internal const string SetSeasonStatus = "AdminRentableUnits.SetSeasonStatus";
     }
+
+    internal static class AdminBookings
+    {
+        internal const string List = "AdminBookings.List";
+        internal const string GetById = "AdminBookings.GetById";
+    }
 }

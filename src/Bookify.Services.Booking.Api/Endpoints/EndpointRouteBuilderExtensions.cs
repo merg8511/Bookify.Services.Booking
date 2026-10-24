@@ -1,3 +1,4 @@
+using Bookify.Services.Booking.Api.Endpoints.Administrative.Bookings;
 using Bookify.Services.Booking.Api.Endpoints.Administrative.RentableUnits;
 using Bookify.Services.Booking.Api.Endpoints.Administrative.RentableUnits.Pricing;
 using Bookify.Services.Booking.Api.Endpoints.Bookings;
@@ -8,8 +9,7 @@ namespace Bookify.Services.Booking.Api.Endpoints;
 
 internal static class EndpointRouteBuilderExtensions
 {
-    public static IEndpointRouteBuilder MapApiEndpoints(
-        this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapApiEndpoints(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
@@ -22,6 +22,8 @@ internal static class EndpointRouteBuilderExtensions
         PaymentsEndpoints.Map(apiGroup);
 
         AdminRentableUnitsEndpoints.Map(apiGroup);
+
+        AdminBookingEndpoints.Map(apiGroup);
 
         return endpoints;
     }
