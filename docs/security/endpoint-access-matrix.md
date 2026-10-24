@@ -178,6 +178,59 @@ Persistence:
 
 Full security and integration coverage belongs to module 21.9.
 
+### Module 21.5 — Administrative Booking Reads
+
+Administrative routes:
+
+- GET /api/v1/admin/properties/{propertyId}/bookings
+- GET /api/v1/admin/properties/{propertyId}/bookings/{bookingId}
+
+Authorization:
+
+- Admin may read bookings belonging to any property.
+- Owner may only read bookings belonging to owned properties.
+- Customer and anonymous callers cannot use these endpoints.
+- All reads are scoped to the property identifier in the route.
+- A booking belonging to another property returns NotFound.
+
+Paged list filters:
+
+- propertyId (required route parameter)
+- status (optional)
+- rangeStart / rangeEnd (optional pair)
+- unitId (optional)
+- customerSubjectId (optional)
+
+The customerSubjectId filter consumes the deferred
+client-filter requirement from module 6.5.
+
+Date filtering uses overlapping stay intervals:
+Booking.CheckInDate < RangeEnd
+AND Booking.CheckOutDate > RangeStart.
+
+The interval convention is [start, end).
+
+Pagination:
+
+- Default page number: 1
+- Default page size: 20
+- Maximum page size: 100
+- TotalRecords and TotalPages are returned.
+
+Ordering:
+
+- CreatedAtUtc descending, nulls last.
+- Booking ID descending as a deterministic tie-breaker.
+
+The administrative detail includes guest information,
+price snapshot data, booking status, payment status,
+customer identity and lifecycle timestamps.
+
+The existing customer/guest booking endpoint remains
+unchanged and retains its own authorization policy.
+
+Comprehensive tests belong to module 21.9.
+
 ### Property management — Module 21.1
 
 - PUT /api/v1/properties/{propertyId}
