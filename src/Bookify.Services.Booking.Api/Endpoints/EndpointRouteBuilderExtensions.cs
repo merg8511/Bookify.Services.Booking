@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Endpoints.Administrative.Bookings;
+using Bookify.Services.Booking.Api.Endpoints.Administrative.Bookings.Calendar;
 using Bookify.Services.Booking.Api.Endpoints.Administrative.RentableUnits;
 using Bookify.Services.Booking.Api.Endpoints.Administrative.RentableUnits.Pricing;
 using Bookify.Services.Booking.Api.Endpoints.Bookings;
@@ -24,6 +25,8 @@ internal static class EndpointRouteBuilderExtensions
         AdminRentableUnitsEndpoints.Map(apiGroup);
 
         AdminBookingEndpoints.Map(apiGroup);
+
+        AdminBookingCalendarEndpoint.Map(apiGroup);
 
         return endpoints;
     }
