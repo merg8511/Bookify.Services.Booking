@@ -52,5 +52,6 @@ internal static class EndpointNames
         internal const string GetCalendar = "AdminBookings.GetCalendar";
         internal const string Approve = "AdminBookings.Approve";
         internal const string Reject = "AdminBookings.Reject";
+        internal const string GetPayment = "AdminBookings.GetPayment";
     }
 }
