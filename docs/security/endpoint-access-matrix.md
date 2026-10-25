@@ -361,6 +361,89 @@ Comprehensive authorization and concurrency testing
 belongs to module 21.9.
 
 
+### Module 21.8 — Administrative Payment Reads
+
+Administrative endpoint:
+
+- GET /api/v1/admin/properties/{propertyId}/bookings/{bookingId}/payment
+
+Authorization:
+
+- Admin may inspect payments for bookings in any existing property.
+- Owner may inspect payments for bookings in owned properties.
+- Customer and anonymous callers cannot access this endpoint.
+- The Booking must belong to the property specified in the route.
+- A mismatched property/booking pair returns NotFound.
+
+This endpoint is read-only.
+
+Response:
+
+- PropertyId
+- BookingId
+- BookingStatus
+- Payment (nullable)
+
+When Payment exists, the response includes:
+
+- Payment ID
+- Status
+- Amount
+- Currency
+- CreatedAtUtc
+- UpdatedAtUtc
+- CompletedAtUtc
+- HasPendingInitiation
+- PendingInitiationCreatedAtUtc
+- Attempts
+
+Each Attempt includes:
+
+- Attempt ID
+- Status
+- ExternalReference
+- Amount
+- Currency
+- CreatedAtUtc
+- CompletedAtUtc
+
+Attempts are returned newest first, using
+CreatedAtUtc descending and ID descending.
+
+A valid Booking without Payment returns 200 with Payment=null.
+
+A Payment without attempts returns an empty Attempts collection.
+
+Sensitive data exclusions:
+
+- Payment.PendingInitiationKey
+- PaymentAttempt.IdempotencyKey
+- Stripe client_secret
+- Raw credentials, access tokens and webhook secrets
+
+The ExternalReference is exposed only through the authorized
+administrative contract.
+
+This endpoint does not:
+
+- create payments;
+- initiate provider payment attempts;
+- cancel payments;
+- retry Stripe operations;
+- reconcile payment statuses;
+- modify Booking status.
+
+The existing Customer/Guest payment status endpoint remains unchanged:
+
+- GET /api/v1/payments/bookings/{bookingId}/status
+
+The existing Payment initiation, cancellation coordination,
+webhooks and reconciliation continue to operate independently.
+
+Comprehensive authorization, persistence and regression
+testing belongs to module 21.9.
+
+
 ### Property management — Module 21.1
 
 - PUT /api/v1/properties/{propertyId}
