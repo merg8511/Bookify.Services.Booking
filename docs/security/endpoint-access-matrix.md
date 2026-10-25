@@ -301,6 +301,66 @@ Comprehensive authorization, filtering and regression
 coverage belongs to module 21.9.
 
 
+### Module 21.7 — Administrative Booking Actions
+
+Administrative endpoints:
+
+- POST /api/v1/admin/properties/{propertyId}/bookings/{bookingId}/approve
+- POST /api/v1/admin/properties/{propertyId}/bookings/{bookingId}/reject
+
+Authorization:
+
+- Admin may approve or reject bookings.
+- Owner may approve or reject bookings belonging to owned properties.
+- Customer and anonymous callers cannot invoke administrative actions.
+- The booking must belong to the property specified in the route.
+- A mismatched property/booking pair returns NotFound.
+
+The administrative endpoints reuse:
+
+- ApproveBookingCommand
+- ApproveBookingCommandHandler
+- RejectBookingCommand
+- RejectBookingCommandHandler
+- GetAdminBookingByIdQuery
+
+Booking transitions:
+
+- Approve: PendingApproval -> PendingPayment.
+- Reject: PendingApproval -> Cancelled (RejectedByOwner).
+- Invalid transitions return Conflict.
+
+Existing action endpoints remain available:
+
+- POST /api/v1/bookings/{bookingId}/approve
+- POST /api/v1/bookings/{bookingId}/reject
+
+Customer/Guest cancellation remains separate:
+
+- POST /api/v1/bookings/{bookingId}/cancel
+
+Cancellation uses CustomerOrGuestBookingAccess.
+
+A property Owner/Admin role does not itself grant the right
+to cancel on behalf of a Customer or Guest.
+
+Cancellation may be performed only in states accepted
+by Booking.Cancel, with existing payment cancellation
+coordination preserved.
+
+System-only operations remain internal:
+
+- MarkAsPaid
+- ExpireApproval
+- ExpirePayment
+- Complete
+
+Payment administration belongs to module 21.8.
+
+Comprehensive authorization and concurrency testing
+belongs to module 21.9.
+
+
 ### Property management — Module 21.1
 
 - PUT /api/v1/properties/{propertyId}
