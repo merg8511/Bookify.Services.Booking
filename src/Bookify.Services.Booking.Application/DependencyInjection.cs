@@ -24,6 +24,8 @@ using Bookify.Services.Booking.Application.DomainEvents;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
 using Bookify.Services.Booking.Application.Notifications;
+using Bookify.Services.Booking.Application.Payments.Administrative.GetByBooking;
+using Bookify.Services.Booking.Application.Payments.Administrative.ReadModels;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.GetStatus;
 using Bookify.Services.Booking.Application.Payments.Initiate;
@@ -370,6 +372,17 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<ProcessStripeWebhookCommand>,
             ProcessStripeWebhookCommandHandler>();
+
+        // ==========================================
+        // Module: Administrative Payment Reads
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<GetAdminBookingPaymentQuery>,
+            GetAdminBookingPaymentQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminBookingPaymentQuery, AdminBookingPaymentReadModel>,
+            GetAdminBookingPaymentQueryHandler>();
 
         // ==========================================
         // Module: Notifications
