@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.Contracts.Pagination;
+using Bookify.Services.Booking.Api.Endpoints.Administrative.Bookings.Actions;
 using Bookify.Services.Booking.Api.Extensions;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Application.Abstractions.Messaging;
@@ -43,6 +44,8 @@ internal static class AdminBookingEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        AdminBookingActionsEndpoints.Map(bookingsGroup);
     }
 
     private static async Task<Results<Ok<PagedResponse<
