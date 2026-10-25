@@ -444,6 +444,90 @@ Comprehensive authorization, persistence and regression
 testing belongs to module 21.9.
 
 
+## Module 21.9 — Administrative API authorization and integration
+
+### Scope
+
+Module 21 provides:
+
+- Property management
+- RentableUnit management
+- Pricing management
+- Pricing Seasons management
+- Administrative Booking reads
+- Administrative Calendar API
+- Authorized Booking actions
+- Read-only Payment administration
+
+### Authorization invariants
+
+1. Administrative access requires the appropriate authenticated role.
+
+2. Owners may manage only their own properties.
+
+3. Admins may access existing properties regardless of owner.
+
+4. Customer and Guest identities do not receive administrative rights.
+
+5. Every property-scoped resource must belong to the property
+   identifier supplied in the route.
+
+6. A caller authorized for Property A must not use that route
+   to access resources belonging to Property B.
+
+7. Authorization must not depend solely on knowledge of a GUID.
+
+8. Administrative Payment reads must not expose:
+   - IdempotencyKey;
+   - PendingInitiationKey;
+   - client_secret;
+   - API credentials or webhook secrets.
+
+### Booking action invariants
+
+- Approve is valid only from PendingApproval.
+- Reject is valid only from PendingApproval.
+- Customer/Guest cancellation retains its existing ownership policy.
+- Admin/Owner does not automatically receive Customer cancellation rights.
+- Paid and Completed transitions remain governed by Domain rules.
+- Concurrent incompatible actions must not both be reported successful.
+
+### Read models
+
+- Booking lists are property-scoped and paginated.
+- Booking date filters use overlapping [start, end) intervals.
+- Calendar reads are property-scoped.
+- Cancelled bookings do not block inventory.
+- Payment administration is read-only.
+- Existing Booking price snapshots are not recalculated.
+
+### Testing
+
+The final Module 21 suite includes:
+
+- Existing tests from modules 21.1 through 21.8.
+- Cross-module endpoint authorization.
+- Property/resource isolation.
+- Booking filtering and pagination boundaries.
+- Season reactivation conflicts.
+- Cross-module Booking workflow verification.
+- Concurrent administrative action verification.
+
+Module completion requires a green Release build and full test suite.
+
+### Production boundaries
+
+The administrative API does not expose:
+
+- Direct MarkAsPaid operations.
+- Manual payment reconciliation commands.
+- Stripe webhook simulation endpoints.
+- Administrative payment refunds.
+- Direct system-job execution.
+- Bypasses for existing Booking transitions.
+
+
+
 ### Property management — Module 21.1
 
 - PUT /api/v1/properties/{propertyId}
