@@ -12,6 +12,7 @@ using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Notifications;
 using Bookify.Services.Booking.Application.Outbox;
 using Bookify.Services.Booking.Application.Payments;
+using Bookify.Services.Booking.Application.Payments.Administrative;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
@@ -240,6 +241,10 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentReadService,
             DapperPaymentReadService>();
+
+        services.AddScoped<
+            IAdminPaymentReadService,
+            DapperAdminPaymentReadService>();
 
         services.AddScoped<
             IPendingBookingWorkSelector,
