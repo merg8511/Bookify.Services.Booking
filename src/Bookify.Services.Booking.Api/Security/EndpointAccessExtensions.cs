@@ -44,6 +44,21 @@ internal static class EndpointAccessExtensions
             .RequireAuthorization(BookifyAuthorizationPolicies.PropertyOwnerOrAdmin);
     }
 
+    public static RouteHandlerBuilder RequirePropertyOwnerOrAdminAccessFromRoute(
+        this RouteHandlerBuilder builder,
+        string routeValueName)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(routeValueName);
+
+        return
+            builder
+                .WithMetadata(new EndpointAccessMetadata(EndpointAccessCategory.OwnerOrAdmin))
+                .WithMetadata(new PropertyAuthorizationMetadata(routeValueName))
+                .RequireAuthorization(BookifyAuthorizationPolicies.PropertyOwnerOrAdmin);
+
+    }
+
     public static RouteHandlerBuilder RequireCustomerOrGuestBookingAccessFromRoute(
         this RouteHandlerBuilder builder,
         string routeValueName)

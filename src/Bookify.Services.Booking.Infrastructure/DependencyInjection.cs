@@ -7,13 +7,17 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Application.Availability;
 using Bookify.Services.Booking.Application.BackgroundJobs;
 using Bookify.Services.Booking.Application.Bookings;
+using Bookify.Services.Booking.Application.Bookings.Administrative;
 using Bookify.Services.Booking.Application.Bookings.Create;
 using Bookify.Services.Booking.Application.Notifications;
 using Bookify.Services.Booking.Application.Outbox;
 using Bookify.Services.Booking.Application.Payments;
+using Bookify.Services.Booking.Application.Payments.Administrative;
 using Bookify.Services.Booking.Application.Payments.Initiate;
 using Bookify.Services.Booking.Application.Properties;
 using Bookify.Services.Booking.Application.RentableUnits;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons;
 using Bookify.Services.Booking.Infrastructure.Bookings;
 using Bookify.Services.Booking.Infrastructure.Notifications;
 using Bookify.Services.Booking.Infrastructure.Payments;
@@ -139,8 +143,8 @@ public static class DependencyInjection
         // ==========================================
         // Transactions & Unit of Work
         // ==========================================
-        services.AddScoped<IUnitOfWork>(serviceProvider =>
-                serviceProvider.GetRequiredService<BookingDbContext>());
+        services.AddScoped<
+            IUnitOfWork>(serviceProvider => serviceProvider.GetRequiredService<BookingDbContext>());
 
         services.AddScoped<
             ITransactionManager,
@@ -203,12 +207,28 @@ public static class DependencyInjection
             DapperPropertyReadService>();
 
         services.AddScoped<
+            IPropertyOwnershipReadService,
+            DapperPropertyOwnershipReadService>();
+
+        services.AddScoped<
             IRentableUnitReadService,
             DapperRentableUnitReadService>();
 
         services.AddScoped<
+            IRentableUnitPricingReadService,
+            DapperRentableUnitPricingReadService>();
+
+        services.AddScoped<
+            IPricingSeasonReadService,
+            DapperPricingSeasonReadService>();
+
+        services.AddScoped<
             IBookingReadService,
             DapperBookingReadService>();
+
+        services.AddScoped<
+            IAdminBookingReadService,
+            DapperAdminBookingReadService>();
 
         services.AddScoped<
             IAvailabilityReadService,
@@ -221,6 +241,10 @@ public static class DependencyInjection
         services.AddScoped<
             IPaymentReadService,
             DapperPaymentReadService>();
+
+        services.AddScoped<
+            IAdminPaymentReadService,
+            DapperAdminPaymentReadService>();
 
         services.AddScoped<
             IPendingBookingWorkSelector,

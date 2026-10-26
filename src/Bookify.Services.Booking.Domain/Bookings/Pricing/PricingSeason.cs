@@ -21,12 +21,15 @@ public sealed record PricingSeason
         EndDate = endDate;
         NightlyRate = nightlyRate;
         Priority = priority;
+        IsActive = true;
     }
 
+    public int Id { get; private set; }
     public DateOnly StartDate { get; private set; }
     public DateOnly EndDate { get; private set; }
     public Money NightlyRate { get; private set; }
     public int Priority { get; private set; }
+    public bool IsActive { get; private set; } = true;
 
     public static Result<PricingSeason> Create(
         DateOnly startDate,
@@ -38,14 +41,12 @@ public sealed record PricingSeason
 
         if (endDate <= startDate)
         {
-            return Result<PricingSeason>
-                .Failure(PricingSeasonErrors.InvalidDateRange);
+            return Result<PricingSeason>.Failure(PricingSeasonErrors.InvalidDateRange);
         }
 
         if (priority < 0)
         {
-            return Result<PricingSeason>
-                .Failure(PricingSeasonErrors.InvalidPriority);
+            return Result<PricingSeason>.Failure(PricingSeasonErrors.InvalidPriority);
         }
 
         return Result<PricingSeason>.Success(
@@ -56,8 +57,43 @@ public sealed record PricingSeason
                 priority));
     }
 
+    public Result Update(
+        DateOnly startDate,
+        DateOnly endDate,
+        Money nightlyRate,
+        int priority)
+    {
+        Result<PricingSeason> validation = Create(
+            startDate,
+            endDate,
+            nightlyRate,
+            priority);
+
+        if (validation.IsFailure)
+        {
+            return Result.Failure(validation.Error);
+        }
+
+        StartDate = startDate;
+        EndDate = endDate;
+        NightlyRate = nightlyRate;
+        Priority = priority;
+
+        return Result.Success();
+    }
+
     public bool ContainsNight(DateOnly night)
     {
         return night >= StartDate && night < EndDate;
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
     }
 }

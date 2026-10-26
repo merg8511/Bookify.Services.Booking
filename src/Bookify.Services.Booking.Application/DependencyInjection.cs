@@ -6,6 +6,10 @@ using Bookify.Services.Booking.Application.Availability.ReadModels;
 using Bookify.Services.Booking.Application.BackgroundJobs.Completion;
 using Bookify.Services.Booking.Application.BackgroundJobs.Expiration;
 using Bookify.Services.Booking.Application.BackgroundJobs.Notifications;
+using Bookify.Services.Booking.Application.Bookings.Administrative.Calendar;
+using Bookify.Services.Booking.Application.Bookings.Administrative.GetById;
+using Bookify.Services.Booking.Application.Bookings.Administrative.GetPaged;
+using Bookify.Services.Booking.Application.Bookings.Administrative.ReadModels;
 using Bookify.Services.Booking.Application.Bookings.Approve;
 using Bookify.Services.Booking.Application.Bookings.Cancel;
 using Bookify.Services.Booking.Application.Bookings.Complete;
@@ -20,6 +24,8 @@ using Bookify.Services.Booking.Application.DomainEvents;
 using Bookify.Services.Booking.Application.Idempotency;
 using Bookify.Services.Booking.Application.Messaging;
 using Bookify.Services.Booking.Application.Notifications;
+using Bookify.Services.Booking.Application.Payments.Administrative.GetByBooking;
+using Bookify.Services.Booking.Application.Payments.Administrative.ReadModels;
 using Bookify.Services.Booking.Application.Payments.Cancellation;
 using Bookify.Services.Booking.Application.Payments.GetStatus;
 using Bookify.Services.Booking.Application.Payments.Initiate;
@@ -29,7 +35,22 @@ using Bookify.Services.Booking.Application.Properties.Create;
 using Bookify.Services.Booking.Application.Properties.GetById;
 using Bookify.Services.Booking.Application.Properties.GetPaged;
 using Bookify.Services.Booking.Application.Properties.ReadModels;
+using Bookify.Services.Booking.Application.Properties.SetStatus;
+using Bookify.Services.Booking.Application.Properties.Update;
 using Bookify.Services.Booking.Application.RentableUnits.GetByProperty;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Create;
+using Bookify.Services.Booking.Application.RentableUnits.Management.GetAll;
+using Bookify.Services.Booking.Application.RentableUnits.Management.GetById;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing.Configure;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing.Get;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.Create;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.GetAll;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.GetById;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.SetStatus;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons.Update;
+using Bookify.Services.Booking.Application.RentableUnits.Management.SetStatus;
+using Bookify.Services.Booking.Application.RentableUnits.Management.Update;
 using Bookify.Services.Booking.Application.RentableUnits.ReadModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -67,6 +88,22 @@ public static class DependencyInjection
             CreatePropertyCommandHandler>();
 
         services.AddScoped<
+            IRequestValidator<UpdatePropertyCommand>,
+            UpdatePropertyCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<UpdatePropertyCommand>,
+            UpdatePropertyCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<SetPropertyStatusCommand>,
+            SetPropertyStatusCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<SetPropertyStatusCommand>,
+            SetPropertyStatusCommandHandler>();
+
+        services.AddScoped<
             IRequestValidator<GetPropertyByIdQuery>,
             GetPropertyByIdQueryValidator>();
 
@@ -92,6 +129,108 @@ public static class DependencyInjection
         services.AddScoped<
             IQueryHandler<GetPropertyUnitsQuery, IReadOnlyList<RentableUnitListItemReadModel>>,
             GetPropertyUnitsQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<CreateRentableUnitCommand>,
+            CreateRentableUnitCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<CreateRentableUnitCommand, Guid>,
+            CreateRentableUnitCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<UpdateRentableUnitCommand>,
+            UpdateRentableUnitCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<UpdateRentableUnitCommand>,
+            UpdateRentableUnitCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<SetRentableUnitStatusCommand>,
+            SetRentableUnitStatusCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<SetRentableUnitStatusCommand>,
+            SetRentableUnitStatusCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminRentableUnitsQuery>,
+            GetAdminRentableUnitsQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminRentableUnitsQuery, IReadOnlyList<RentableUnitDetailsReadModel>>,
+            GetAdminRentableUnitsQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminRentableUnitByIdQuery>,
+            GetAdminRentableUnitByIdQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminRentableUnitByIdQuery, RentableUnitDetailsReadModel>,
+            GetAdminRentableUnitByIdQueryHandler>();
+
+        // ==========================================
+        // Module: Administrative Pricing
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<ConfigureRentableUnitPricingCommand>,
+            ConfigureRentableUnitPricingCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<ConfigureRentableUnitPricingCommand>,
+            ConfigureRentableUnitPricingCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminRentableUnitPricingQuery>,
+            GetAdminRentableUnitPricingQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminRentableUnitPricingQuery, AdminRentableUnitPricingReadModel>,
+            GetAdminRentableUnitPricingQueryHandler>();
+
+        // ==========================================
+        // Module: Administrative Pricing Seasons
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<CreatePricingSeasonCommand>,
+            CreatePricingSeasonCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<CreatePricingSeasonCommand, int>,
+            CreatePricingSeasonCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<UpdatePricingSeasonCommand>,
+            UpdatePricingSeasonCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<UpdatePricingSeasonCommand>,
+            UpdatePricingSeasonCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<SetPricingSeasonStatusCommand>,
+            SetPricingSeasonStatusCommandValidator>();
+
+        services.AddScoped<
+            ICommandHandler<SetPricingSeasonStatusCommand>,
+            SetPricingSeasonStatusCommandHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetPricingSeasonsQuery>,
+            GetPricingSeasonsQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetPricingSeasonsQuery, IReadOnlyList<PricingSeasonReadModel>>,
+            GetPricingSeasonsQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetPricingSeasonByIdQuery>,
+            GetPricingSeasonByIdQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetPricingSeasonByIdQuery, PricingSeasonReadModel>,
+            GetPricingSeasonByIdQueryHandler>();
 
         // ==========================================
         // Module: Bookings
@@ -161,6 +300,33 @@ public static class DependencyInjection
             CancelBookingCommandHandler>();
 
         // ==========================================
+        // Module: Administrative Booking Reads
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<GetAdminBookingsQuery>,
+            GetAdminBookingsQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminBookingsQuery, PagedResult<AdminBookingListItemReadModel>>,
+            GetAdminBookingsQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminBookingByIdQuery>,
+            GetAdminBookingByIdQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminBookingByIdQuery, BookingDetailsReadModel>,
+            GetAdminBookingByIdQueryHandler>();
+
+        services.AddScoped<
+            IRequestValidator<GetAdminBookingCalendarQuery>,
+            GetAdminBookingCalendarQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminBookingCalendarQuery, IReadOnlyList<BookingCalendarItemReadModel>>,
+            GetAdminBookingCalendarQueryHandler>();
+
+        // ==========================================
         // Module: Availability
         // ==========================================
         services.AddScoped<
@@ -206,6 +372,17 @@ public static class DependencyInjection
         services.AddScoped<
             ICommandHandler<ProcessStripeWebhookCommand>,
             ProcessStripeWebhookCommandHandler>();
+
+        // ==========================================
+        // Module: Administrative Payment Reads
+        // ==========================================
+        services.AddScoped<
+            IRequestValidator<GetAdminBookingPaymentQuery>,
+            GetAdminBookingPaymentQueryValidator>();
+
+        services.AddScoped<
+            IQueryHandler<GetAdminBookingPaymentQuery, AdminBookingPaymentReadModel>,
+            GetAdminBookingPaymentQueryHandler>();
 
         // ==========================================
         // Module: Notifications

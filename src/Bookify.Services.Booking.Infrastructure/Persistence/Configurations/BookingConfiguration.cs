@@ -91,6 +91,7 @@ internal sealed class BookingConfiguration
             .HasColumnName("status")
             .HasConversion<string>()
             .HasMaxLength(32)
+            .IsConcurrencyToken()
             .IsRequired();
 
         builder

@@ -9,6 +9,8 @@ internal static class EndpointNames
         internal const string List = "Properties.List";
         internal const string GetAvailability = "Properties.GetAvailability";
         internal const string GetUnits = "Properties.GetUnits";
+        internal const string Update = "Properties.Update";
+        internal const string SetStatus = "Properties.SetStatus";
     }
 
     internal static class Bookings
@@ -25,5 +27,31 @@ internal static class EndpointNames
         internal const string Initiate = "Payments.Initiate";
         internal const string StripeWebhook = "Payments.StripeWebhook";
         internal const string GetStatus = "Payments.GetStatus";
+    }
+
+    internal static class AdminRentableUnits
+    {
+        internal const string Create = "AdminRentableUnits.Create";
+        internal const string List = "AdminRentableUnits.List";
+        internal const string GetById = "AdminRentableUnits.GetById";
+        internal const string Update = "AdminRentableUnits.Update";
+        internal const string SetStatus = "AdminRentableUnits.SetStatus";
+        internal const string GetPricing = "AdminRentableUnits.GetPricing";
+        internal const string ConfigurePricing = "AdminRentableUnits.ConfigurePricing";
+        internal const string CreateSeason = "AdminRentableUnits.CreateSeason";
+        internal const string ListSeason = "AdminRentableUnits.ListSeason";
+        internal const string GetSeasonById = "AdminRentableUnits.GetSeasonById";
+        internal const string UpdateSeason = "AdminRentableUnits.UpdateSeason";
+        internal const string SetSeasonStatus = "AdminRentableUnits.SetSeasonStatus";
+    }
+
+    internal static class AdminBookings
+    {
+        internal const string List = "AdminBookings.List";
+        internal const string GetById = "AdminBookings.GetById";
+        internal const string GetCalendar = "AdminBookings.GetCalendar";
+        internal const string Approve = "AdminBookings.Approve";
+        internal const string Reject = "AdminBookings.Reject";
+        internal const string GetPayment = "AdminBookings.GetPayment";
     }
 }

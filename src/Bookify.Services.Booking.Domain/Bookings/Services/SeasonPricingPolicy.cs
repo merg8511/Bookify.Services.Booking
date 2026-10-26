@@ -20,13 +20,12 @@ public static class SeasonPricingPolicy
 
         foreach (PricingSeason season in seasons)
         {
-            if (!season.ContainsNight(night))
+            if (!season.IsActive || !season.ContainsNight(night))
             {
                 continue;
             }
 
-            if (selectedSeason is null
-                || season.Priority > selectedSeason.Priority)
+            if (selectedSeason is null || season.Priority > selectedSeason.Priority)
             {
                 selectedSeason = season;
                 hasAmbiguousPriority = false;
@@ -47,13 +46,9 @@ public static class SeasonPricingPolicy
 
         if (hasAmbiguousPriority)
         {
-            return Result<Money>.Failure(
-                 PricingSeasonErrors.AmbiguousPriority(
-                     night,
-                     selectedSeason.Priority));
+            return Result<Money>.Failure(PricingSeasonErrors.AmbiguousPriority(night, selectedSeason.Priority));
         }
 
-        return Result<Money>.Success(
-            selectedSeason.NightlyRate);
+        return Result<Money>.Success(selectedSeason.NightlyRate);
     }
 }

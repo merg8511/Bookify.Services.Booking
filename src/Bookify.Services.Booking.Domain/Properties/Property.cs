@@ -5,6 +5,8 @@ namespace Bookify.Services.Booking.Domain.Properties;
 
 public sealed class Property
 {
+    private const int MaxNameLength = 200;
+    private const int MaxTimeZoneIdLength = 100;
     private Property()
     {
         Name = string.Empty;
@@ -45,15 +47,14 @@ public sealed class Property
         string ownerSubjectId)
     {
         string? normalizedName = name?.Trim();
+        string? normalizedTimeZoneId = timeZoneId?.Trim();
 
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        if (!IsValidName(normalizedName))
         {
             return Result<Property>.Failure(PropertyErrors.InvalidName);
         }
 
-        string? normalizedTimeZoneId = timeZoneId?.Trim();
-
-        if (string.IsNullOrWhiteSpace(normalizedTimeZoneId))
+        if (!IsValidTimeZoneId(normalizedTimeZoneId))
         {
             return Result<Property>.Failure(PropertyErrors.InvalidTimeZoneId);
         }
@@ -67,8 +68,8 @@ public sealed class Property
 
         var property = new Property(
             Guid.NewGuid(),
-            normalizedName,
-            normalizedTimeZoneId,
+            normalizedName!,
+            normalizedTimeZoneId!,
             checkInTime,
             checkOutTime,
             ownerSubjectId);
@@ -80,13 +81,12 @@ public sealed class Property
     {
         string? normalizedName = name?.Trim();
 
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        if (!IsValidName(name))
         {
-            return Result.Failure(
-                PropertyErrors.InvalidName);
+            return Result.Failure(PropertyErrors.InvalidName);
         }
 
-        Name = normalizedName;
+        Name = normalizedName!;
 
         return Result.Success();
     }
@@ -95,23 +95,47 @@ public sealed class Property
     {
         string? normalizedTimeZoneId = timeZoneId?.Trim();
 
-        if (string.IsNullOrWhiteSpace(normalizedTimeZoneId))
+        if (!IsValidTimeZoneId(normalizedTimeZoneId))
         {
-            return Result.Failure(
-                PropertyErrors.InvalidTimeZoneId);
+            return Result.Failure(PropertyErrors.InvalidTimeZoneId);
         }
 
-        TimeZoneId = normalizedTimeZoneId;
+        TimeZoneId = normalizedTimeZoneId!;
 
         return Result.Success();
     }
 
-    public void UpdateStaySchedule(
-        TimeOnly checkInTime,
-        TimeOnly checkOutTime)
+    public void UpdateStaySchedule(TimeOnly checkInTime, TimeOnly checkOutTime)
     {
         CheckInTime = checkInTime;
         CheckOutTime = checkOutTime;
+    }
+
+    public Result UpdateDetails(
+        string name,
+        string timeZoneId,
+        TimeOnly checkInTime,
+        TimeOnly checkOutTime)
+    {
+        string? normalizedName = name?.Trim();
+        string? normalizedTimeZoneId = timeZoneId?.Trim();
+
+        if (!IsValidName(normalizedName))
+        {
+            return Result.Failure(PropertyErrors.InvalidName);
+        }
+
+        if (!IsValidTimeZoneId(normalizedTimeZoneId))
+        {
+            return Result.Failure(PropertyErrors.InvalidTimeZoneId);
+        }
+
+        Name = normalizedName!;
+        TimeZoneId = normalizedTimeZoneId!;
+        CheckInTime = checkInTime;
+        CheckOutTime = checkOutTime;
+
+        return Result.Success();
     }
 
     public void Activate()
@@ -122,5 +146,17 @@ public sealed class Property
     public void Deactivate()
     {
         IsActive = false;
+    }
+
+    private static bool IsValidName(string? name)
+    {
+        return !string.IsNullOrWhiteSpace(name) && name.Length <= MaxNameLength;
+    }
+
+    private static bool IsValidTimeZoneId(string? timeZoneId)
+    {
+        return !string.IsNullOrWhiteSpace(timeZoneId) &&
+            timeZoneId.Length <= MaxTimeZoneIdLength &&
+            TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out _);
     }
 }

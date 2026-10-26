@@ -3,6 +3,8 @@ using Bookify.Services.Booking.Api.Endpoints.Properties.GetAvailability;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetById;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetPaged;
 using Bookify.Services.Booking.Api.Endpoints.Properties.GetUnits;
+using Bookify.Services.Booking.Api.Endpoints.Properties.SetStatus;
+using Bookify.Services.Booking.Api.Endpoints.Properties.Update;
 
 namespace Bookify.Services.Booking.Api.Endpoints.Properties;
 
@@ -21,5 +23,7 @@ internal static class PropertiesEndpoints
         GetPropertyByIdEndpoint.Map(propertiesGroup);
         GetPropertyUnitsEndpoint.Map(propertiesGroup);
         GetAvailabilityEndpoint.Map(propertiesGroup);
+        UpdatePropertyEndpoint.Map(propertiesGroup);
+        SetPropertyStatusEndpoint.Map(propertiesGroup);
     }
 }

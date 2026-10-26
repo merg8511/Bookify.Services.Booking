@@ -893,6 +893,12 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                                 .HasColumnType("date")
                                 .HasColumnName("end_date");
 
+                            b1.Property<bool>("IsActive")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("boolean")
+                                .HasDefaultValue(true)
+                                .HasColumnName("is_active");
+
                             b1.Property<int>("Priority")
                                 .HasColumnType("integer")
                                 .HasColumnName("priority");

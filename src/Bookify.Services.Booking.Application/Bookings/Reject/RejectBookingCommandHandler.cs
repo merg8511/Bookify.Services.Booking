@@ -2,6 +2,7 @@ using Bookify.Services.Booking.Application.Abstractions.Messaging;
 using Bookify.Services.Booking.Application.Abstractions.Persistence;
 using Bookify.Services.Booking.Application.Abstractions.Persistence.Repositories;
 using Bookify.Services.Booking.Application.Abstractions.Time;
+using Bookify.Services.Booking.Domain.Bookings.Errors;
 using Bookify.Services.Booking.Domain.Shared;
 using DomainBooking = Bookify.Services.Booking.Domain.Bookings.Booking;
 namespace Bookify.Services.Booking.Application.Bookings.Reject;
@@ -47,7 +48,14 @@ public sealed class RejectBookingCommandHandler : ICommandHandler<RejectBookingC
             return rejectionResult;
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (OptimisticConcurrencyException)
+        {
+            return Result.Failure(BookingErrors.ConcurrencyModification);
+        }
 
         return Result.Success();
     }

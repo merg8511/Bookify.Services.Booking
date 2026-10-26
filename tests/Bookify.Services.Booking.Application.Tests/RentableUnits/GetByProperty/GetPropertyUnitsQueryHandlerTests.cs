@@ -124,6 +124,26 @@ public sealed class GetPropertyUnitsQueryHandlerTests
             RequestedPropertyId = propertyId;
             return Task.FromResult(_units);
         }
+
+        public Task<RentableUnitDetailsReadModel?> GetAdminByIdAsync(Guid propertyId, Guid unitId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<IReadOnlyList<RentableUnitDetailsReadModel>> GetAllByPropertyIdAsync(Guid propertyId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<int> GetMaximumBookedGuestCountAsync(Guid unitId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> HasAnyBookingsAsync(Guid unitId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class StubPropertyReadService : IPropertyReadService

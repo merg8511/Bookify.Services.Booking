@@ -22,4 +22,8 @@ public static class BookingErrors
         Error.Conflict(
             "Booking.InvalidStatusTransition",
             $"A booking in status '{currentStatus}' cannot transition to '{targetStatus}'.");
+
+    public static readonly Error ConcurrencyModification = Error.Conflict(
+        "Booking.ConcurrencyModification",
+        "The booking was modified by another operation. Refresh its state before continuing.");
 }
