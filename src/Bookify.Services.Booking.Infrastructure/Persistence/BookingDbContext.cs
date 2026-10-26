@@ -77,7 +77,15 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
 
     async Task IUnitOfWork.SaveChangesAsync(CancellationToken cancellationToken)
     {
-        await base.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+            when (exception.Entries.Any(entry => entry.Entity is DomainBooking))
+        {
+            throw new OptimisticConcurrencyException(exception);
+        }
     }
 
     internal async Task DispatchDomainEventsAsync(CancellationToken cancellationToken)
