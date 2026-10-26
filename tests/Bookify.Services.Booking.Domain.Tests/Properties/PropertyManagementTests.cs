@@ -79,4 +79,37 @@ public sealed class PropertyManagementTests
         Assert.Equal(PropertyErrors.InvalidName, result.Error);
         Assert.Equal(originalName, property.Name);
     }
+
+    [Fact]
+    public void UpdateDetails_WithWhitespaceInTimeZone_ShouldNormalizeAndPersistValue()
+    {
+        // ARRANGE
+        Property property =
+            PropertyTestFactory.CreateValidProperty();
+
+        TimeOnly checkIn = new(15, 0);
+        TimeOnly checkOut = new(11, 0);
+
+        // ACT
+        var result = property.UpdateDetails(
+            "  Updated Property  ",
+            "  America/El_Salvador  ",
+            checkIn,
+            checkOut);
+
+        // ASSERT
+        Assert.True(result.IsSuccess);
+
+        Assert.Equal(
+            "Updated Property",
+            property.Name);
+
+        Assert.Equal(
+            "America/El_Salvador",
+            property.TimeZoneId);
+
+        Assert.Equal(checkIn, property.CheckInTime);
+        Assert.Equal(checkOut, property.CheckOutTime);
+    }
+
 }

@@ -131,7 +131,7 @@ public sealed class Property
         }
 
         Name = normalizedName!;
-        TimeZoneId = timeZoneId!;
+        TimeZoneId = normalizedTimeZoneId!;
         CheckInTime = checkInTime;
         CheckOutTime = checkOutTime;
 
