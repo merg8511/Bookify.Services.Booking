@@ -48,6 +48,11 @@ public sealed class CreatePricingSeasonCommandHandler : ICommandHandler<CreatePr
         Result<PricingSeason> seasonResult = PricingSeason.Create(
             command.StartDate, command.EndDate, moneyResult.Value, command.Priority);
 
+        if (seasonResult.IsFailure)
+        {
+            return Result<int>.Failure(seasonResult.Error);
+        }
+
         await using ITransaction transaction = await _transactionManager.BeginAsync(cancellationToken);
 
         bool propertyLock = await _inventoryLock.TryAcquireAsync(command.PropertyId, cancellationToken);

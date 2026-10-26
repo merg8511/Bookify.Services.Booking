@@ -18,6 +18,11 @@ public sealed class GetAdminBookingsQueryValidator : IRequestValidator<GetAdminB
 
         if (request.PageNumber < 1)
         {
+            return Result.Failure(PaginationErrors.InvalidPageNumber);
+        }
+
+        if (request.PageSize < 1)
+        {
             return Result.Failure(PaginationErrors.InvalidPageSize);
         }
 
