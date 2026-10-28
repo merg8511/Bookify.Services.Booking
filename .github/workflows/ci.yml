@@ -1,3 +1,4 @@
+
 name: CI
 
 on:
@@ -35,20 +36,117 @@ jobs:
       - name: Display .NET information
         run: dotnet --info
 
-      - name: Restore dependencies
-        run: dotnet restore Bookify.Services.Booking.slnx
+      # CAMBIO 22.9:
+      # Auditar paquetes directos y transitivos.
+      # Las advertencias se tratan como errores.
+      - name: Audit NuGet dependencies and restore
+        run: >
+          dotnet restore
+          Bookify.Services.Booking.slnx
+          -p:NuGetAudit=true
+          -p:NuGetAuditMode=all
+          -p:NuGetAuditLevel=low
+          -p:TreatWarningsAsErrors=true
 
-      - name: Build
+      # Gate existente, conservado.
+      - name: Build Release
         run: >
           dotnet build
           Bookify.Services.Booking.slnx
           --configuration Release
           --no-restore
 
-      - name: Test
+      # CAMBIO 22.9:
+      # Verificar formato sin modificar archivos.
+      - name: Verify code formatting
         run: >
-          dotnet test
+          dotnet format
           Bookify.Services.Booking.slnx
-          --configuration Release
-          --no-build
+          --verify-no-changes
           --no-restore
+
+      # CAMBIO 22.9:
+      # Los tests de integración necesitan Docker.
+      - name: Verify Docker availability
+        run: docker info --format '{{.ServerVersion}}'
+
+      # CAMBIO 22.9:
+      # Ejecutar la suite completa una sola vez.
+      # Generar cobertura en formato Cobertura XML.
+      - name: Test Release and collect coverage
+        run: |
+          rm -rf artifacts/ci/test-results
+          dotnet test Bookify.Services.Booking.slnx \
+            --configuration Release \
+            --no-build \
+            --no-restore \
+            --collect:"XPlat Code Coverage" \
+            --results-directory artifacts/ci/test-results
+
+      # CAMBIO 22.9:
+      # No basta con que los tests pasen.
+      # Deben existir informes Cobertura válidos
+      # para los proyectos de tests de la solución.
+      - name: Validate coverage artifacts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          solution = ElementTree.parse("Bookify.Services.Booking.slnx")
+
+          test_projects = [
+              item.attrib["Path"]
+              for item in solution.iter("Project")
+              if item.attrib.get("Path", "").startswith("tests/")
+          ]
+
+          reports = sorted(
+              Path("artifacts/ci/test-results").rglob(
+                  "coverage.cobertura.xml"
+              )
+          )
+
+          if not test_projects:
+              raise SystemExit(
+                  "No test projects are registered in the solution."
+              )
+
+          if len(reports) < len(test_projects):
+              raise SystemExit(
+                  f"Expected at least {len(test_projects)} "
+                  f"Cobertura reports, but found {len(reports)}."
+              )
+
+          for report in reports:
+              if report.stat().st_size == 0:
+                  raise SystemExit(
+                      f"Coverage report is empty: {report}"
+                  )
+
+              root = ElementTree.parse(report).getroot()
+
+              if root.tag != "coverage":
+                  raise SystemExit(
+                      f"Not a Cobertura coverage report: {report}"
+                  )
+
+              print(f"Valid Cobertura report: {report}")
+
+          print(
+              f"Validated {len(reports)} reports "
+              f"for {len(test_projects)} test projects."
+          )
+          PY
+
+      # CAMBIO 22.9:
+      # Conservar los reportes generados.
+      # Si los tests fallan, subir los que existan.
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bookify-backend-coverage
+          path: artifacts/ci/test-results/
+          if-no-files-found: warn
+          retention-days: 14
