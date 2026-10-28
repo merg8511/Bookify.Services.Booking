@@ -220,6 +220,7 @@ public sealed class PaymentReconcilerTests
 
         // Assert
         Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Conflict, result.Error.Type);
         Assert.Equal(PaymentReconciliationErrors.BookingStateConflict(booking.Id, BookingStatus.Cancelled), result.Error);
         Assert.Equal(BookingStatus.Cancelled, booking.Status);
         Assert.Equal(PaymentStatus.Pending, payment.Status);
