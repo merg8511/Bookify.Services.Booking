@@ -14,6 +14,9 @@
     <File Path="docs/security/role-claims.md" />
     <File Path="scheduler-strategy.md" />
   </Folder>
+  <Folder Name="/docs/testing/">
+    <File Path="docs/testing/test-coverage-inventory.md" />
+  </Folder>
   <Folder Name="/Elementos de la solución/">
     <File Path=".github/workflows/pr-summary.yml" />
     <File Path=".github/workflows/release-please.yml" />
@@ -31,6 +34,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bookify.Services.Booking.Application.Tests/Bookify.Services.Booking.Application.Tests.csproj" />
+    <Project Path="tests/Bookify.Services.Booking.Architecture.Tests/Bookify.Services.Booking.Architecture.Tests.csproj" />
     <Project Path="tests/Bookify.Services.Booking.Domain.Tests/Bookify.Services.Booking.Domain.Tests.csproj" />
     <Project Path="tests/Bookify.Services.Booking.Integration.Tests/Bookify.Services.Booking.Integration.Tests.csproj" />
   </Folder>

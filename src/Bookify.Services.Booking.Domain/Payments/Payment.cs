@@ -38,23 +38,18 @@ public sealed class Payment
     public string? PendingInitiationKey { get; private set; }
     public DateTimeOffset? PendingInitiationCreatedAtUtc { get; private set; }
 
-    public static Result<Payment> Create(
-        Guid bookingId,
-        Money amount,
-        DateTimeOffset createdAtUtc)
+    public static Result<Payment> Create(Guid bookingId, Money amount, DateTimeOffset createdAtUtc)
     {
         ArgumentNullException.ThrowIfNull(amount);
 
         if (bookingId == Guid.Empty)
         {
-            return Result<Payment>.Failure(
-                PaymentErrors.BookingIdRequired);
+            return Result<Payment>.Failure(PaymentErrors.BookingIdRequired);
         }
 
         if (amount.Amount <= 0)
         {
-            return Result<Payment>.Failure(
-                PaymentErrors.AmountMustBePositive);
+            return Result<Payment>.Failure(PaymentErrors.AmountMustBePositive);
         }
 
         return Result<Payment>.Success(
@@ -71,20 +66,17 @@ public sealed class Payment
 
         if (PendingInitiationKey is not null)
         {
-            throw new InvalidOperationException(
-                "This payment already has an unresolved initiation.");
+            throw new InvalidOperationException("This payment already has an unresolved initiation.");
         }
 
         if (Status == PaymentStatus.Succeeded)
         {
-            throw new InvalidOperationException(
-                "A succeeded payment cannot initiate another attempt.");
+            throw new InvalidOperationException("A succeeded payment cannot initiate another attempt.");
         }
 
         if (_attempts.Any(attempt => attempt.Status == PaymentAttemptStatus.Pending))
         {
-            throw new InvalidOperationException(
-                "A pending payment attempt already exists.");
+            throw new InvalidOperationException("A pending payment attempt already exists.");
         }
 
         PendingInitiationKey = operationKey;
@@ -102,16 +94,11 @@ public sealed class Payment
         }
 
         bool attemptWasRecorded = _attempts.Any(
-            attempt => string.Equals(
-                attempt.IdempotencyKey,
-                operationKey,
-                StringComparison.Ordinal));
+            attempt => string.Equals(attempt.IdempotencyKey, operationKey, StringComparison.Ordinal));
 
         if (!attemptWasRecorded)
         {
-            throw new InvalidOperationException(
-                "A payment initiation cannot be completed " +
-                "without its recorded payment attempt.");
+            throw new InvalidOperationException("A payment initiation cannot be completed without its recorded payment attempt.");
         }
 
         PendingInitiationKey = null;
@@ -125,46 +112,37 @@ public sealed class Payment
     {
         if (Status is PaymentStatus.Succeeded)
         {
-            return Result<PaymentAttempt>.Failure(
-                PaymentErrors.CannotAddAttempt(Status));
+            return Result<PaymentAttempt>.Failure(PaymentErrors.CannotAddAttempt(Status));
         }
 
         string normalizedIdempotencyKey = idempotencyKey?.Trim() ?? string.Empty;
 
         bool idempotencyKeyExists = _attempts
-            .Any(attempt =>
-                string.Equals(attempt.IdempotencyKey, normalizedIdempotencyKey, StringComparison.Ordinal));
+            .Any(attempt => string.Equals(attempt.IdempotencyKey, normalizedIdempotencyKey, StringComparison.Ordinal));
 
         if (idempotencyKeyExists)
         {
-            return Result<PaymentAttempt>.Failure(
-                PaymentErrors.DuplicateIdempotencyKey(normalizedIdempotencyKey));
+            return Result<PaymentAttempt>.Failure(PaymentErrors.DuplicateIdempotencyKey(normalizedIdempotencyKey));
         }
 
-        if (_attempts
-            .Any(attempt =>
-                attempt.Status == PaymentAttemptStatus.Pending))
+        if (_attempts.Any(attempt => attempt.Status == PaymentAttemptStatus.Pending))
         {
-            return Result<PaymentAttempt>.Failure(
-                PaymentErrors.ActiveAttemptAlreadyExists);
+            return Result<PaymentAttempt>.Failure(PaymentErrors.ActiveAttemptAlreadyExists);
         }
 
         string normalizedExternalReference = externalReference?.Trim() ?? string.Empty;
 
         bool externalReferenceExists = _attempts
-            .Any(attempt =>
-                    string.Equals(attempt.ExternalReference, normalizedExternalReference, StringComparison.Ordinal));
+            .Any(attempt => string.Equals(attempt.ExternalReference, normalizedExternalReference, StringComparison.Ordinal));
 
         if (externalReferenceExists)
         {
-            return Result<PaymentAttempt>.Failure(
-                PaymentErrors.DuplicateExternalReference(normalizedExternalReference));
+            return Result<PaymentAttempt>.Failure(PaymentErrors.DuplicateExternalReference(normalizedExternalReference));
         }
 
         if (createdAtUtc < CreatedAtUtc)
         {
-            return Result<PaymentAttempt>.Failure(
-                PaymentErrors.AttemptBeforePaymentCreation);
+            return Result<PaymentAttempt>.Failure(PaymentErrors.AttemptBeforePaymentCreation);
         }
 
         Result<Money> attemptAmountResult = Money.Create(Amount.Amount, Amount.Currency);
@@ -197,16 +175,13 @@ public sealed class Payment
         return Result<PaymentAttempt>.Success(attempt);
     }
 
-    public Result MarkAttemptAsSucceeded(
-        string externalReference,
-        DateTimeOffset completedAtUtc)
+    public Result MarkAttemptAsSucceeded(string externalReference, DateTimeOffset completedAtUtc)
     {
         PaymentAttempt? attempt = FindAttempt(externalReference);
 
         if (attempt is null)
         {
-            return Result.Failure(
-                PaymentErrors.AttemptNotFound(externalReference));
+            return Result.Failure(PaymentErrors.AttemptNotFound(externalReference));
         }
 
         Result result = attempt.MarkAsSucceeded(completedAtUtc);
@@ -216,23 +191,22 @@ public sealed class Payment
             return result;
         }
 
+        DateTimeOffset authoritativeCompleteAtUtc = attempt.CompletedAtUtc ?? completedAtUtc;
+
         Status = PaymentStatus.Succeeded;
-        UpdatedAtUtc = completedAtUtc;
-        CompletedAtUtc = completedAtUtc;
+        UpdatedAtUtc = authoritativeCompleteAtUtc;
+        CompletedAtUtc = authoritativeCompleteAtUtc;
 
         return Result.Success();
     }
 
-    public Result MarkAttemptAsFailed(
-        string externalReference,
-        DateTimeOffset completedAtUtc)
+    public Result MarkAttemptAsFailed(string externalReference, DateTimeOffset completedAtUtc)
     {
         PaymentAttempt? attempt = FindAttempt(externalReference);
 
         if (attempt is null)
         {
-            return Result.Failure(
-                PaymentErrors.AttemptNotFound(externalReference));
+            return Result.Failure(PaymentErrors.AttemptNotFound(externalReference));
         }
 
         Result result = attempt.MarkAsFailed(completedAtUtc);
@@ -249,16 +223,13 @@ public sealed class Payment
         return Result.Success();
     }
 
-    public Result CancelAttempt(
-        string externalReference,
-        DateTimeOffset completedAtUtc)
+    public Result CancelAttempt(string externalReference, DateTimeOffset completedAtUtc)
     {
         PaymentAttempt? attempt = FindAttempt(externalReference);
 
         if (attempt is null)
         {
-            return Result.Failure(
-                PaymentErrors.AttemptNotFound(externalReference));
+            return Result.Failure(PaymentErrors.AttemptNotFound(externalReference));
         }
 
         Result result = attempt.Cancel(completedAtUtc);
@@ -280,7 +251,6 @@ public sealed class Payment
         string normalizedExternalReference = externalReference?.Trim() ?? string.Empty;
 
         return _attempts
-            .FirstOrDefault(attempt =>
-                string.Equals(attempt.ExternalReference, normalizedExternalReference, StringComparison.Ordinal));
+            .FirstOrDefault(attempt => string.Equals(attempt.ExternalReference, normalizedExternalReference, StringComparison.Ordinal));
     }
 }
