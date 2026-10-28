@@ -34,6 +34,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bookify.Services.Booking.Application.Tests/Bookify.Services.Booking.Application.Tests.csproj" />
+    <Project Path="tests/Bookify.Services.Booking.Architecture.Tests/Bookify.Services.Booking.Architecture.Tests.csproj" />
     <Project Path="tests/Bookify.Services.Booking.Domain.Tests/Bookify.Services.Booking.Domain.Tests.csproj" />
     <Project Path="tests/Bookify.Services.Booking.Integration.Tests/Bookify.Services.Booking.Integration.Tests.csproj" />
   </Folder>
