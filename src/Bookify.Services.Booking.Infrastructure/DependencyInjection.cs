@@ -141,6 +141,12 @@ public static class DependencyInjection
                 serviceProvider.GetRequiredService<IClock>(),
                 configuration["DemoSeed:OwnerSubjectId"]));
 
+        services.AddScoped<IDemoSeedBatch>(serviceProvider =>
+            new BookingStatesDemoSeedBatch(
+                serviceProvider.GetRequiredService<IClock>(),
+                configuration["DemoSeed:OwnerSubjectId"],
+                configuration["DemoSeed:PropertyId"]));
+
         return services;
     }
 
