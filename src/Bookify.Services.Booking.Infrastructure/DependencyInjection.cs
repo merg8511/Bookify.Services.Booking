@@ -136,6 +136,11 @@ public static class DependencyInjection
 
         NotificationsDependencyInjection.AddNotifications(services, configuration);
 
+        services.AddScoped<IDemoSeedBatch>(serviceProvider =>
+            new CompletePropertyDemoSeedBatch(
+                serviceProvider.GetRequiredService<IClock>(),
+                configuration["DemoSeed:OwnerSubjectId"]));
+
         return services;
     }
 
