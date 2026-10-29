@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Domain.Payments;
 using Bookify.Services.Booking.Domain.Properties;
 using Bookify.Services.Booking.Domain.Shared.DomainEvents;
+using Bookify.Services.Booking.Infrastructure.DemoSeeding;
 using Bookify.Services.Booking.Infrastructure.Persistence.Idempotency;
 using Bookify.Services.Booking.Infrastructure.Persistence.Notifications;
 using Bookify.Services.Booking.Infrastructure.Persistence.Outbox;
@@ -20,6 +21,7 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
     private readonly IClock _clock;
     private readonly Dictionary<IDomainEvent, OutboxMessage> _stagedOutboxMessages =
         new Dictionary<IDomainEvent, OutboxMessage>(ReferenceEqualityComparer.Instance);
+
     public BookingDbContext(
         DbContextOptions<BookingDbContext> options,
         IDomainEventDispatcher domainEventDispatcher,
@@ -41,6 +43,7 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
     internal DbSet<PaymentWebhookEvent> PaymentWebhookEvents => Set<PaymentWebhookEvent>();
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     internal DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+    internal DbSet<DemoSeedBatchRecord> DemoSeedBatches => Set<DemoSeedBatchRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,8 +51,7 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
 
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.ApplyConfigurationsFromAssembly(
-            typeof(BookingDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(BookingDbContext).Assembly);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -63,9 +65,7 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
     {
         StageDomainEventsInOutbox();
 
-        int affectedEntries = await base.SaveChangesAsync(
-            acceptAllChangesOnSuccess,
-            cancellationToken);
+        int affectedEntries = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
 
         if (Database.CurrentTransaction is null)
         {
@@ -97,8 +97,7 @@ public sealed class BookingDbContext : DbContext, IUnitOfWork
             return;
         }
 
-        await _domainEventDispatcher
-            .DispatchAsync(domainEvents, cancellationToken);
+        await _domainEventDispatcher.DispatchAsync(domainEvents, cancellationToken);
     }
 
     internal void ClearDomainEvents()

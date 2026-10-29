@@ -19,6 +19,7 @@ using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons;
 using Bookify.Services.Booking.Infrastructure.Bookings;
+using Bookify.Services.Booking.Infrastructure.DemoSeeding;
 using Bookify.Services.Booking.Infrastructure.Notifications;
 using Bookify.Services.Booking.Infrastructure.Payments;
 using Bookify.Services.Booking.Infrastructure.Persistence;
@@ -256,5 +257,7 @@ public static class DependencyInjection
 
         services.AddScoped<
             INotificationDeliveryStore, EfCoreNotificationDeliveryStore>();
+
+        services.AddScoped<DemoSeedRunner>();
     }
 }

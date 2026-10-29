@@ -80,6 +80,7 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
                         .HasColumnName("rentable_unit_id");
 
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
@@ -329,6 +330,23 @@ namespace Bookify.Services.Booking.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_rentable_units_type", "type IN ('EntireProperty', 'Room')");
                         });
+                });
+
+            modelBuilder.Entity("Bookify.Services.Booking.Infrastructure.DemoSeeding.DemoSeedBatchRecord", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("batch_key");
+
+                    b.Property<DateTimeOffset>("AppliedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("applied_at_utc");
+
+                    b.HasKey("Key")
+                        .HasName("pk_demo_seed_batches");
+
+                    b.ToTable("demo_seed_batches", (string)null);
                 });
 
             modelBuilder.Entity("Bookify.Services.Booking.Infrastructure.Persistence.Idempotency.IdempotencyRequest", b =>
