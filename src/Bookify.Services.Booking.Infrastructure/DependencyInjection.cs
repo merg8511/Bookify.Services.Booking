@@ -281,5 +281,6 @@ public static class DependencyInjection
             INotificationDeliveryStore, EfCoreNotificationDeliveryStore>();
 
         services.AddScoped<DemoSeedRunner>();
+        services.AddScoped<DemoPaymentConsistencyValidator>();
     }
 }

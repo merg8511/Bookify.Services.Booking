@@ -29,5 +29,9 @@ internal static class DemoSeedStartupExtensions
         DemoSeedRunner runner = scope.ServiceProvider.GetRequiredService<DemoSeedRunner>();
 
         await runner.RunAsync(app.Lifetime.ApplicationStopping);
+
+        DemoPaymentConsistencyValidator validator = scope.ServiceProvider.GetRequiredService<DemoPaymentConsistencyValidator>();
+
+        await validator.ValidateAsync(app.Lifetime.ApplicationStopping);
     }
 }
