@@ -147,6 +147,17 @@ public static class DependencyInjection
                 configuration["DemoSeed:OwnerSubjectId"],
                 configuration["DemoSeed:PropertyId"]));
 
+        string? demoCustomerSubjectId = configuration["DemoSeed:CustomerSubjectId"];
+
+        if (!string.IsNullOrWhiteSpace(demoCustomerSubjectId))
+        {
+            services.AddScoped<IDemoSeedBatch>(serviceProvider =>
+                new GuestOwnershipDemoSeedBatch(
+                    serviceProvider.GetRequiredService<IClock>(),
+                    configuration["DemoSeed:OwnerSubjectId"],
+                    demoCustomerSubjectId));
+        }
+
         return services;
     }
 
