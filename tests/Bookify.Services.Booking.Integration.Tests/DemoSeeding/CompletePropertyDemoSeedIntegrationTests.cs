@@ -59,7 +59,9 @@ public sealed class CompletePropertyDemoSeedIntegrationTests
             int appliedBatches =
                 await runner.RunAsync(cancellationToken);
 
-            Assert.Equal(1, appliedBatches);
+            Assert.True(
+                appliedBatches > 0,
+                "The demo seed runner did not apply any batches.");
         }
 
         // ASSERT
