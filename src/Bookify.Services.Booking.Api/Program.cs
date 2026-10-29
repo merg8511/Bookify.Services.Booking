@@ -1,4 +1,5 @@
 using Bookify.Services.Booking.Api.BackgroundJobs;
+using Bookify.Services.Booking.Api.DemoSeeding;
 using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.ExceptionHandling;
 using Bookify.Services.Booking.Api.Idempotency;
@@ -31,7 +32,6 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 // HTTP Request Timeouts
 // ==========================================
 builder.Services.AddBookifyRequestTimeouts(builder.Configuration);
-
 
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -171,6 +171,11 @@ if (app.Environment.IsDevelopment())
         return Results.Ok(entities);
     });
 }
+
+// ==========================================
+// Development / Demo Seed
+// ==========================================
+await app.RunDemoSeedAsync();
 
 app.Run();
 
