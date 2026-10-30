@@ -158,6 +158,9 @@ public static class DependencyInjection
                     demoCustomerSubjectId));
         }
 
+        services.AddScoped<IDemoSeedBatch>(serviceProvider =>
+            new AvailabilityConflictsDemoSeedBatch(serviceProvider.GetRequiredService<IClock>()));
+
         return services;
     }
 
