@@ -29,6 +29,11 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // ==========================================
+// OpenAPI
+// ==========================================
+builder.Services.AddOpenApi();
+
+// ==========================================
 // HTTP Request Timeouts
 // ==========================================
 builder.Services.AddBookifyRequestTimeouts(builder.Configuration);
@@ -126,6 +131,8 @@ app.MapApiEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
+    app.MapOpenApi().AllowAnonymous();
+
     app.MapGet("/diagnostics/time", (IClock clock) =>
         Results.Ok(
             new
