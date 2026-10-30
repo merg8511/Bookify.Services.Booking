@@ -19,6 +19,7 @@ using Bookify.Services.Booking.Application.RentableUnits;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Pricing;
 using Bookify.Services.Booking.Application.RentableUnits.Management.Seasons;
 using Bookify.Services.Booking.Infrastructure.Bookings;
+using Bookify.Services.Booking.Infrastructure.DemoSeeding;
 using Bookify.Services.Booking.Infrastructure.Notifications;
 using Bookify.Services.Booking.Infrastructure.Payments;
 using Bookify.Services.Booking.Infrastructure.Persistence;
@@ -134,6 +135,31 @@ public static class DependencyInjection
         services.AddPayments(configuration);
 
         NotificationsDependencyInjection.AddNotifications(services, configuration);
+
+        services.AddScoped<IDemoSeedBatch>(serviceProvider =>
+            new CompletePropertyDemoSeedBatch(
+                serviceProvider.GetRequiredService<IClock>(),
+                configuration["DemoSeed:OwnerSubjectId"]));
+
+        services.AddScoped<IDemoSeedBatch>(serviceProvider =>
+            new BookingStatesDemoSeedBatch(
+                serviceProvider.GetRequiredService<IClock>(),
+                configuration["DemoSeed:OwnerSubjectId"],
+                configuration["DemoSeed:PropertyId"]));
+
+        string? demoCustomerSubjectId = configuration["DemoSeed:CustomerSubjectId"];
+
+        if (!string.IsNullOrWhiteSpace(demoCustomerSubjectId))
+        {
+            services.AddScoped<IDemoSeedBatch>(serviceProvider =>
+                new GuestOwnershipDemoSeedBatch(
+                    serviceProvider.GetRequiredService<IClock>(),
+                    configuration["DemoSeed:OwnerSubjectId"],
+                    demoCustomerSubjectId));
+        }
+
+        services.AddScoped<IDemoSeedBatch>(serviceProvider =>
+            new AvailabilityConflictsDemoSeedBatch(serviceProvider.GetRequiredService<IClock>()));
 
         return services;
     }
@@ -256,5 +282,8 @@ public static class DependencyInjection
 
         services.AddScoped<
             INotificationDeliveryStore, EfCoreNotificationDeliveryStore>();
+
+        services.AddScoped<DemoSeedRunner>();
+        services.AddScoped<DemoPaymentConsistencyValidator>();
     }
 }
