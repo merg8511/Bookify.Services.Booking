@@ -64,7 +64,7 @@ public sealed class BookingStatesDemoSeedIntegrationTests
                 await runner.RunAsync(cancellationToken);
 
             // Lote 23.2 + lote 23.3.
-            Assert.Equal(2, applied);
+            Assert.Equal(3, applied);
         }
 
         // ==========================================
@@ -78,9 +78,14 @@ public sealed class BookingStatesDemoSeedIntegrationTests
                     .GetRequiredService<BookingDbContext>();
 
             DomainBooking[] bookings =
-                await dbContext.Bookings
-                    .AsNoTracking()
-                    .ToArrayAsync(cancellationToken);
+            (await dbContext.Bookings
+                .AsNoTracking()
+                .ToArrayAsync(cancellationToken))
+            .Where(booking =>
+                booking.GuestDetails?.Email.EndsWith(
+                    "-23-3@bookify.invalid",
+                    StringComparison.Ordinal) == true)
+            .ToArray();
 
             Assert.Equal(5, bookings.Length);
 
@@ -266,9 +271,21 @@ public sealed class BookingStatesDemoSeedIntegrationTests
                 finalScope.ServiceProvider
                     .GetRequiredService<BookingDbContext>();
 
+            // Total acumulado:
+            // 5 reservas de 23.3 + 4 reservas de 23.6.
+            Assert.Equal(
+                9,
+                await dbContext.Bookings.CountAsync(
+                    cancellationToken));
+
+            // Las cinco reservas originales no se duplicaron.
             Assert.Equal(
                 5,
                 await dbContext.Bookings.CountAsync(
+                    booking =>
+                        booking.GuestDetails != null &&
+                        booking.GuestDetails.Email.EndsWith(
+                            "-23-3@bookify.invalid"),
                     cancellationToken));
 
             Assert.Equal(

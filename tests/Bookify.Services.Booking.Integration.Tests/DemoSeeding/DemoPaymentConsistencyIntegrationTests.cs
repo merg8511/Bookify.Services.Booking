@@ -55,7 +55,7 @@ public sealed class DemoPaymentConsistencyIntegrationTests
                 await runner.RunAsync(cancellationToken);
 
             // Lotes 23.2 + 23.3 + 23.4.
-            Assert.Equal(3, applied);
+            Assert.Equal(4, applied);
         }
 
         // ==========================================
@@ -80,9 +80,9 @@ public sealed class DemoPaymentConsistencyIntegrationTests
 
             // El dataset acumulado incluye seis reservas.
             Assert.Equal(
-                6,
-                await dbContext.Bookings.CountAsync(
-                    cancellationToken));
+            10,
+            await dbContext.Bookings.CountAsync(
+                cancellationToken));
 
             Payment[] payments =
                 await dbContext.Payments
@@ -176,8 +176,8 @@ public sealed class DemoPaymentConsistencyIntegrationTests
                     .GetRequiredService<DemoSeedRunner>();
 
             Assert.Equal(
-                2,
-                await runner.RunAsync(cancellationToken));
+            3,
+            await runner.RunAsync(cancellationToken));
         }
 
         // ==========================================

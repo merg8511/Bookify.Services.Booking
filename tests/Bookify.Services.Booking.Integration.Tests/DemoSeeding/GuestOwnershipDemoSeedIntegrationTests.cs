@@ -70,7 +70,7 @@ public sealed class GuestOwnershipDemoSeedIntegrationTests
             int appliedBatches =
                 await runner.RunAsync(cancellationToken);
 
-            Assert.Equal(3, appliedBatches);
+            Assert.Equal(4, appliedBatches);
         }
 
         // ==========================================
@@ -84,9 +84,16 @@ public sealed class GuestOwnershipDemoSeedIntegrationTests
                     .GetRequiredService<BookingDbContext>();
 
             DomainBooking[] bookings =
-                await dbContext.Bookings
+                (await dbContext.Bookings
                     .AsNoTracking()
-                    .ToArrayAsync(cancellationToken);
+                    .ToArrayAsync(cancellationToken))
+                .Where(booking =>
+                    booking.GuestDetails?.Email.EndsWith(
+                        "-23-3@bookify.invalid",
+                        StringComparison.Ordinal) == true ||
+                    booking.GuestDetails?.Email ==
+                        GuestOwnershipDemoSeedBatch.CustomerDemoEmail)
+                .ToArray();
 
             Assert.Equal(6, bookings.Length);
 
@@ -263,9 +270,9 @@ public sealed class GuestOwnershipDemoSeedIntegrationTests
                     .GetRequiredService<BookingDbContext>();
 
             Assert.Equal(
-                6,
-                await dbContext.Bookings.CountAsync(
-                    cancellationToken));
+            10,
+            await dbContext.Bookings.CountAsync(
+                cancellationToken));
 
             Assert.Equal(
                 1,
