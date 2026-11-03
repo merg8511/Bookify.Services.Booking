@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.ExceptionHandling;
 using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Api.Observability;
+using Bookify.Services.Booking.Api.OpenApi;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Api.Security.Http;
@@ -31,7 +32,7 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 // ==========================================
 // OpenAPI
 // ==========================================
-builder.Services.AddOpenApi();
+builder.Services.AddBookifyOpenApi();
 
 // ==========================================
 // HTTP Request Timeouts
