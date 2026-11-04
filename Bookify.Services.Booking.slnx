@@ -7,6 +7,18 @@
     <File Path="docs/architecture/bookify-system-diagrams.md" />
     <File Path="docs/architecture/result-vs-exception.md" />
   </Folder>
+  <Folder Name="/docs/architecture/adr/">
+    <File Path="docs/architecture/adr/ADR-0001-ef-core-and-dapper.md" />
+    <File Path="docs/architecture/adr/ADR-0002-explicit-cqrs-without-mediator.md" />
+    <File Path="docs/architecture/adr/ADR-0003-postgresql-locks-and-optimistic-concurrency.md" />
+    <File Path="docs/architecture/adr/ADR-0004-scoped-http-and-provider-idempotency.md" />
+    <File Path="docs/architecture/adr/ADR-0005-separate-payment-attempt-and-booking-state.md" />
+    <File Path="docs/architecture/adr/ADR-0006-transactional-outbox-and-delivery-idempotency.md" />
+    <File Path="docs/architecture/adr/ADR-0007-backgroundservice-for-scheduled-work.md" />
+    <File Path="docs/architecture/adr/ADR-0008-oidc-authorization-and-guest-credentials.md" />
+    <File Path="docs/architecture/adr/ADR-0009-api-domain-project-reference-boundary.md" />
+    <File Path="docs/architecture/adr/README.md" />
+  </Folder>
   <Folder Name="/docs/payments/">
     <File Path="docs/payments/stripe-cli-local-webhooks.md" />
   </Folder>
