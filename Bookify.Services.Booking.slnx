@@ -6,6 +6,14 @@
   <Folder Name="/docs/architecture/">
     <File Path="docs/architecture/result-vs-exception.md" />
   </Folder>
+  <Folder Name="/docs/payments/">
+    <File Path="docs/payments/stripe-cli-local-webhooks.md" />
+  </Folder>
+  <Folder Name="/docs/postman/">
+    <File Path="docs/postman/Bookify.Booking.postman_collection.json" />
+    <File Path="docs/postman/Bookify.Local.postman_environment.json" />
+    <File Path="docs/postman/README.md" />
+  </Folder>
   <Folder Name="/docs/security/">
     <File Path="docs/security/endpoint-access-matrix.md" />
     <File Path="docs/security/guest-access.md" />

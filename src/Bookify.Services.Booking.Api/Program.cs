@@ -67,7 +67,7 @@ builder.Services.AddBookifyBackgroundJobs(builder.Configuration);
 // ==========================================
 // Identity & Authentication
 // ==========================================
-builder.Services.AddIdentityAuthentication(builder.Configuration);
+builder.Services.AddIdentityAuthentication(builder.Configuration, builder.Environment);
 
 // ==========================================
 // HTTP Security
