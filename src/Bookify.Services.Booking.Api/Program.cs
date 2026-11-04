@@ -130,6 +130,11 @@ app.MapApiEndpoints();
 // Development Diagnostics
 // ==========================================
 
+if (app.Environment.IsEnvironment("Testing"))
+{
+    app.MapOpenApi().AllowAnonymous();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
