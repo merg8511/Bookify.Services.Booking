@@ -4,6 +4,7 @@ using Bookify.Services.Booking.Api.Endpoints;
 using Bookify.Services.Booking.Api.ExceptionHandling;
 using Bookify.Services.Booking.Api.Idempotency;
 using Bookify.Services.Booking.Api.Observability;
+using Bookify.Services.Booking.Api.OpenApi;
 using Bookify.Services.Booking.Api.RateLimiting;
 using Bookify.Services.Booking.Api.Security;
 using Bookify.Services.Booking.Api.Security.Http;
@@ -13,11 +14,12 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Infrastructure;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
-// Observability — Serilog
+// Observability — Serilog + OpenTelemetry
 // ==========================================
 builder.Services.AddBookifySerilog(builder.Configuration);
 builder.Services.AddBookifyOpenTelemetry(builder.Configuration);
@@ -32,6 +34,11 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 // HTTP Request Timeouts
 // ==========================================
 builder.Services.AddBookifyRequestTimeouts(builder.Configuration);
+
+// ==========================================
+// OpenAPI
+// ==========================================
+builder.Services.AddBookifyOpenApi();
 
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -61,7 +68,7 @@ builder.Services.AddBookifyBackgroundJobs(builder.Configuration);
 // ==========================================
 // Identity & Authentication
 // ==========================================
-builder.Services.AddIdentityAuthentication(builder.Configuration);
+builder.Services.AddIdentityAuthentication(builder.Configuration, builder.Environment);
 
 // ==========================================
 // HTTP Security
@@ -123,6 +130,20 @@ app.MapApiEndpoints();
 // ==========================================
 // Development Diagnostics
 // ==========================================
+
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
+{
+    app.MapOpenApi().AllowAnonymous();
+
+    app.MapScalarApiReference(options => options
+        .WithTitle("Bookify | Booking API")
+        .WithOpenApiRoutePattern("/openapi/{documentName}.json")
+        .ShowOperationId()
+        .DisableAgent()
+        .DisableDefaultFonts()
+        .WithNonce())
+        .AllowAnonymous();
+}
 
 if (app.Environment.IsDevelopment())
 {

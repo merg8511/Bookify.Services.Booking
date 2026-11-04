@@ -9,21 +9,31 @@ internal static class IdentityDependencyInjection
 {
     public static IServiceCollection AddIdentityAuthentication(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
 
-        IConfigurationSection identitySection = configuration.GetSection(IdentityOptions.SectionName);
+        IConfigurationSection identitySection =
+            configuration.GetSection(IdentityOptions.SectionName);
+
+        string environmentName = configuration["ASPNETCORE_ENVIRONMENT"] ??
+                                 configuration["DOTNET_ENVIRONMENT"] ??
+                                 Environments.Production;
+
+        bool isDevelopment = environment.IsDevelopment();
 
         services
             .AddOptions<IdentityOptions>()
             .Bind(identitySection)
-            .Validate(options =>
-                IsValidAuthority(options.Authority),
-                "Identity:Authority must contain a valid HTTPS authority URI without" +
-                " credentials, query or fragment.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Audience),
+            .Validate(
+                options => IsValidAuthority(options.Authority, isDevelopment),
+                "Identity:Authority must be a valid HTTPS authority URI, " +
+                "or an HTTP loopback authority in Development.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.Audience),
                 "Identity:Audience must contain a non-empty API audience.")
             .ValidateOnStart();
 
@@ -31,6 +41,8 @@ internal static class IdentityDependencyInjection
 
         string authority = identityOptions.Authority.Trim();
         string audience = identityOptions.Audience.Trim();
+
+        bool requireHttpsMetadata = !IsDevelopmentHttpLoopback(authority, isDevelopment);
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
@@ -41,7 +53,7 @@ internal static class IdentityDependencyInjection
             {
                 options.Authority = authority;
                 options.Audience = audience;
-                options.RequireHttpsMetadata = true;
+                options.RequireHttpsMetadata = requireHttpsMetadata;
                 options.MapInboundClaims = false;
                 options.IncludeErrorDetails = false;
 
@@ -79,15 +91,37 @@ internal static class IdentityDependencyInjection
         return services;
     }
 
-    private static bool IsValidAuthority(string? authority)
+    private static bool IsValidAuthority(string? authority, bool isDevelopment)
     {
         string value = authority?.Trim() ?? string.Empty;
 
-        return Uri.TryCreate(value, UriKind.Absolute, out Uri? authorityUri) &&
-            authorityUri.Scheme == Uri.UriSchemeHttps &&
-            !string.IsNullOrWhiteSpace(authorityUri.Host) &&
-            string.IsNullOrEmpty(authorityUri.UserInfo) &&
-            string.IsNullOrEmpty(authorityUri.Query) &&
-            string.IsNullOrEmpty(authorityUri.Fragment);
+        if (!Uri.TryCreate(value, UriKind.Absolute, out Uri? uri))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(uri.Host) ||
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            !string.IsNullOrEmpty(uri.Query) ||
+            !string.IsNullOrEmpty(uri.Fragment))
+        {
+            return false;
+        }
+
+        return uri.Scheme == Uri.UriSchemeHttps || IsDevelopmentHttpLoopback(value, isDevelopment);
+    }
+
+    private static bool IsDevelopmentHttpLoopback(string authority, bool isDevelopment)
+    {
+        if (!isDevelopment || !Uri.TryCreate(authority, UriKind.Absolute, out Uri? uri))
+        {
+            return false;
+        }
+
+        return uri.Scheme == Uri.UriSchemeHttp &&
+               uri.IsLoopback &&
+               string.IsNullOrEmpty(uri.UserInfo) &&
+               string.IsNullOrEmpty(uri.Query) &&
+               string.IsNullOrEmpty(uri.Fragment);
     }
 }
