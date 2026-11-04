@@ -321,10 +321,11 @@ The complete container composition and deployment verification belong to **Módu
 | **[Rate limiting](docs/security/rate-limiting.md)** | Request rate-limit policies and responses. |
 | **[Postman flow & environment](docs/postman/README.md)** | Guided end-to-end HTTP collection. |
 | **[Stripe CLI local webhooks](docs/payments/stripe-cli-local-webhooks.md)** | Forwarding, signature tests and real reconciliation. |
+| **[Architectural Decision Records (ADRs)](docs/architecture/adr/README.md)** | Nine records covering persistence, CQRS, concurrency, idempotency, payments, Outbox, jobs, OIDC and project dependencies. |
 | **[Test inventory](docs/testing/test-coverage-inventory.md)** | Existing automated test coverage. |
 | **[CHANGELOG](CHANGELOG.md)** | Version/release history. |
 
-Architectural Decision Records (ADRs) are tracked in **Módulo 24.7**. The consolidated documentation/contract regression suite is tracked in **Módulo 24.8**.
+The [Architectural Decision Records](docs/architecture/adr/README.md) document the implemented decisions and explicitly record the Api→Domain project reference. The consolidated documentation/contract regression suite is tracked in **Módulo 24.8**.
 
 ## 🗺️ Development roadmap
 
