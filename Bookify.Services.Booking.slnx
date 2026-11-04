@@ -4,6 +4,7 @@
     <File Path="docs/api/rest-conventions.md" />
   </Folder>
   <Folder Name="/docs/architecture/">
+    <File Path="docs/architecture/bookify-system-diagrams.md" />
     <File Path="docs/architecture/result-vs-exception.md" />
   </Folder>
   <Folder Name="/docs/payments/">
