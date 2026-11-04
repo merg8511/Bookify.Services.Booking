@@ -175,10 +175,11 @@ dotnet run `
 | Endpoint | Development URL |
 | --- | --- |
 | Health | [`https://localhost:7071/health`](https://localhost:7071/health) |
+| Interactive API reference (Scalar) | [`https://localhost:7071/scalar`](https://localhost:7071/scalar) |
 | Native OpenAPI document | [`https://localhost:7071/openapi/v1.json`](https://localhost:7071/openapi/v1.json) |
 | Database diagnostic | [`https://localhost:7071/diagnostics/database`](https://localhost:7071/diagnostics/database) |
 
-The `https` launch profile also binds `http://localhost:5148`; HTTPS redirection applies in Development. **OpenAPI and diagnostics are Development-only**. The local links work only while the API is running on your machine.
+The `https` launch profile also binds `http://localhost:5148`; HTTPS redirection applies in Development. **Scalar and OpenAPI are registered in Development and Testing only; diagnostic endpoints are Development-only. Neither Scalar nor OpenAPI is exposed in Production.** The local links work only while the API is running on your machine.
 
 ## 🔐 Configuration reference
 
@@ -260,7 +261,7 @@ dotnet user-secrets set "DemoSeed:Enabled" "false" `
 
 ## 🌐 API and authentication
 
-All business endpoints are grouped under **`/api/v1`**. The OpenAPI document in Development describes the implemented operations, request/response schemas, and special security contracts.
+All business endpoints are grouped under **`/api/v1`**. The native OpenAPI document describes the implemented operations, request/response schemas, and special security contracts. In Development, browse and try operations via the [Scalar interactive API reference](docs/api/interactive-reference.md) at `/scalar`; Scalar uses the existing document without changing its API contracts.
 
 | Area | Example operation | Access model |
 | --- | --- | --- |
@@ -315,6 +316,7 @@ The complete container composition and deployment verification belong to **Módu
 | --- | --- |
 | **[Architecture & workflow diagrams](docs/architecture/bookify-system-diagrams.md)** | Layers, CQRS, Booking lifecycle, pricing, payments, webhooks, Outbox/jobs, auth and observability. |
 | **[REST conventions](docs/api/rest-conventions.md)** | HTTP API conventions and contract organization. |
+| **[Interactive API reference (Scalar)](docs/api/interactive-reference.md)** | Developer UI, local setup, authentication, CSP nonce and testing. |
 | **[Endpoint access matrix](docs/security/endpoint-access-matrix.md)** | Access requirements by endpoint. |
 | **[Guest credential model](docs/security/guest-access.md)** | Guest ownership, credential issuance and verification. |
 | **[HTTP security](docs/security/http-security.md)** | Headers, CORS and request boundary protections. |
@@ -325,7 +327,7 @@ The complete container composition and deployment verification belong to **Módu
 | **[Test inventory](docs/testing/test-coverage-inventory.md)** | Existing automated test coverage. |
 | **[CHANGELOG](CHANGELOG.md)** | Version/release history. |
 
-The [Architectural Decision Records](docs/architecture/adr/README.md) document the implemented decisions and explicitly record the Api→Domain project reference. The consolidated documentation/contract regression suite is tracked in **Módulo 24.8**.
+The [Architectural Decision Records](docs/architecture/adr/README.md) document the implemented decisions and explicitly record the Api→Domain project reference. The OpenAPI/documentation contract suite was implemented in **Módulo 24.8**; Scalar integration and its dedicated checks are tracked in **Módulos 24.9–24.10**.
 
 ## 🗺️ Development roadmap
 

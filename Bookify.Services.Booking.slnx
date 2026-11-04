@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/docs/" />
   <Folder Name="/docs/api/">
+    <File Path="docs/api/interactive-reference.md" />
     <File Path="docs/api/rest-conventions.md" />
   </Folder>
   <Folder Name="/docs/architecture/">
