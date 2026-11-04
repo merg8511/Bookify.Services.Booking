@@ -14,11 +14,12 @@ using Bookify.Services.Booking.Application.Abstractions.Time;
 using Bookify.Services.Booking.Infrastructure;
 using Bookify.Services.Booking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
-// Observability — Serilog
+// Observability — Serilog + OpenTelemetry
 // ==========================================
 builder.Services.AddBookifySerilog(builder.Configuration);
 builder.Services.AddBookifyOpenTelemetry(builder.Configuration);
@@ -30,14 +31,14 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // ==========================================
-// OpenAPI
-// ==========================================
-builder.Services.AddBookifyOpenApi();
-
-// ==========================================
 // HTTP Request Timeouts
 // ==========================================
 builder.Services.AddBookifyRequestTimeouts(builder.Configuration);
+
+// ==========================================
+// OpenAPI
+// ==========================================
+builder.Services.AddBookifyOpenApi();
 
 string? configuredConnectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -130,15 +131,22 @@ app.MapApiEndpoints();
 // Development Diagnostics
 // ==========================================
 
-if (app.Environment.IsEnvironment("Testing"))
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.MapOpenApi().AllowAnonymous();
+
+    app.MapScalarApiReference(options => options
+        .WithTitle("Bookify | Booking API")
+        .WithOpenApiRoutePattern("/openapi/{documentName}.json")
+        .ShowOperationId()
+        .DisableAgent()
+        .DisableDefaultFonts()
+        .WithNonce())
+        .AllowAnonymous();
 }
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi().AllowAnonymous();
-
     app.MapGet("/diagnostics/time", (IClock clock) =>
         Results.Ok(
             new

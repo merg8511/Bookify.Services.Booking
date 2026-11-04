@@ -1,7 +1,10 @@
+using Scalar.AspNetCore;
+
 namespace Bookify.Services.Booking.Api.Security.Http;
 
 internal sealed class SecurityHeadersMiddleware
 {
+    private const string ApiContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
     private readonly RequestDelegate _next;
 
     public SecurityHeadersMiddleware(RequestDelegate next)
@@ -17,7 +20,6 @@ internal sealed class SecurityHeadersMiddleware
         httpContext.Response.OnStarting(() =>
         {
             AddSecurityHeaders(httpContext);
-
             return Task.CompletedTask;
         });
 
@@ -32,7 +34,29 @@ internal sealed class SecurityHeadersMiddleware
         headers.TryAdd("X-Frame-Options", "DENY");
         headers.TryAdd("Referrer-Policy", "no-referrer");
         headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-        headers.TryAdd("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+
+        if (httpContext.Items.TryGetValue(ScalarOptions.NonceHttpContextItemKey, out object? nonceValue) &&
+            nonceValue is string nonce &&
+            !string.IsNullOrWhiteSpace(nonce))
+        {
+            string scalarPolicy =
+                "default-src 'none'; " +
+                $"script-src 'self' 'nonce-{nonce}'; " +
+                "style-src 'self' 'unsafe-inline'; " +
+                "connect-src 'self'; " +
+                "img-src 'self' data:; " +
+                "font-src 'self'; " +
+                "worker-src 'self' blob:; " +
+                "object-src 'none'; " +
+                "frame-ancestors 'none'; " +
+                "base-uri 'none'";
+
+            headers.TryAdd("Content-Security-Policy", scalarPolicy);
+        }
+        else
+        {
+            headers.TryAdd("Content-Security-Policy", ApiContentSecurityPolicy);
+        }
 
         EndpointAccessMetadata? accessMetadata = httpContext.GetEndpoint()?.Metadata.GetMetadata<EndpointAccessMetadata>();
 
