@@ -1,0 +1,1345 @@
+{
+  "info": {
+    "_postman_id": "376ffbe0-b2b6-458c-87a7-ee5c16dd1925",
+    "name": "Bookify — Module 24.3 Guided E2E Flow",
+    "description": "Ordered, local-only guided flow based on the actual 24.1/24.2 API contracts: Owner creates property/unit/pricing; Guest creates a booking, owner approves, Guest initiates PENDING Fake payment, owner inspects status; second Guest booking is cancelled and inventory released; admin reads. Run ALL folders in Collection Runner, IN ORDER. Requires a valid locally provided Owner/Admin JWT. Run-scoped pm.variables.set stores IDs and Guest credentials temporarily without persisting them. No real Stripe charge or webhook simulation. Never share sensitive request/response history.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [],
+  "item": [
+    {
+      "name": "00 — Readiness",
+      "description": "Preflight and initialize fresh run-scoped variables",
+      "item": [
+        {
+          "name": "01 — Health + inicializar ejecución",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Initializes unique resource names, future dates and per-logical-operation idempotency keys. Execute via Collection Runner, not individual requests."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Fail early if the Owner/Admin token was not provided locally.",
+                  "const ownerToken = pm.environment.get('ownerAccessToken');",
+                  "if (!ownerToken || ownerToken.startsWith('Bearer ')) {",
+                  "    throw new Error('Configure ownerAccessToken with a raw Owner/Admin JWT in your LOCAL Postman environment.');",
+                  "}",
+                  "// Local variables exist only for this request or Collection Runner execution.",
+                  "// Never persist Guest credentials into collection/environment variables.",
+                  "const guid = () => pm.variables.replaceIn('{{$guid}}');",
+                  "const futureDate = days => {",
+                  "    const d = new Date();",
+                  "    d.setUTCDate(d.getUTCDate() + days);",
+                  "    return d.toISOString().substring(0, 10);",
+                  "};",
+                  "const runId = guid();",
+                  "pm.variables.set('propertyName', 'Bookify Postman ' + runId.slice(0, 8));",
+                  "pm.variables.set('paymentCheckInDate', futureDate(60));",
+                  "pm.variables.set('paymentCheckOutDate', futureDate(63));",
+                  "pm.variables.set('cancelCheckInDate', futureDate(70));",
+                  "pm.variables.set('cancelCheckOutDate', futureDate(73));",
+                  "pm.variables.set('paymentBookingIdempotencyKey', guid());",
+                  "pm.variables.set('cancelBookingIdempotencyKey', guid());",
+                  "pm.variables.set('paymentInitiationIdempotencyKey', guid());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"API healthy\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().status).to.eql(\"Healthy\");",
+                  "});",
+                  "pm.test(\"Owner JWT configured locally\", () => {",
+                  "    const token = pm.environment.get(\"ownerAccessToken\");",
+                  "    pm.expect(token, \"Paste a valid Owner/Admin JWT into the local environment value\").to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(token.startsWith(\"Bearer \"), \"Use the raw token without the Bearer prefix\").to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 — Property and pricing",
+      "description": "Owner creates isolated property and configures priced Room",
+      "item": [
+        {
+          "name": "02 — Crear Property (Owner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "properties"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Requires Owner/Admin JWT. Creates a fresh property per run, preventing interference with Demo Seed data.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{propertyName}}\",\n  \"timeZoneId\": \"America/El_Salvador\",\n  \"checkInTime\": \"15:00:00\",\n  \"checkOutTime\": \"11:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Property created\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    pm.test(\"Property ID returned\", () => pm.expect(data.id).to.match(/^[0-9a-f-]{36}$/i));",
+                  "    pm.variables.set('propertyId', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 — Consultar Property pública",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/{{propertyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "properties",
+                "{{propertyId}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Property detail 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Property matches create\", () => {",
+                  "        pm.expect(data.id).to.eql(pm.variables.get('propertyId'));",
+                  "        pm.expect(data.isActive).to.eql(true);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 — Crear Room administrativa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/units",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "units"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Valid rentable unit type Room, capacity 4 and 2 base guests.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Habitacion Postman\",\n  \"type\": \"Room\",\n  \"maximumCapacity\": 4,\n  \"maxBaseGuests\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Rentable unit created\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Unit ID returned\", () => pm.expect(data.id).to.match(/^[0-9a-f-]{36}$/i));",
+                  "    pm.variables.set('unitId', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 — Configurar pricing",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/units/{{unitId}}/pricing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "units",
+                "{{unitId}}",
+                "pricing"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "A pricing configuration is required before availability quotes and booking creation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"regularNightlyRate\": 120,\n  \"weekendNightlyRate\": 150,\n  \"extraGuestNightlyRate\": 25,\n  \"currency\": \"USD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 — Verificar pricing",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/units/{{unitId}}/pricing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "units",
+                "{{unitId}}",
+                "pricing"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Pricing readable\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Configured USD pricing\", () => {",
+                  "        pm.expect(data.currency).to.eql('USD');",
+                  "        pm.expect(data.regularNightlyRate).to.eql(120);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 — Booking A and payment",
+      "description": "Public availability -> Guest booking -> Owner approval -> Fake payment initiation and authoritative reads",
+      "item": [
+        {
+          "name": "07 — Cotización y disponibilidad A",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/{{propertyId}}/availability?checkInDate={{paymentCheckInDate}}&checkOutDate={{paymentCheckOutDate}}&guestCount=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "properties",
+                "{{propertyId}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "checkInDate",
+                  "value": "{{paymentCheckInDate}}"
+                },
+                {
+                  "key": "checkOutDate",
+                  "value": "{{paymentCheckOutDate}}"
+                },
+                {
+                  "key": "guestCount",
+                  "value": "2"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Payment booking availability 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.test(\"Room available with USD quote\", () => {",
+                  "        pm.expect(data.propertyId).to.eql(pm.variables.get('propertyId'));",
+                  "        const unit = data.availableUnits.find(x => x.id === pm.variables.get('unitId'));",
+                  "        pm.expect(unit, 'Configured Room must be available').to.exist;",
+                  "        pm.expect(unit.quote.currency).to.eql('USD');",
+                  "        pm.expect(unit.quote.totalPrice).to.be.above(0);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 — Crear Booking A como Guest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{paymentBookingIdempotencyKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Do not use Authorization. The response returns Booking-Guest-Token ONCE, in the HTTP header, not JSON. Only the Collection Runner local variable stores it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"propertyId\": \"{{propertyId}}\",\n  \"rentableUnitId\": \"{{unitId}}\",\n  \"checkInDate\": \"{{paymentCheckInDate}}\",\n  \"checkOutDate\": \"{{paymentCheckOutDate}}\",\n  \"guestCount\": 2,\n  \"guest\": {\n    \"fullName\": \"Postman Guest\",\n    \"email\": \"postman.guest@example.com\",\n    \"phone\": \"+50370000000\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Guest booking A created\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json();",
+                  "    const guestToken = pm.response.headers.get('Booking-Guest-Token');",
+                  "    pm.test(\"New guest credential issued exactly once\", () => {",
+                  "        pm.expect(guestToken).to.be.a('string').and.not.empty;",
+                  "    });",
+                  "    pm.test(\"Booking starts PendingApproval\", () => {",
+                  "        pm.expect(data.status).to.eql('PendingApproval');",
+                  "        pm.expect(data.bookingReference).to.be.a('string').and.not.empty;",
+                  "        pm.expect(data.price.totalPrice).to.be.above(0);",
+                  "    });",
+                  "    pm.variables.set('paymentBookingId', data.id);",
+                  "    pm.variables.set('paymentBookingReference', data.bookingReference);",
+                  "    // Security: do not log, export, or persist token beyond this Collection Runner.",
+                  "    if (guestToken) pm.variables.set('paymentGuestToken', guestToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 — Booking A por referencia pública (Guest)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Booking-Guest-Token",
+                "value": "{{paymentGuestToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{paymentBookingReference}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings",
+                "{{paymentBookingReference}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Guest can read own booking\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Booking reference and state\", () => {",
+                  "        pm.expect(data.id).to.eql(pm.variables.get('paymentBookingId'));",
+                  "        pm.expect(data.status).to.eql('PendingApproval');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 — Aprobar Booking A (Owner)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/bookings/{{paymentBookingId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "bookings",
+                "{{paymentBookingId}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Approval requires an Owner of the property or Admin. Generates PaymentDueAtUtc."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 — Booking A después de aprobar (Guest)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Booking-Guest-Token",
+                "value": "{{paymentGuestToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{paymentBookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings",
+                "{{paymentBookingId}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Approved booking readable\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Booking is PendingPayment with deadline\", () => {",
+                  "        pm.expect(data.status).to.eql('PendingPayment');",
+                  "        pm.expect(data.paymentDueAtUtc).to.be.a('string').and.not.empty;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 — Iniciar pago Booking A (Guest)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Booking-Guest-Token",
+                "value": "{{paymentGuestToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{paymentInitiationIdempotencyKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Development Fake gateway creates a PENDING payment attempt with fake client_secret. This request does NOT pay the Booking. Do not log or save client_secret.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{paymentBookingId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Payment session initiated\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Payment was initiated, not assumed successful\", () => {",
+                  "        pm.expect(data.paymentId).to.be.a('string').and.not.empty;",
+                  "        pm.expect(data.paymentAttemptId).to.be.a('string').and.not.empty;",
+                  "        pm.expect(data.amount).to.be.above(0);",
+                  "        pm.expect(data.currency).to.eql('USD');",
+                  "        pm.expect(data.status).to.eql('Pending');",
+                  "        pm.expect(data.clientSecret).to.be.a('string').and.not.empty;",
+                  "    });",
+                  "    pm.variables.set('paymentId', data.paymentId);",
+                  "    // Do not save clientSecret; this is a sensitive payment session credential.",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13 — Consultar estado de pago autoritativo (Guest)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Booking-Guest-Token",
+                "value": "{{paymentGuestToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/bookings/{{paymentBookingId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "bookings",
+                "{{paymentBookingId}}",
+                "status"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Payment status readable\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Fake payment remains Pending until reconciliation\", () => {",
+                  "        pm.expect(data.bookingId).to.eql(pm.variables.get('paymentBookingId'));",
+                  "        pm.expect(data.bookingStatus).to.eql('PendingPayment');",
+                  "        pm.expect(data.paymentStatus).to.eql('Pending');",
+                  "        pm.expect(data.paymentAttemptStatus).to.eql('Pending');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14 — Leer Payment/Attempts (Owner)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/bookings/{{paymentBookingId}}/payment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "bookings",
+                "{{paymentBookingId}}",
+                "payment"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Admin payment details 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Payment and attempt are linked to booking\", () => {",
+                  "        pm.expect(data.bookingId).to.eql(pm.variables.get('paymentBookingId'));",
+                  "        pm.expect(data.payment).to.be.an('object');",
+                  "        pm.expect(data.payment.id).to.eql(pm.variables.get('paymentId'));",
+                  "        pm.expect(data.payment.attempts).to.be.an('array').that.is.not.empty;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 — Booking B and cancellation",
+      "description": "Non-overlapping second reservation -> approval -> pre-payment Guest cancellation -> released availability",
+      "item": [
+        {
+          "name": "15 — Disponibilidad B para cancelación",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/{{propertyId}}/availability?checkInDate={{cancelCheckInDate}}&checkOutDate={{cancelCheckOutDate}}&guestCount=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "properties",
+                "{{propertyId}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "checkInDate",
+                  "value": "{{cancelCheckInDate}}"
+                },
+                {
+                  "key": "checkOutDate",
+                  "value": "{{cancelCheckOutDate}}"
+                },
+                {
+                  "key": "guestCount",
+                  "value": "2"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Cancellation booking availability 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.test(\"Room available with USD quote\", () => {",
+                  "        pm.expect(data.propertyId).to.eql(pm.variables.get('propertyId'));",
+                  "        const unit = data.availableUnits.find(x => x.id === pm.variables.get('unitId'));",
+                  "        pm.expect(unit, 'Configured Room must be available').to.exist;",
+                  "        pm.expect(unit.quote.currency).to.eql('USD');",
+                  "        pm.expect(unit.quote.totalPrice).to.be.above(0);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16 — Crear Booking B como Guest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{cancelBookingIdempotencyKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "A SECOND reservation, on non-overlapping dates. Never cancel the payment test booking.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"propertyId\": \"{{propertyId}}\",\n  \"rentableUnitId\": \"{{unitId}}\",\n  \"checkInDate\": \"{{cancelCheckInDate}}\",\n  \"checkOutDate\": \"{{cancelCheckOutDate}}\",\n  \"guestCount\": 2,\n  \"guest\": {\n    \"fullName\": \"Postman Guest\",\n    \"email\": \"postman.guest@example.com\",\n    \"phone\": \"+50370000000\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Guest booking B created\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "    const data=pm.response.json();",
+                  "    const guestToken=pm.response.headers.get('Booking-Guest-Token');",
+                  "    pm.test(\"Cancellation booking starts PendingApproval\", () => pm.expect(data.status).to.eql('PendingApproval'));",
+                  "    pm.test(\"Separate Guest credential received\", () => pm.expect(guestToken).to.be.a('string').and.not.empty);",
+                  "    pm.variables.set('cancelBookingId', data.id);",
+                  "    if (guestToken) pm.variables.set('cancelGuestToken', guestToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17 — Aprobar Booking B (Owner)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/bookings/{{cancelBookingId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "bookings",
+                "{{cancelBookingId}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "18 — Cancelar Booking B antes de pagar (Guest)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Booking-Guest-Token",
+                "value": "{{cancelGuestToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{cancelBookingId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings",
+                "{{cancelBookingId}}",
+                "cancel"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Booking B is PendingPayment but has NO payment attempt. Cancellation releases inventory. Paid bookings cannot be cancelled under current policy."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "19 — Verificar Booking B Cancelled (Guest)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Booking-Guest-Token",
+                "value": "{{cancelGuestToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bookings/{{cancelBookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bookings",
+                "{{cancelBookingId}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Cancelled booking readable\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Cancellation persisted\", () => {",
+                  "        pm.expect(data.id).to.eql(pm.variables.get('cancelBookingId'));",
+                  "        pm.expect(data.status).to.eql('Cancelled');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "20 — Inventario liberado tras cancelación",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties/{{propertyId}}/availability?checkInDate={{cancelCheckInDate}}&checkOutDate={{cancelCheckOutDate}}&guestCount=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "properties",
+                "{{propertyId}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "checkInDate",
+                  "value": "{{cancelCheckInDate}}"
+                },
+                {
+                  "key": "checkOutDate",
+                  "value": "{{cancelCheckOutDate}}"
+                },
+                {
+                  "key": "guestCount",
+                  "value": "2"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Post-cancellation availability 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.test(\"Room available with USD quote\", () => {",
+                  "        pm.expect(data.propertyId).to.eql(pm.variables.get('propertyId'));",
+                  "        const unit = data.availableUnits.find(x => x.id === pm.variables.get('unitId'));",
+                  "        pm.expect(unit, 'Configured Room must be available').to.exist;",
+                  "        pm.expect(unit.quote.currency).to.eql('USD');",
+                  "        pm.expect(unit.quote.totalPrice).to.be.above(0);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Administrative reads",
+      "description": "Owner reads paginated bookings, detail and calendar; no system-only actions",
+      "item": [
+        {
+          "name": "21 — Listado administrativo paginado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/bookings?pageNumber=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "bookings"
+              ],
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Admin booking list 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Page contains both booking branches\", () => {",
+                  "        pm.expect(data.pageNumber).to.eql(1);",
+                  "        pm.expect(data.pageSize).to.eql(20);",
+                  "        pm.expect(data.totalRecords).to.be.at.least(2);",
+                  "        const ids=data.items.map(x=>x.id);",
+                  "        pm.expect(ids).to.include(pm.variables.get('paymentBookingId'));",
+                  "        pm.expect(ids).to.include(pm.variables.get('cancelBookingId'));",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "22 — Detalle administrativo Booking A",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/bookings/{{paymentBookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "bookings",
+                "{{paymentBookingId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Admin booking detail 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Admin booking scope preserved\", () => {",
+                  "        pm.expect(data.id).to.eql(pm.variables.get('paymentBookingId'));",
+                  "        pm.expect(data.propertyId).to.eql(pm.variables.get('propertyId'));",
+                  "        pm.expect(data.status).to.eql('PendingPayment');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "23 — Calendario administrativo A",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/properties/{{propertyId}}/calendar?rangeStart={{paymentCheckInDate}}&rangeEnd={{paymentCheckOutDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "properties",
+                "{{propertyId}}",
+                "calendar"
+              ],
+              "query": [
+                {
+                  "key": "rangeStart",
+                  "value": "{{paymentCheckInDate}}"
+                },
+                {
+                  "key": "rangeEnd",
+                  "value": "{{paymentCheckOutDate}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Admin calendar 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data=pm.response.json();",
+                  "    pm.test(\"Booking A blocks inventory\", () => {",
+                  "        pm.expect(data.propertyId).to.eql(pm.variables.get('propertyId'));",
+                  "        const item=data.items.find(x=>x.bookingId===pm.variables.get('paymentBookingId'));",
+                  "        pm.expect(item, 'PendingPayment booking should be on calendar').to.exist;",
+                  "        pm.expect(item.blocksInventory).to.eql(true);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
