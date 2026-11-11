@@ -2,7 +2,8 @@ name: AI PR Summary
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    branches: [main]
+    types: [opened, reopened, ready_for_review, labeled]
 
 permissions:
   contents: read
@@ -10,7 +11,23 @@ permissions:
 
 jobs:
   summarize:
+    if: >-
+      ${{
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        !startsWith(github.head_ref, 'release-please--') &&
+        (
+          github.event.action == 'ready_for_review' ||
+          (github.event.action == 'opened' && !github.event.pull_request.draft) ||
+          (github.event.action == 'reopened' && !github.event.pull_request.draft) ||
+          (github.event.action == 'labeled' && github.event.label.name == 'ai-summary')
+        )
+      }}
+
     runs-on: ubuntu-latest
+
+    concurrency:
+      group: ai-pr-summary-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
